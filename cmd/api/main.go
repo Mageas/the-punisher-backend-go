@@ -14,8 +14,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
-	repo "github.com/mageas/the-punisher-backend/internal/adapters/storage/postgres"
 	"github.com/mageas/the-punisher-backend/internal/config"
+	"github.com/mageas/the-punisher-backend/internal/db"
 	"github.com/mageas/the-punisher-backend/internal/handler"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
@@ -64,10 +64,9 @@ func (app *application) mount() http.Handler {
 	healthHandler := handler.NewHealthHandler(healthService)
 	r.Get("/v1/health", healthHandler.GetHealth)
 
-	q := repo.New(app.db)
+	q := db.New(app.db)
 
-	userRepository := repository.NewUserRepository(q)
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(repository.NewUserRepository(q))
 	userHandler := handler.NewUserHandler(userService)
 
 	r.Route("/v1/users", func(r chi.Router) {

@@ -5,7 +5,10 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/mageas/the-punisher-backend/internal/domain"
 )
+
+var validate = validator.New()
 
 type RequestUserDto struct {
 	Email     string `json:"email" validate:"required,email"`
@@ -15,7 +18,6 @@ type RequestUserDto struct {
 }
 
 func (r *RequestUserDto) Validate() error {
-	validate := validator.New()
 	return validate.Struct(r)
 }
 
@@ -26,4 +28,31 @@ type ReturnUserDto struct {
 	LastName  string    `json:"last_name"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func FromDomain(u *domain.User) *ReturnUserDto {
+	if u == nil {
+		return nil
+	}
+
+	return &ReturnUserDto{
+		ID:        u.ID,
+		Email:     u.Email,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
+}
+
+func FromDomainList(users []*domain.User) []*ReturnUserDto {
+	dtos := make([]*ReturnUserDto, 0, len(users))
+
+	for _, u := range users {
+		if dto := FromDomain(u); dto != nil {
+			dtos = append(dtos, dto)
+		}
+	}
+
+	return dtos
 }
