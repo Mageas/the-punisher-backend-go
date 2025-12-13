@@ -69,8 +69,12 @@ func (app *application) mount() http.Handler {
 	userService := service.NewUserService(repository.NewUserRepository(q))
 	userHandler := handler.NewUserHandler(userService)
 
-	r.Route("/v1/users", func(r chi.Router) {
-		r.Post("/", userHandler.CreateUser)
+	authService := service.NewAuthService(repository.NewAuthRepository(q))
+	authHandler := handler.NewAuthHandler(authService)
+
+	r.Route("/v1/auth", func(r chi.Router) {
+		r.Post("/register", userHandler.CreateUser)
+		r.Post("/login", authHandler.Login)
 	})
 
 	return r

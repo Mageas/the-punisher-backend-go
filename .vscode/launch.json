@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch API (Debug)",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/api/main.go",
+
+            // 1. Force l'exécution depuis la racine du projet
+            // Cela permet à ton code Go de trouver le fichier .env via godotenv.Load()
+            "cwd": "${workspaceFolder}",
+
+            // 2. Injecte les variables directement dans le debugger
+            // Utile si tu veux surcharger des vars ou si godotenv échoue
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}

@@ -30,7 +30,10 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		return nil, ErrEmailAlreadyExists
 	}
 
-	hashedPassword, _ := utils.HashPassword(req.Password)
+	hashedPassword, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
 
 	user, err := s.repo.Create(ctx, &domain.User{
 		Email:        req.Email,

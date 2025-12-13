@@ -11,6 +11,9 @@ SELECT EXISTS (
     SELECT 1 FROM users WHERE email = LOWER(sqlc.arg(email)) LIMIT 1
 );
 
+-- name: GetUserCredentialsByEmailForAuth :one
+SELECT id, password_hash FROM users WHERE email = LOWER(sqlc.arg(email)) LIMIT 1;
+
 -- -- name: GetUser :one
 -- SELECT id, email, first_name, last_name, created_at, updated_at
 -- FROM users
