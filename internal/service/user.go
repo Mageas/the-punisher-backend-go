@@ -9,15 +9,19 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/utils"
 )
 
-type UserService struct {
+type UserService interface {
+	CreateUser(ctx context.Context, req dto.RequestUserDto) (*dto.ReturnUserDto, error)
+}
+
+type userService struct {
 	repo repository.UserRepository
 }
 
 func NewUserService(repo repository.UserRepository) UserService {
-	return UserService{repo: repo}
+	return &userService{repo: repo}
 }
 
-func (s UserService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*dto.ReturnUserDto, error) {
+func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*dto.ReturnUserDto, error) {
 	exists, err := s.repo.EmailExists(ctx, req.Email)
 	if err != nil {
 		return nil, err
