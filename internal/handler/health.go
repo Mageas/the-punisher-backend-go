@@ -25,6 +25,6 @@ func (h *HealthHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := utils.WriteJSON(w, statusCode, data, nil); err != nil {
-		utils.ServerError(w, err)
+		utils.WriteServerError(w, err)
 	}
 }

@@ -3,22 +3,15 @@ package dto
 import (
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
-
-var validate = validator.New()
 
 type RequestUserDto struct {
 	Email     string `json:"email" validate:"required,email"`
 	FirstName string `json:"first_name" validate:"required"`
 	LastName  string `json:"last_name" validate:"required"`
 	Password  string `json:"password" validate:"required,min=8"`
-}
-
-func (r *RequestUserDto) Validate() error {
-	return validate.Struct(r)
 }
 
 type ReturnUserDto struct {

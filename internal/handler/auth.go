@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -19,8 +18,13 @@ func NewAuthHandler(service service.AuthService) *AuthHandler {
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequestDto
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"}, nil)
+	if err := utils.DecodeJSON(w, r, &req); err != nil {
+		utils.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := utils.ValidateStruct(req); err != nil {
+		utils.WriteValidationError(w, err)
 		return
 	}
 
