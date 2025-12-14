@@ -10,23 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/mageas/the-punisher-backend/internal/domain_errors"
-)
-
-type Error struct {
-	ErrorMessage string        `json:"error_message"`
-	ErrorDetails []ErrorDetail `json:"error_details,omitempty"`
-	ErrorCode    int           `json:"error_code"`
-}
-
-type ErrorDetail struct {
-	Key     string `json:"key"`
-	Message string `json:"message"`
-}
-
-var (
-	ErrValidationFailed   = errors.New("validation failed")
-	ErrInvalidRequestBody = errors.New("invalid request body")
+	"github.com/mageas/the-punisher-backend/internal/apierr"
 )
 
 func DecodeJSON(w http.ResponseWriter, r *http.Request, data any) error {
@@ -45,65 +29,62 @@ func WriteJSON(w http.ResponseWriter, status int, data any, headers http.Header)
 	return json.NewEncoder(w).Encode(data)
 }
 
-func WriteError(w http.ResponseWriter, status int, message error, details []ErrorDetail) {
-	if domainErr, ok := message.(domain_errors.DomainError); ok {
-		WriteJSON(
-			w,
-			status,
-			&Error{ErrorMessage: domainErr.GetMessage(), ErrorCode: status, ErrorDetails: []ErrorDetail{
-				{Key: domainErr.GetDetailKey(), Message: domainErr.GetDetailMessage()},
-			}},
-			nil,
-		)
-		return
-	}
-
+func WriteError(w http.ResponseWriter, status int, message error, details []apierr.ErrorDetail) {
 	WriteJSON(
 		w,
 		status,
-		&Error{ErrorMessage: message.Error(), ErrorCode: status, ErrorDetails: details},
+		&apierr.Error{Error: message.Error(), ErrorCode: status, ErrorDetails: details},
 		nil,
 	)
 }
 
 func WriteServerError(w http.ResponseWriter, err error) {
 	slog.Error(err.Error())
-	WriteError(w, http.StatusInternalServerError, errors.New("the server encountered a problem and could not process your request"), nil)
+	WriteError(w, http.StatusInternalServerError, apierr.ErrInternalError, nil)
+}
+
+func WriteConflictError(w http.ResponseWriter, field string, errorKey string) {
+	details := []apierr.ErrorDetail{
+		{Field: field, Error: errorKey},
+	}
+	WriteError(w, http.StatusConflict, apierr.ErrConflict, details)
 }
 
 func WriteJSONDecodeError(w http.ResponseWriter, err error) {
 	if after, ok := strings.CutPrefix(err.Error(), "json: unknown field"); ok {
 		fieldName := strings.Trim(after, " \"")
 
-		WriteError(w, http.StatusBadRequest, ErrInvalidRequestBody, []ErrorDetail{
-			{Key: fieldName, Message: "Unknown field"},
+		WriteError(w, http.StatusBadRequest, apierr.ErrInvalidRequestBody, []apierr.ErrorDetail{
+			{Field: fieldName, Error: apierr.KeyValidationUnknownField},
 		})
 		return
 	}
 
-	WriteError(w, http.StatusBadRequest, ErrInvalidRequestBody, []ErrorDetail{
-		{Key: "", Message: err.Error()},
+	WriteError(w, http.StatusBadRequest, apierr.ErrInvalidRequestBody, []apierr.ErrorDetail{
+		{Field: "", Error: err.Error()},
 	})
 }
 
 func WriteValidationError(w http.ResponseWriter, err error) {
 	var validationErrors validator.ValidationErrors
 	if errors.As(err, &validationErrors) {
-		details := []ErrorDetail{}
+		details := []apierr.ErrorDetail{}
 		for _, e := range validationErrors {
 			switch e.Tag() {
 			case "required":
-				details = append(details, ErrorDetail{Key: e.Field(), Message: "This field is required"})
+				details = append(details, apierr.ErrorDetail{Field: e.Field(), Error: apierr.KeyValidationFieldRequired})
 			case "email":
-				details = append(details, ErrorDetail{Key: e.Field(), Message: "Invalid email format"})
+				details = append(details, apierr.ErrorDetail{Field: e.Field(), Error: apierr.KeyValidationInvalidEmail})
 			case "min":
-				details = append(details, ErrorDetail{Key: e.Field(), Message: fmt.Sprintf("Must be at least %s characters", e.Param())})
+				details = append(details, apierr.ErrorDetail{Field: e.Field(), Error: fmt.Sprintf(apierr.KeyValidationMinLength, e.Param())})
+			case "max":
+				details = append(details, apierr.ErrorDetail{Field: e.Field(), Error: fmt.Sprintf(apierr.KeyValidationMaxLength, e.Param())})
 			default:
-				details = append(details, ErrorDetail{Key: e.Field(), Message: fmt.Sprintf("Validation failed on '%s'", e.Tag())})
+				details = append(details, apierr.ErrorDetail{Field: e.Field(), Error: fmt.Sprintf(apierr.KeyValidationError, e.Tag())})
 			}
 		}
 
-		WriteError(w, http.StatusBadRequest, ErrValidationFailed, details)
+		WriteError(w, http.StatusBadRequest, apierr.ErrValidationFailed, details)
 		return
 	}
 

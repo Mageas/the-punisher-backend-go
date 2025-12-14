@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/mageas/the-punisher-backend/internal/domain_errors"
+	"github.com/mageas/the-punisher-backend/internal/apierr"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/service"
 	"github.com/mageas/the-punisher-backend/internal/utils"
@@ -34,8 +34,8 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.CreateUser(r.Context(), req)
 	if err != nil {
-		if errors.Is(err, domain_errors.ErrEmailAlreadyExists) {
-			utils.WriteError(w, http.StatusConflict, domain_errors.ErrEmailAlreadyExists.WithKey("testtt"), nil)
+		if errors.Is(err, apierr.ErrEmailAlreadyExists) {
+			utils.WriteConflictError(w, "email", apierr.KeyValidationEmailAlreadyExists)
 			return
 		}
 

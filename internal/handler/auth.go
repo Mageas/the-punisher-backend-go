@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/mageas/the-punisher-backend/internal/apierr"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/service"
 	"github.com/mageas/the-punisher-backend/internal/utils"
@@ -30,7 +31,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Login(r.Context(), req)
 	if err != nil {
-		utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid credentials or user doesn't exist"}, nil)
+		utils.WriteError(w, http.StatusUnauthorized, apierr.ErrInvalidCredentialsOrUserDoesntExist, nil)
 		return
 	}
 
