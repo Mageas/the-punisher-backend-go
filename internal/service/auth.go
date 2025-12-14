@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/mageas/the-punisher-backend/internal/apierr"
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	"github.com/mageas/the-punisher-backend/internal/platform/hash"
 	"github.com/mageas/the-punisher-backend/internal/repository"
-	"github.com/mageas/the-punisher-backend/internal/utils"
 )
 
 type AuthService interface {
@@ -26,11 +26,11 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 	userCredentials, err := s.repo.GetUserCredentialsByEmailForAuth(ctx, req.Email)
 	if err != nil {
 		slog.Error("failed to get user password", "error", err)
-		return nil, apierr.ErrInternalError
+		return nil, api.ErrInternalError
 	}
 
-	if err := utils.VerifyPassword(req.Password, userCredentials.PasswordHash); err != nil {
-		return nil, apierr.ErrInvalidCredentialsOrUserDoesntExist
+	if err := hash.VerifyPassword(req.Password, userCredentials.PasswordHash); err != nil {
+		return nil, api.ErrInvalidCredentialsOrUserDoesntExist
 	}
 
 	return &dto.LoginResponseDto{

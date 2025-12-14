@@ -14,8 +14,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mageas/the-punisher-backend/internal/config"
-	"github.com/mageas/the-punisher-backend/internal/handler"
+	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
 )

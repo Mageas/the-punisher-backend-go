@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 
-	"github.com/mageas/the-punisher-backend/internal/apierr"
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	"github.com/mageas/the-punisher-backend/internal/platform/hash"
 	"github.com/mageas/the-punisher-backend/internal/repository"
-	"github.com/mageas/the-punisher-backend/internal/utils"
 )
 
 type UserService interface {
@@ -27,10 +27,10 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		return nil, err
 	}
 	if exists {
-		return nil, apierr.ErrEmailAlreadyExists
+		return nil, api.ErrEmailAlreadyExists
 	}
 
-	hashedPassword, err := utils.HashPassword(req.Password)
+	hashedPassword, err := hash.HashPassword(req.Password)
 	if err != nil {
 		return nil, err
 	}

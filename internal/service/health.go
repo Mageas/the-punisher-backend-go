@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/mageas/the-punisher-backend/internal/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/config"
 )
 
 const (

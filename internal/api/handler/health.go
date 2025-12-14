@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
-	"github.com/mageas/the-punisher-backend/internal/utils"
 )
 
 type HealthHandler struct {
@@ -24,7 +24,7 @@ func (h *HealthHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		statusCode = http.StatusServiceUnavailable
 	}
 
-	if err := utils.WriteJSON(w, statusCode, data, nil); err != nil {
-		utils.WriteServerError(w, err)
+	if err := web.WriteJSON(w, statusCode, data, nil); err != nil {
+		web.WriteServerError(w, err)
 	}
 }
