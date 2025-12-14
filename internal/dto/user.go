@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/domain"
+	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
 var validate = validator.New()
@@ -30,7 +30,7 @@ type ReturnUserDto struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func FromDomain(u *domain.User) *ReturnUserDto {
+func FromRepository(u *repository.CreateUserRow) *ReturnUserDto {
 	if u == nil {
 		return nil
 	}
@@ -45,11 +45,11 @@ func FromDomain(u *domain.User) *ReturnUserDto {
 	}
 }
 
-func FromDomainList(users []*domain.User) []*ReturnUserDto {
+func FromRepositoryList(users []*repository.CreateUserRow) []*ReturnUserDto {
 	dtos := make([]*ReturnUserDto, 0, len(users))
 
 	for _, u := range users {
-		if dto := FromDomain(u); dto != nil {
+		if dto := FromRepository(u); dto != nil {
 			dtos = append(dtos, dto)
 		}
 	}

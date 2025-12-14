@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/mageas/the-punisher-backend/internal/domain"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/utils"
@@ -14,15 +13,15 @@ type UserService interface {
 }
 
 type userService struct {
-	repo repository.UserRepository
+	repo repository.Querier
 }
 
-func NewUserService(repo repository.UserRepository) UserService {
+func NewUserService(repo repository.Querier) UserService {
 	return &userService{repo: repo}
 }
 
 func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*dto.ReturnUserDto, error) {
-	exists, err := s.repo.EmailExists(ctx, req.Email)
+	exists, err := s.repo.UserEmailExists(ctx, req.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +34,7 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		return nil, err
 	}
 
-	user, err := s.repo.Create(ctx, &domain.User{
+	user, err := s.repo.CreateUser(ctx, repository.CreateUserParams{
 		Email:        req.Email,
 		FirstName:    req.FirstName,
 		LastName:     req.LastName,
@@ -45,5 +44,5 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		return nil, err
 	}
 
-	return dto.FromDomain(user), nil
+	return dto.FromRepository(&user), nil
 }
