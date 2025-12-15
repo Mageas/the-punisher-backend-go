@@ -6,5 +6,10 @@ type LoginRequestDto struct {
 }
 
 type LoginResponseDto struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"-"`
+}
+
+type RefreshResponseDto struct {
 	AccessToken string `json:"access_token"`
 }

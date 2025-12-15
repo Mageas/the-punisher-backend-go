@@ -10,7 +10,47 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const createRefreshToken = `-- name: CreateRefreshToken :one
+INSERT INTO refresh_tokens (
+    user_id, token, user_agent, client_ip, expires_at
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
+`
+
+type CreateRefreshTokenParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	Token     string    `json:"token"`
+	UserAgent string    `json:"user_agent"`
+	ClientIp  string    `json:"client_ip"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, createRefreshToken,
+		arg.UserID,
+		arg.Token,
+		arg.UserAgent,
+		arg.ClientIp,
+		arg.ExpiresAt,
+	)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.UserAgent,
+		&i.ClientIp,
+		&i.RevokedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
@@ -56,19 +96,116 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
+DELETE FROM refresh_tokens
+WHERE token = $1
+`
+
+func (q *Queries) DeleteRefreshToken(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, deleteRefreshToken, token)
+	return err
+}
+
+const getRefreshToken = `-- name: GetRefreshToken :one
+SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
+FROM refresh_tokens
+WHERE token = $1 LIMIT 1
+`
+
+func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshToken, token)
+	var i RefreshToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.UserAgent,
+		&i.ClientIp,
+		&i.RevokedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getUserCredentialsByEmailForAuth = `-- name: GetUserCredentialsByEmailForAuth :one
-SELECT id, password_hash FROM users WHERE email = LOWER($1) LIMIT 1
+SELECT id, email, password_hash FROM users WHERE email = LOWER($1) LIMIT 1
 `
 
 type GetUserCredentialsByEmailForAuthRow struct {
 	ID           uuid.UUID `json:"id"`
+	Email        string    `json:"email"`
 	PasswordHash string    `json:"password_hash"`
 }
 
 func (q *Queries) GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error) {
 	row := q.db.QueryRow(ctx, getUserCredentialsByEmailForAuth, email)
 	var i GetUserCredentialsByEmailForAuthRow
-	err := row.Scan(&i.ID, &i.PasswordHash)
+	err := row.Scan(&i.ID, &i.Email, &i.PasswordHash)
+	return i, err
+}
+
+const listRefreshTokensByUserId = `-- name: ListRefreshTokensByUserId :many
+SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
+FROM refresh_tokens
+WHERE user_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error) {
+	rows, err := q.db.Query(ctx, listRefreshTokensByUserId, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RefreshToken
+	for rows.Next() {
+		var i RefreshToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Token,
+			&i.UserAgent,
+			&i.ClientIp,
+			&i.RevokedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :one
+UPDATE refresh_tokens
+SET revoked_at = NOW()
+WHERE token = $1
+RETURNING id, user_id, token, revoked_at, expires_at
+`
+
+type RevokeRefreshTokenRow struct {
+	ID        uuid.UUID          `json:"id"`
+	UserID    uuid.UUID          `json:"user_id"`
+	Token     string             `json:"token"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	ExpiresAt time.Time          `json:"expires_at"`
+}
+
+func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (RevokeRefreshTokenRow, error) {
+	row := q.db.QueryRow(ctx, revokeRefreshToken, token)
+	var i RevokeRefreshTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.RevokedAt,
+		&i.ExpiresAt,
+	)
 	return i, err
 }
 

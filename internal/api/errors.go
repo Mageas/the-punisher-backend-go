@@ -17,12 +17,17 @@ var (
 	ErrInternalError      = errors.New("internal_error")
 	ErrInvalidRequestBody = errors.New("invalid_request_body")
 
+	ErrUnauthorized = errors.New("unauthorized")
+
 	ErrValidationFailed = errors.New("validation_failed")
 	ErrConflict         = errors.New("conflict")
 
 	ErrUserNotFound                        = errors.New("user_not_found")
 	ErrEmailAlreadyExists                  = errors.New("email_already_exists")
 	ErrInvalidCredentialsOrUserDoesntExist = errors.New("invalid_credentials_or_user_doesnt_exist")
+
+	ErrJWTInvalidSigningMethod = errors.New("jwt_invalid_signing_method")
+	ErrJWTInvalidToken         = errors.New("jwt_invalid_token")
 )
 
 const (

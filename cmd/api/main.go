@@ -68,12 +68,13 @@ func (app *application) mount() http.Handler {
 	userService := service.NewUserService(repo)
 	userHandler := handler.NewUserHandler(userService)
 
-	authService := service.NewAuthService(repo)
-	authHandler := handler.NewAuthHandler(authService)
+	authService := service.NewAuthService(repo, app.config.JWT)
+	authHandler := handler.NewAuthHandler(authService, app.config.JWT, "/v1/auth/refresh")
 
 	r.Route("/v1/auth", func(r chi.Router) {
 		r.Post("/register", userHandler.CreateUser)
 		r.Post("/login", authHandler.Login)
+		r.Post("/refresh", authHandler.Refresh)
 	})
 
 	return r

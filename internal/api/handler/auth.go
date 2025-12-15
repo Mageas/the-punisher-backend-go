@@ -2,20 +2,32 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
 )
 
+var (
+	refreshTokenName = "refresh_token"
+)
+
 type AuthHandler struct {
-	service service.AuthService
+	service          service.AuthService
+	cfg              config.JWTConfig
+	refreshTokenPath string
 }
 
-func NewAuthHandler(service service.AuthService) *AuthHandler {
-	return &AuthHandler{service: service}
+func NewAuthHandler(service service.AuthService, cfg config.JWTConfig, refreshTokenPath string) *AuthHandler {
+	return &AuthHandler{
+		service:          service,
+		cfg:              cfg,
+		refreshTokenPath: refreshTokenPath,
+	}
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +45,41 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.service.Login(r.Context(), req)
 	if err != nil {
 		web.WriteError(w, http.StatusUnauthorized, api.ErrInvalidCredentialsOrUserDoesntExist, nil)
+		return
+	}
+
+	cookieDuration := h.cfg.RefreshExpiration
+	http.SetCookie(w, &http.Cookie{
+		Name:  refreshTokenName,
+		Value: resp.RefreshToken,
+
+		Path:     h.refreshTokenPath,
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+
+		Expires: time.Now().Add(cookieDuration),
+		MaxAge:  int(cookieDuration.Seconds()),
+	})
+
+	// TODO: retrieve 'X-Auth-Mode' header, if 'body' is set, return the refresh token in the response
+	// TODO: save refresh token to db
+
+	web.WriteJSON(w, http.StatusOK, resp, nil)
+}
+
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(refreshTokenName)
+	if err != nil {
+		web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
+		return
+	}
+
+	// TODO: check if refresh token is valid in db
+
+	resp, err := h.service.Refresh(r.Context(), cookie.Value)
+	if err != nil {
+		web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
 		return
 	}
 

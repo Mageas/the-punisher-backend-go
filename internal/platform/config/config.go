@@ -3,6 +3,8 @@ package config
 import (
 	"log"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -12,10 +14,20 @@ type Config struct {
 	Env     string
 	Version string
 	DB      DBConfig
+	JWT     JWTConfig
 }
 
 type DBConfig struct {
 	DSN string
+}
+
+type JWTConfig struct {
+	AccessSecret      string
+	AccessExpiration  time.Duration
+	RefreshSecret     string
+	RefreshExpiration time.Duration
+	Issuer            string
+	Audience          string
 }
 
 func Load() *Config {
@@ -28,6 +40,14 @@ func Load() *Config {
 		DB: DBConfig{
 			DSN: GetEnv("APP_DATABASE_URL", ""),
 		},
+		JWT: JWTConfig{
+			AccessSecret:      GetEnvOrFatal("JWT_ACCESS_SECRET"),
+			AccessExpiration:  GetEnvDuration("JWT_ACCESS_EXPIRATION_IN_MINUTES", 15) * time.Minute,
+			RefreshSecret:     GetEnvOrFatal("JWT_REFRESH_SECRET"),
+			RefreshExpiration: GetEnvDuration("JWT_REFRESH_EXPIRATION_IN_DAYS", 7) * time.Hour * 24,
+			Issuer:            GetEnvOrFatal("JWT_ISSUER"),
+			Audience:          GetEnvOrFatal("JWT_AUDIENCE"),
+		},
 	}
 }
 
@@ -36,6 +56,15 @@ func GetEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func GetEnvDuration(key string, fallback int) time.Duration {
+	if value, ok := os.LookupEnv(key); ok {
+		if parsedValue, err := strconv.Atoi(value); err == nil {
+			return time.Duration(parsedValue)
+		}
+	}
+	return time.Duration(fallback)
 }
 
 func GetEnvOrFatal(key string) string {
