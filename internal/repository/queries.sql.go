@@ -109,11 +109,16 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, token string) error {
 const getRefreshToken = `-- name: GetRefreshToken :one
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
-WHERE token = $1 LIMIT 1
+WHERE user_id = $1 AND token = $2 AND revoked_at IS NULL LIMIT 1
 `
 
-func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshToken, error) {
-	row := q.db.QueryRow(ctx, getRefreshToken, token)
+type GetRefreshTokenParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Token  string    `json:"token"`
+}
+
+func (q *Queries) GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error) {
+	row := q.db.QueryRow(ctx, getRefreshToken, arg.UserID, arg.Token)
 	var i RefreshToken
 	err := row.Scan(
 		&i.ID,

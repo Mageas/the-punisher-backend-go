@@ -25,7 +25,7 @@ RETURNING id, user_id, token, user_agent, client_ip, revoked_at, expires_at, cre
 -- name: GetRefreshToken :one
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
-WHERE token = sqlc.arg(token) LIMIT 1;
+WHERE user_id = sqlc.arg(user_id) AND token = sqlc.arg(token) AND revoked_at IS NULL LIMIT 1;
 
 -- name: RevokeRefreshToken :one
 UPDATE refresh_tokens

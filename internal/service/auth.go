@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"log/slog"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
@@ -60,6 +62,17 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		return nil, api.ErrInternalError
 	}
 
+	_, err = s.repo.CreateRefreshToken(ctx, repository.CreateRefreshTokenParams{
+		UserID:    userCredentials.ID,
+		Token:     refreshToken,
+		UserAgent: "",
+		ClientIp:  "",
+		ExpiresAt: time.Now().Add(s.cfg.RefreshExpiration),
+	})
+	if err != nil {
+		return nil, api.ErrInternalError
+	}
+
 	return &dto.LoginResponseDto{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -76,6 +89,21 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 	sub, err := claims.GetSubject()
 	if err != nil {
 		slog.Error("failed to get subject from refresh token", "error", err)
+		return nil, api.ErrUnauthorized
+	}
+
+	uuid, err := uuid.Parse(sub)
+	if err != nil {
+		slog.Error("failed to parse subject from refresh token", "error", err)
+		return nil, api.ErrUnauthorized
+	}
+
+	_, err = s.repo.GetRefreshToken(ctx, repository.GetRefreshTokenParams{
+		UserID: uuid,
+		Token:  refreshToken,
+	})
+	if err != nil {
+		slog.Error("failed to get refresh token", "error", err)
 		return nil, api.ErrUnauthorized
 	}
 

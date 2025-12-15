@@ -63,7 +63,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// TODO: retrieve 'X-Auth-Mode' header, if 'body' is set, return the refresh token in the response
-	// TODO: save refresh token to db
 
 	web.WriteJSON(w, http.StatusOK, resp, nil)
 }
@@ -74,8 +73,6 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
 		return
 	}
-
-	// TODO: check if refresh token is valid in db
 
 	resp, err := h.service.Refresh(r.Context(), cookie.Value)
 	if err != nil {
