@@ -1,8 +1,9 @@
 package dto
 
 type LoginRequestDto struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
+	Email      string `json:"email" validate:"required,email"`
+	Password   string `json:"password" validate:"required,min=8"`
+	RemoteAddr string `json:"-"`
 }
 
 type LoginResponseDto struct {

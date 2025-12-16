@@ -66,7 +66,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		UserID:    userCredentials.ID,
 		Token:     refreshToken,
 		UserAgent: "",
-		ClientIp:  "",
+		ClientIp:  req.RemoteAddr,
 		ExpiresAt: time.Now().Add(s.cfg.RefreshExpiration),
 	})
 	if err != nil {

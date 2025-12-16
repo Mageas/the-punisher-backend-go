@@ -42,6 +42,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.RemoteAddr = r.RemoteAddr
+
 	resp, err := h.service.Login(r.Context(), req)
 	if err != nil {
 		web.WriteError(w, http.StatusUnauthorized, api.ErrInvalidCredentialsOrUserDoesntExist, nil)
