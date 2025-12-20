@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
-	"log/slog"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
@@ -34,8 +36,11 @@ func NewAuthService(repo repository.Querier, cfg config.JWTConfig) AuthService {
 func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.LoginResponseDto, error) {
 	userCredentials, err := s.repo.GetUserCredentialsByEmailForAuth(ctx, req.Email)
 	if err != nil {
-		slog.Error("failed to get user password", "error", err)
-		return nil, api.ErrInternalError
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrInvalidCredentialsOrUserDoesntExist
+		}
+
+		return nil, fmt.Errorf("failed to get user credentials: %w", err)
 	}
 
 	if err := hash.VerifyPassword(req.Password, userCredentials.PasswordHash); err != nil {
@@ -49,7 +54,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		Audience:   s.cfg.Audience,
 	}, userCredentials.ID.String())
 	if err != nil {
-		return nil, api.ErrInternalError
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	refreshToken, err := jwt.Generate(jwt.Config{
@@ -59,7 +64,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		Audience:   s.cfg.Audience,
 	}, userCredentials.ID.String())
 	if err != nil {
-		return nil, api.ErrInternalError
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
 	_, err = s.repo.CreateRefreshToken(ctx, repository.CreateRefreshTokenParams{
@@ -70,7 +75,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		ExpiresAt: time.Now().Add(s.cfg.RefreshExpiration),
 	})
 	if err != nil {
-		return nil, api.ErrInternalError
+		return nil, fmt.Errorf("failed to create refresh token: %w", err)
 	}
 
 	return &dto.LoginResponseDto{
@@ -82,19 +87,16 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.RefreshResponseDto, error) {
 	claims, err := jwt.Verify(refreshToken, s.cfg.RefreshSecret)
 	if err != nil {
-		slog.Error("failed to verify refresh token", "error", err)
 		return nil, api.ErrUnauthorized
 	}
 
 	sub, err := claims.GetSubject()
 	if err != nil {
-		slog.Error("failed to get subject from refresh token", "error", err)
 		return nil, api.ErrUnauthorized
 	}
 
 	uuid, err := uuid.Parse(sub)
 	if err != nil {
-		slog.Error("failed to parse subject from refresh token", "error", err)
 		return nil, api.ErrUnauthorized
 	}
 
@@ -103,8 +105,11 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 		Token:  refreshToken,
 	})
 	if err != nil {
-		slog.Error("failed to get refresh token", "error", err)
-		return nil, api.ErrUnauthorized
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrUnauthorized
+		}
+
+		return nil, fmt.Errorf("failed to get refresh token: %w", err)
 	}
 
 	accessToken, err := jwt.Generate(jwt.Config{
@@ -114,8 +119,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 		Audience:   s.cfg.Audience,
 	}, sub)
 	if err != nil {
-		slog.Error("failed to generate access token", "error", err)
-		return nil, api.ErrInternalError
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	return &dto.RefreshResponseDto{

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -24,7 +25,7 @@ func NewUserService(repo repository.Querier) UserService {
 func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*dto.ReturnUserDto, error) {
 	exists, err := s.repo.UserEmailExists(ctx, req.Email)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to check email existence: %w", err)
 	}
 	if exists {
 		return nil, api.ErrEmailAlreadyExists
@@ -32,7 +33,7 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 
 	hashedPassword, err := hash.HashPassword(req.Password)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	user, err := s.repo.CreateUser(ctx, repository.CreateUserParams{
@@ -42,7 +43,7 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		PasswordHash: hashedPassword,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return dto.FromRepository(&user), nil
