@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -47,12 +46,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Login(r.Context(), req)
 	if err != nil {
-		if errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
-			web.WriteError(w, http.StatusUnauthorized, api.ErrInvalidCredentialsOrUserDoesntExist, nil)
-			return
-		}
-
-		web.WriteServerError(w, err)
+		web.WriteFromError(w, err)
 		return
 	}
 
@@ -84,12 +78,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.service.Refresh(r.Context(), cookie.Value)
 	if err != nil {
-		if errors.Is(err, api.ErrUnauthorized) {
-			web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
-			return
-		}
-
-		web.WriteServerError(w, err)
+		web.WriteFromError(w, err)
 		return
 	}
 

@@ -87,7 +87,7 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.RefreshResponseDto, error) {
 	claims, err := jwt.Verify(refreshToken, s.cfg.RefreshSecret)
 	if err != nil {
-		return nil, api.ErrUnauthorized
+		return nil, err
 	}
 
 	sub, err := claims.GetSubject()

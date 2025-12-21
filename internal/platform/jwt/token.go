@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -41,6 +42,9 @@ func Verify(tokenString string, secret string) (jwt.MapClaims, error) {
 	})
 
 	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, api.ErrJWTExpired
+		}
 		slog.Error("failed to verify token", "error", err)
 		return nil, api.ErrJWTInvalidToken
 	}

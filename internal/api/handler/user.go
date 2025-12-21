@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"errors"
 	"net/http"
 
-	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
@@ -35,12 +33,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.service.CreateUser(r.Context(), req)
 	if err != nil {
-		if errors.Is(err, api.ErrEmailAlreadyExists) {
-			web.WriteConflictError(w, "email", api.KeyValidationEmailAlreadyExists)
-			return
-		}
-
-		web.WriteServerError(w, err)
+		web.WriteFromError(w, err)
 		return
 	}
 

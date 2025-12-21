@@ -83,3 +83,26 @@ func WriteValidationError(w http.ResponseWriter, err error) {
 
 	WriteError(w, http.StatusBadRequest, err, nil)
 }
+
+func WriteFromError(w http.ResponseWriter, err error) {
+	if errors.Is(err, api.ErrUnauthorized) ||
+		errors.Is(err, api.ErrJWTInvalidToken) ||
+		errors.Is(err, api.ErrJWTInvalidSigningMethod) ||
+		errors.Is(err, api.ErrJWTExpired) ||
+		errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
+		WriteError(w, http.StatusUnauthorized, err, nil)
+		return
+	}
+
+	if errors.Is(err, api.ErrInvalidRequestBody) {
+		WriteError(w, http.StatusBadRequest, err, nil)
+		return
+	}
+
+	if errors.Is(err, api.ErrEmailAlreadyExists) {
+		WriteConflictError(w, "email", api.KeyValidationEmailAlreadyExists)
+		return
+	}
+
+	WriteServerError(w, err)
+}
