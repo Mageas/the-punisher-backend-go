@@ -10,11 +10,12 @@ import (
 )
 
 type Config struct {
-	Addr    string
-	Env     string
-	Version string
-	DB      DBConfig
-	JWT     JWTConfig
+	Addr          string
+	Env           string
+	Version       string
+	AllowRegister bool
+	DB            DBConfig
+	JWT           JWTConfig
 }
 
 type DBConfig struct {
@@ -34,9 +35,10 @@ func Load() *Config {
 	godotenv.Load()
 
 	return &Config{
-		Addr:    GetEnv("APP_ADDRESS", ":8080"),
-		Env:     GetEnv("APP_ENV", "development"),
-		Version: GetEnv("APP_VERSION", "1.0.0"),
+		Addr:          GetEnv("APP_ADDRESS", ":8080"),
+		Env:           GetEnv("APP_ENV", "development"),
+		Version:       GetEnv("APP_VERSION", "1.0.0"),
+		AllowRegister: GetEnvBool("APP_ALLOW_REGISTER", true),
 		DB: DBConfig{
 			DSN: GetEnv("APP_DATABASE_URL", ""),
 		},
@@ -54,6 +56,15 @@ func Load() *Config {
 func GetEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
+	}
+	return fallback
+}
+
+func GetEnvBool(key string, fallback bool) bool {
+	if value, ok := os.LookupEnv(key); ok {
+		if parsedValue, err := strconv.ParseBool(value); err == nil {
+			return parsedValue
+		}
 	}
 	return fallback
 }
