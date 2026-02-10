@@ -66,7 +66,7 @@ func (app *application) mount() http.Handler {
 	repo := repository.New(app.db)
 
 	userService := service.NewUserService(repo)
-	userHandler := handler.NewUserHandler(userService)
+	userHandler := handler.NewUserHandler(userService, app.config)
 
 	authService := service.NewAuthService(repo, app.config.JWT)
 	authHandler := handler.NewAuthHandler(authService, app.config.JWT, "/v1/auth/refresh")

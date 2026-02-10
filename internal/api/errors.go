@@ -17,7 +17,8 @@ var (
 	ErrInternalError      = errors.New("internal_error")
 	ErrInvalidRequestBody = errors.New("invalid_request_body")
 
-	ErrUnauthorized = errors.New("unauthorized")
+	ErrUnauthorized       = errors.New("unauthorized")
+	ErrRegisterNotAllowed = errors.New("register_not_allowed")
 
 	ErrValidationFailed = errors.New("validation_failed")
 	ErrConflict         = errors.New("conflict")

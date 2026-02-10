@@ -3,7 +3,9 @@ package handler
 import (
 	"net/http"
 
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
@@ -11,15 +13,22 @@ import (
 
 type UserHandler struct {
 	service service.UserService
+	cfg     config.Config
 }
 
-func NewUserHandler(service service.UserService) *UserHandler {
+func NewUserHandler(service service.UserService, cfg config.Config) *UserHandler {
 	return &UserHandler{
 		service: service,
+		cfg:     cfg,
 	}
 }
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.AllowRegister {
+		web.WriteError(w, http.StatusUnauthorized, api.ErrRegisterNotAllowed, nil)
+		return
+	}
+
 	var req dto.RequestUserDto
 	if err := web.DecodeJSON(w, r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
