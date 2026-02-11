@@ -13,6 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countStudentsByUser = `-- name: CountStudentsByUser :one
+SELECT COUNT(*) FROM students WHERE user_id = $1
+`
+
+func (q *Queries) CountStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudentsByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createRefreshToken = `-- name: CreateRefreshToken :one
 INSERT INTO refresh_tokens (
     user_id, token, user_agent, client_ip, expires_at
@@ -48,6 +59,35 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		&i.RevokedAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createStudent = `-- name: CreateStudent :one
+INSERT INTO students (
+    user_id, first_name, last_name
+) VALUES (
+    $1, $2, $3
+)
+RETURNING id, user_id, first_name, last_name, created_at, updated_at
+`
+
+type CreateStudentParams struct {
+	UserID    uuid.UUID `json:"user_id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+}
+
+func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
+	row := q.db.QueryRow(ctx, createStudent, arg.UserID, arg.FirstName, arg.LastName)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FirstName,
+		&i.LastName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -106,6 +146,21 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, token string) error {
 	return err
 }
 
+const deleteStudentByUser = `-- name: DeleteStudentByUser :exec
+DELETE FROM students
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteStudentByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) error {
+	_, err := q.db.Exec(ctx, deleteStudentByUser, arg.ID, arg.UserID)
+	return err
+}
+
 const getRefreshToken = `-- name: GetRefreshToken :one
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
@@ -129,6 +184,31 @@ func (q *Queries) GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams
 		&i.RevokedAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getStudentByUser = `-- name: GetStudentByUser :one
+SELECT id, user_id, first_name, last_name, created_at, updated_at
+FROM students
+WHERE id = $1 AND user_id = $2 LIMIT 1
+`
+
+type GetStudentByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error) {
+	row := q.db.QueryRow(ctx, getStudentByUser, arg.ID, arg.UserID)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FirstName,
+		&i.LastName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -186,6 +266,47 @@ func (q *Queries) ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUI
 	return items, nil
 }
 
+const listStudentsByUser = `-- name: ListStudentsByUser :many
+SELECT id, user_id, first_name, last_name, created_at, updated_at
+FROM students
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListStudentsByUserParams struct {
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]Student, error) {
+	rows, err := q.db.Query(ctx, listStudentsByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Student
+	for rows.Next() {
+		var i Student
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.FirstName,
+			&i.LastName,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const revokeRefreshToken = `-- name: RevokeRefreshToken :one
 UPDATE refresh_tokens
 SET revoked_at = NOW()
@@ -210,6 +331,42 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (RevokeR
 		&i.Token,
 		&i.RevokedAt,
 		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const updateStudentByUser = `-- name: UpdateStudentByUser :one
+UPDATE students
+SET
+    first_name = COALESCE($1, first_name),
+    last_name = COALESCE($2, last_name),
+    updated_at = NOW()
+WHERE id = $3 AND user_id = $4
+RETURNING id, user_id, first_name, last_name, created_at, updated_at
+`
+
+type UpdateStudentByUserParams struct {
+	FirstName pgtype.Text `json:"first_name"`
+	LastName  pgtype.Text `json:"last_name"`
+	ID        uuid.UUID   `json:"id"`
+	UserID    uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error) {
+	row := q.db.QueryRow(ctx, updateStudentByUser,
+		arg.FirstName,
+		arg.LastName,
+		arg.ID,
+		arg.UserID,
+	)
+	var i Student
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.FirstName,
+		&i.LastName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

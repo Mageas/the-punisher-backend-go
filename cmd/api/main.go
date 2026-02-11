@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
@@ -75,6 +76,18 @@ func (app *application) mount() http.Handler {
 		r.Post("/register", userHandler.CreateUser)
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
+	})
+
+	studentService := service.NewStudentService(repo)
+	studentHandler := handler.NewStudentHandler(studentService)
+
+	r.Route("/v1/students", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", studentHandler.CreateStudent)
+		r.Get("/", studentHandler.ListStudents)
+		r.Get("/{id}", studentHandler.GetStudent)
+		r.Put("/{id}", studentHandler.UpdateStudent)
+		r.Delete("/{id}", studentHandler.DeleteStudent)
 	})
 
 	return r

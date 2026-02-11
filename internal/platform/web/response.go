@@ -44,6 +44,14 @@ func WriteConflictError(w http.ResponseWriter, field string, errorKey string) {
 }
 
 func WriteJSONDecodeError(w http.ResponseWriter, err error) {
+	var unmarshalTypeErr *json.UnmarshalTypeError
+	if errors.As(err, &unmarshalTypeErr) {
+		WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, []api.ErrorDetail{
+			{Field: unmarshalTypeErr.Field, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, unmarshalTypeErr.Type.String())},
+		})
+		return
+	}
+
 	if after, ok := strings.CutPrefix(err.Error(), "json: unknown field"); ok {
 		fieldName := strings.Trim(after, " \"")
 
@@ -101,6 +109,11 @@ func WriteFromError(w http.ResponseWriter, err error) {
 
 	if errors.Is(err, api.ErrEmailAlreadyExists) {
 		WriteConflictError(w, "email", api.KeyValidationEmailAlreadyExists)
+		return
+	}
+
+	if errors.Is(err, api.ErrStudentNotFound) {
+		WriteError(w, http.StatusNotFound, err, nil)
 		return
 	}
 

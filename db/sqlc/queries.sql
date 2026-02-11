@@ -43,29 +43,38 @@ FROM refresh_tokens
 WHERE user_id = sqlc.arg(user_id)
 ORDER BY created_at DESC;
 
--- -- name: GetUser :one
--- SELECT id, email, first_name, last_name, created_at, updated_at
--- FROM users
--- WHERE id = sqlc.arg(id) LIMIT 1;
+-- name: CreateStudent :one
+INSERT INTO students (
+    user_id, first_name, last_name
+) VALUES (
+    sqlc.arg(user_id), sqlc.arg(first_name), sqlc.arg(last_name)
+)
+RETURNING id, user_id, first_name, last_name, created_at, updated_at;
 
--- -- name: UpdateUser :one
--- UPDATE users
--- SET
---     email = COALESCE(LOWER(sqlc.arg(email)), email),
---     first_name = COALESCE(sqlc.narg(first_name), first_name),
---     last_name = COALESCE(sqlc.narg(last_name), last_name),
---     updated_at = NOW()
--- WHERE id = sqlc.arg(id)
--- RETURNING id, email, first_name, last_name, created_at, updated_at;
+-- name: GetStudentByUser :one
+SELECT id, user_id, first_name, last_name, created_at, updated_at
+FROM students
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
 
--- -- name: UpdateUserPassword :one
--- UPDATE users
--- SET
---     password_hash = sqlc.arg(password_hash),
---     updated_at = NOW()
--- WHERE id = sqlc.arg(id)
--- RETURNING id, updated_at;
+-- name: CountStudentsByUser :one
+SELECT COUNT(*) FROM students WHERE user_id = sqlc.arg(user_id);
 
--- -- name: GetUserPasswordByEmailForAuth :one
--- SELECT password_hash FROM users
--- WHERE email = LOWER(sqlc.arg(email)) LIMIT 1;
+-- name: ListStudentsByUser :many
+SELECT id, user_id, first_name, last_name, created_at, updated_at
+FROM students
+WHERE user_id = sqlc.arg(user_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: UpdateStudentByUser :one
+UPDATE students
+SET
+    first_name = COALESCE(sqlc.narg(first_name), first_name),
+    last_name = COALESCE(sqlc.narg(last_name), last_name),
+    updated_at = NOW()
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)
+RETURNING id, user_id, first_name, last_name, created_at, updated_at;
+
+-- name: DeleteStudentByUser :exec
+DELETE FROM students
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);

@@ -20,8 +20,9 @@ var (
 	ErrUnauthorized       = errors.New("unauthorized")
 	ErrRegisterNotAllowed = errors.New("register_not_allowed")
 
-	ErrValidationFailed = errors.New("validation_failed")
-	ErrConflict         = errors.New("conflict")
+	ErrMalformedParameter = errors.New("malformed_parameter")
+	ErrValidationFailed   = errors.New("validation_failed")
+	ErrConflict           = errors.New("conflict")
 
 	ErrEmailAlreadyExists                  = errors.New("email_already_exists")
 	ErrInvalidCredentialsOrUserDoesntExist = errors.New("invalid_credentials_or_user_doesnt_exist")
@@ -29,6 +30,8 @@ var (
 	ErrJWTInvalidSigningMethod = errors.New("jwt_invalid_signing_method")
 	ErrJWTInvalidToken         = errors.New("jwt_invalid_token")
 	ErrJWTExpired              = errors.New("jwt_expired")
+
+	ErrStudentNotFound = errors.New("student_not_found")
 )
 
 const (
@@ -39,5 +42,6 @@ const (
 	KeyValidationMaxLength          = "validation_max_length:%s"
 	KeyValidationEmailAlreadyExists = "validation_email_already_exists"
 
-	KeyValidationUnknownField = "validation_unknown_field"
+	KeyValidationUnknownField       = "validation_unknown_field"
+	KeyValidationMalformedParameter = "validation_malformed_parameter:expected_%s"
 )
