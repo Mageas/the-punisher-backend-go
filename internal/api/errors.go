@@ -1,8 +1,8 @@
 package api
 
-import "errors"
+import "net/http"
 
-type Error struct {
+type ErrorResponse struct {
 	Error        string        `json:"error"`
 	ErrorDetails []ErrorDetail `json:"error_details,omitempty"`
 	ErrorCode    int           `json:"error_code"`
@@ -13,28 +13,44 @@ type ErrorDetail struct {
 	Error string `json:"error"`
 }
 
+type APIError struct {
+	Message    string
+	StatusCode int
+	Details    []ErrorDetail
+}
+
+func (e *APIError) Error() string { return e.Message }
+
+func NewAPIError(statusCode int, message string, details ...ErrorDetail) *APIError {
+	return &APIError{
+		Message:    message,
+		StatusCode: statusCode,
+		Details:    details,
+	}
+}
+
 var (
-	ErrInternalError      = errors.New("internal_error")
-	ErrInvalidRequestBody = errors.New("invalid_request_body")
+	ErrInternalError      = NewAPIError(http.StatusInternalServerError, "internal_error")
+	ErrInvalidRequestBody = NewAPIError(http.StatusBadRequest, "invalid_request_body")
 
-	ErrUnauthorized       = errors.New("unauthorized")
-	ErrRegisterNotAllowed = errors.New("register_not_allowed")
+	ErrUnauthorized       = NewAPIError(http.StatusUnauthorized, "unauthorized")
+	ErrRegisterNotAllowed = NewAPIError(http.StatusUnauthorized, "register_not_allowed")
 
-	ErrMalformedParameter = errors.New("malformed_parameter")
-	ErrValidationFailed   = errors.New("validation_failed")
-	ErrConflict           = errors.New("conflict")
+	ErrMalformedParameter = NewAPIError(http.StatusBadRequest, "malformed_parameter")
+	ErrValidationFailed   = NewAPIError(http.StatusBadRequest, "validation_failed")
 
-	ErrEmailAlreadyExists                  = errors.New("email_already_exists")
-	ErrInvalidCredentialsOrUserDoesntExist = errors.New("invalid_credentials_or_user_doesnt_exist")
+	ErrEmailAlreadyExists                  = NewAPIError(http.StatusConflict, "conflict", ErrorDetail{Field: "email", Error: KeyValidationEmailAlreadyExists})
+	ErrInvalidCredentialsOrUserDoesntExist = NewAPIError(http.StatusUnauthorized, "invalid_credentials_or_user_doesnt_exist")
 
-	ErrJWTInvalidSigningMethod = errors.New("jwt_invalid_signing_method")
-	ErrJWTInvalidToken         = errors.New("jwt_invalid_token")
-	ErrJWTExpired              = errors.New("jwt_expired")
+	ErrJWTInvalidSigningMethod = NewAPIError(http.StatusUnauthorized, "jwt_invalid_signing_method")
+	ErrJWTInvalidToken         = NewAPIError(http.StatusUnauthorized, "jwt_invalid_token")
+	ErrJWTExpired              = NewAPIError(http.StatusUnauthorized, "jwt_expired")
 
-	ErrStudentNotFound = errors.New("student_not_found")
+	ErrStudentNotFound = NewAPIError(http.StatusNotFound, "student_not_found")
 
-	ErrClassroomNotFound              = errors.New("classroom_not_found")
-	ErrStudentClassroomRelationExists = errors.New("student_classroom_relation_exists")
+	ErrClassroomNotFound              = NewAPIError(http.StatusNotFound, "classroom_not_found")
+	ErrStudentClassroomRelationExists = NewAPIError(http.StatusConflict, "student_classroom_relation_exists")
+	ErrStudentOrClassroomNotFound     = NewAPIError(http.StatusNotFound, "student_or_classroom_not_found")
 )
 
 const (

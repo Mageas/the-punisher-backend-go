@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -46,5 +47,7 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	return dto.FromRepository(&user), nil
+	slog.Info("user created", "user_id", user.ID, "email", user.Email)
+
+	return dto.UserFromRepository(&user), nil
 }
