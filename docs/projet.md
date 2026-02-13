@@ -1,37 +1,33 @@
-# Projet The Punisher - Documentation
+# Projet The Punisher - Référence Produit
 
-## 1. Objectif & Vision
+## 1. Vision
 
-**The Punisher** est une plateforme de gestion disciplinaire pour établissements scolaires (ou professeurs indépendants). Elle permet de suivre le comportement des élèves via un système double :
-- **Renforcement positif** : Attribution de points bonus, badges, etc.
-- **Suivi des incidents** : Enregistrement des manquements (oublis, bavardages) et application automatique de sanctions.
+`The Punisher` est une plateforme de gestion disciplinaire orientée classe.
 
-L'objectif est d'automatiser la "comptabilité" disciplinaire pour libérer du temps pédagogique et garantir une équité dans l'application des règles.
+Objectif:
+- suivre les comportements positifs (`Bonuses`),
+- suivre les incidents (`Penalties`),
+- automatiser les sanctions (`Punishments`) via des règles (`Rules`),
+- conserver une isolation stricte par enseignant (`user_id`).
 
-## 2. Fonctionnalités Clés
+## 2. Portée Métier
 
-### Gestion des Acteurs
-- **Professeur (User)** : Propriétaire de ses données. Configure ses classes, ses élèves et ses propres règles.
-- **Élève (Student)** : Appartient à une ou plusieurs classes. Bénéficiaire des points/sanctions.
+Acteurs et objets clés:
+- `Users`: propriétaire des données.
+- `Students`: élèves.
+- `Classrooms`: classes.
+- `StudentClassrooms`: relation N-N élèves/classes.
+- `BonusTypes`: catalogue des bonus (ex: participation).
+- `PenaltyTypes`: catalogue des incidents (ex: retard).
+- `PunishmentTypes`: catalogue des sanctions (ex: retenue).
+- `Bonuses`: événements positifs avec points et consommation optionnelle.
+- `Penalties`: événements négatifs.
+- `Rules`: logique automatique (conditions JSON -> punishment type).
+- `Punishments`: sanctions manuelles ou automatiques.
 
-### Système de Points
-- **Bonus** : Points positifs (ex: "Participation active", "Devoir rendu en avance").
-    - **Cycle de vie** : Un bonus est attribué (`created_at`) puis peut être consommé (`used_at`) pour obtenir un avantage (ex: +0.5 sur une note).
-- **Malus / Oublis (Penalty)** : Incidents négatifs (ex: "Oubli de matériel", "Retard"). **Note :** Les bonus n'annulent pas les malus. Ce sont deux compteurs distincts.
+## 3. Architecture de Base de Données (Canonique)
 
-### Système de Punitions & Règles (Automobile)
-- **Punition (Punishment)** : Sanction à effectuer (ex: "Retenue", "Copie de lignes"). Possède un cycle de vie (`pending` -> `resolved`).
-- **Règles Automatiques (Rules)** :
-    - Le cœur du système.
-    - Permet de définir des déclencheurs complexes via une structure **JSON**.
-    - *Exemple* : "SI (3 Oublis Matériel) OU (2 Bavardages + 1 Insolence) ALORS (1h de Retenue)".
-    - **Périodicité** : Aucune remise à zéro automatique des compteurs (choix utilisateur).
-
-## 3. Modèle de Données (Schema)
-
-Le schéma est conçu pour être multi-tenant (chaque ressource appartient à un `user_id`). L'ajout du `user_id` sur les tables d'événements facilite les requêtes globales par professeur.
-
-### Diagramme Entité-Relation (Mermaid)
+Le schéma ci-dessous est la référence à respecter.
 
 ```mermaid
 ---
@@ -149,41 +145,83 @@ erDiagram
     PunishmentTypes||--o{Rules:"results_in"
 ```
 
-### Détail des Tables Clés
+## 4. Règles Métier
 
-#### `rules` (Règles Automatiques)
-Cette table stocke la logique de déclenchement.
-- `conditions` (JSONB) : Stocke l'arbre logique.
-  ```json
-  {
-    "operator": "OR",
-    "triggers": [
-      {
-        "type": "penalty_count",
-        "penalty_type_id": "uuid-oubli-materiel",
-        "threshold": 3
-      },
-      {
-        "operator": "AND",
-        "triggers": [
-           { "type": "penalty_count", "penalty_type_id": "uuid-bavardage", "threshold": 2 },
-           { "type": "penalty_count", "penalty_type_id": "uuid-insolence", "threshold": 1 }
-        ]
-      }
-    ]
-  }
-  ```
+1. Isolation stricte:
+- chaque requête métier est scoppée par `user_id`.
+- une ressource d'un autre user est traitée comme introuvable.
 
-#### `punishments` (Punitions)
-- `resolved_at` : Si `NULL`, la punition est à faire. Si rempli, elle est faite.
-- `triggering_rule_id` : Permet de tracer *pourquoi* la punition a été donnée (quel automatisme).
+2. Bonus et pénalités sont indépendants:
+- les bonus ne suppriment pas les pénalités.
+- les deux historiques coexistent.
 
-#### `bonuses` (Bonus)
-- `used_at` : Si `NULL`, le bonus est disponible. Si rempli, il a été consommé (ex: pour remonter une note).
+3. Bonus consommables:
+- `used_at = NULL` => bonus disponible.
+- `used_at != NULL` => bonus consommé.
 
-## 4. Règles Métier Confirmées
+4. Pénalités cumulatives:
+- `Penalties` est un journal d'événements (append-only logique).
+- les règles lisent les compteurs sur cet historique.
 
-1. **Isolation** : Chaque professeur voit et gère uniquement ses données. Pas de partage de règles entre professeurs.
-2. **Indépendance Bonus/Malus** : Un élève peut avoir 100 points de bonus et être collé 3 fois. Les points ne "rachètent" pas les fautes.
-3. **Persistance** : Les compteurs d'incidents ne sont jamais remis à zéro automatiquement. C'est au professeur d'archiver ou de nettoyer s'il le souhaite.
+5. Punitions manuelles et automatiques:
+- manuelle: `triggering_rule_id = NULL`.
+- automatique: `triggering_rule_id` référence la règle déclenchée.
 
+6. Cycle de vie punition:
+- créée avec `created_at` et `due_at`.
+- considérée en attente tant que `resolved_at IS NULL`.
+- résolue quand `resolved_at` est renseigné.
+
+7. Pas de reset automatique des compteurs:
+- aucun effacement périodique implicite.
+- l'enseignant pilote explicitement l'archivage/nettoyage.
+
+## 5. Contrat JSON des Rules
+
+`rules.conditions` stocke un arbre logique composable.
+
+Exemple:
+
+```json
+{
+  "operator": "OR",
+  "triggers": [
+    {
+      "type": "penalty_count",
+      "penalty_type_id": "uuid-oubli-materiel",
+      "threshold": 3
+    },
+    {
+      "operator": "AND",
+      "triggers": [
+        { "type": "penalty_count", "penalty_type_id": "uuid-bavardage", "threshold": 2 },
+        { "type": "penalty_count", "penalty_type_id": "uuid-insolence", "threshold": 1 }
+      ]
+    }
+  ]
+}
+```
+
+Règles d'évaluation:
+- `operator` supporté: `AND`, `OR`.
+- `trigger` de base: `penalty_count`.
+- `threshold` est atteint sur l'historique des `Penalties` du même élève et du même user.
+
+## 6. Flux Métier de Référence
+
+Flux automatique standard:
+1. Création d'une pénalité (`Penalties`).
+2. Évaluation des `Rules` actives du user.
+3. Si condition vraie: création d'une `Punishment` avec `triggering_rule_id`.
+4. Suivi et résolution de la punition via `resolved_at`.
+
+Flux bonus:
+1. Création d'un bonus (`Bonuses`).
+2. Consultation des bonus disponibles (`used_at IS NULL`).
+3. Consommation d'un bonus (set `used_at`).
+
+## 7. Documentation Associée
+
+- Architecture technique: `docs/architecture.md`
+- Référence API cible: `docs/api-reference.md`
+- Guide implémentation feature: `docs/feature-playbook.md`
