@@ -11,15 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type BonusType struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"user_id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type Bonuse struct {
+type Bonus struct {
 	ID          uuid.UUID          `json:"id"`
 	UserID      uuid.UUID          `json:"user_id"`
 	StudentID   uuid.UUID          `json:"student_id"`
@@ -27,6 +19,14 @@ type Bonuse struct {
 	Points      float64            `json:"points"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UsedAt      pgtype.Timestamptz `json:"used_at"`
+}
+
+type BonusType struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Classroom struct {

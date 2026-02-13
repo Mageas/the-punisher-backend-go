@@ -21,7 +21,7 @@ type Querier interface {
 	CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error)
 	CountStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	// ==================== Bonus ====================
-	CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonuse, error)
+	CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonus, error)
 	// ==================== BonusType ====================
 	CreateBonusType(ctx context.Context, arg CreateBonusTypeParams) (BonusType, error)
 	// ==================== Classroom ====================
@@ -37,15 +37,15 @@ type Querier interface {
 	DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error)
 	DeleteRefreshToken(ctx context.Context, token string) error
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
-	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonuse, error)
+	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonus, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
 	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error)
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error)
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
 	ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error)
-	ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonuse, error)
-	ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonuse, error)
+	ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonus, error)
+	ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error)
 	ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error)
 	ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error)
 	ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
@@ -56,7 +56,7 @@ type Querier interface {
 	UpdateBonusTypeByUser(ctx context.Context, arg UpdateBonusTypeByUserParams) (BonusType, error)
 	UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error)
-	UseBonus(ctx context.Context, arg UseBonusParams) (Bonuse, error)
+	UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, error)
 	UserEmailExists(ctx context.Context, email string) (bool, error)
 }
 
