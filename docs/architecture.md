@@ -90,7 +90,7 @@ L'authentification repose sur un système hybride **JWT (Access Token) + Cookie 
 Le middleware `auth.AuthMiddleware` :
 1. Intercepte les requêtes protégées.
 2. Extrait et valide le JWT du header `Authorization`.
-3. Injecte le `user_id` dans le contexte de la requête (`auth.UserIDFromContext(ctx)`).
+3. Injecte le `user_id` dans le contexte de la requête ; les handlers le récupèrent ensuite via `auth.MustUserIDFromContext(ctx)`.
 4. Renvoie une erreur 401 si le token est invalide ou absent.
 
 ---
@@ -146,13 +146,13 @@ Ce type encapsule :
 - **Décodage JSON** : Toujours utiliser `web.DecodeJSON(r, &dto)`.
   - Limite stricte de **1MB** (`http.MaxBytesReader`).
   - Refuse les champs inconnus (`DisallowUnknownFields`).
-- **Validation** : Toujours valider les inputs avec `validator.ValidateStruct(&req)`.
+- **Validation** : Toujours valider les inputs avec `validator.ValidateStruct(req)`.
 - **Réponse** : Utiliser `web.WriteJSON` (succès) ou `web.WriteFromError` (échec).
 
 ### Pagination
 Les endpoints de liste (ex: `ListStudents`, `ListClassrooms`) supportent la pagination via le query param `page`.
 - **Défaut** : Page 1, 20 items par page.
-- **Format de Réponse** :
+- **Format de Réponse** : (géré par le `Handler`, pas le `Service`)
   ```json
   {
       "page": 1,
@@ -163,7 +163,8 @@ Les endpoints de liste (ex: `ListStudents`, `ListClassrooms`) supportent la pagi
       "data": [ ... ]
   }
   ```
-- **Helper** : Utiliser `web.ParsePagination(r)` et `web.NewPaginatedResponse(...)`.
+- **Helper** : Utiliser `web.ParsePagination(r)` pour extraire les paramètres et `web.NewPaginatedResponse(...)` pour construire la réponse.
+- **Service** : Le service doit retourner `([]T, int64, error)`. C'est le handler qui transforme cela en `web.PaginatedResponse`.
 
 ---
 

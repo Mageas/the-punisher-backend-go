@@ -46,7 +46,8 @@ var (
 	ErrJWTInvalidToken         = NewAPIError(http.StatusUnauthorized, "jwt_invalid_token")
 	ErrJWTExpired              = NewAPIError(http.StatusUnauthorized, "jwt_expired")
 
-	ErrStudentNotFound = NewAPIError(http.StatusNotFound, "student_not_found")
+	ErrStudentNotFound   = NewAPIError(http.StatusNotFound, "student_not_found")
+	ErrBonusTypeNotFound = NewAPIError(http.StatusNotFound, "bonus_type_not_found")
 
 	ErrClassroomNotFound              = NewAPIError(http.StatusNotFound, "classroom_not_found")
 	ErrStudentClassroomRelationExists = NewAPIError(http.StatusConflict, "student_classroom_relation_exists")

@@ -8,6 +8,10 @@ dev:
 build:
 	go build -o ./bin/main ./cmd/api
 
+.PHONY: sqlc
+sqlc:
+	sqlc generate
+
 .PHONY: migrate-create
 migrate-create:
 	@migrate create -seq -ext sql -dir $(MIGRATIONS_DIR) $(filter-out $@,$(MAKECMDGOALS))

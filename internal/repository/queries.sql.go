@@ -39,6 +39,17 @@ func (q *Queries) AddStudentToClassroom(ctx context.Context, arg AddStudentToCla
 	return result.RowsAffected(), nil
 }
 
+const countBonusTypesByUser = `-- name: CountBonusTypesByUser :one
+SELECT COUNT(*) FROM bonus_types WHERE user_id = $1
+`
+
+func (q *Queries) CountBonusTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countBonusTypesByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countClassroomsByStudent = `-- name: CountClassroomsByStudent :one
 SELECT COUNT(*)
 FROM student_classrooms sc
@@ -97,6 +108,35 @@ func (q *Queries) CountStudentsByUser(ctx context.Context, userID uuid.UUID) (in
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const createBonusType = `-- name: CreateBonusType :one
+
+INSERT INTO bonus_types (
+    user_id, name
+) VALUES (
+    $1, $2
+)
+RETURNING id, user_id, name, created_at, updated_at
+`
+
+type CreateBonusTypeParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+}
+
+// ==================== BonusType ====================
+func (q *Queries) CreateBonusType(ctx context.Context, arg CreateBonusTypeParams) (BonusType, error) {
+	row := q.db.QueryRow(ctx, createBonusType, arg.UserID, arg.Name)
+	var i BonusType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const createClassroom = `-- name: CreateClassroom :one
@@ -249,6 +289,24 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const deleteBonusType = `-- name: DeleteBonusType :execrows
+DELETE FROM bonus_types
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteBonusTypeParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteBonusType(ctx context.Context, arg DeleteBonusTypeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteBonusType, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteClassroomByUser = `-- name: DeleteClassroomByUser :execrows
 DELETE FROM classrooms
 WHERE id = $1 AND user_id = $2
@@ -293,6 +351,30 @@ func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUs
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const getBonusType = `-- name: GetBonusType :one
+SELECT id, user_id, name, created_at, updated_at
+FROM bonus_types
+WHERE id = $1 AND user_id = $2 LIMIT 1
+`
+
+type GetBonusTypeParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetBonusType(ctx context.Context, arg GetBonusTypeParams) (BonusType, error) {
+	row := q.db.QueryRow(ctx, getBonusType, arg.ID, arg.UserID)
+	var i BonusType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getClassroomByUser = `-- name: GetClassroomByUser :one
@@ -388,6 +470,46 @@ func (q *Queries) GetUserCredentialsByEmailForAuth(ctx context.Context, email st
 	var i GetUserCredentialsByEmailForAuthRow
 	err := row.Scan(&i.ID, &i.Email, &i.PasswordHash)
 	return i, err
+}
+
+const listBonusTypesByUser = `-- name: ListBonusTypesByUser :many
+SELECT id, user_id, name, created_at, updated_at
+FROM bonus_types
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListBonusTypesByUserParams struct {
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error) {
+	rows, err := q.db.Query(ctx, listBonusTypesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BonusType
+	for rows.Next() {
+		var i BonusType
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listClassroomsByStudent = `-- name: ListClassroomsByStudent :many
@@ -655,6 +777,34 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (RevokeR
 		&i.Token,
 		&i.RevokedAt,
 		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const updateBonusType = `-- name: UpdateBonusType :one
+UPDATE bonus_types
+SET
+    name = COALESCE($1, name),
+    updated_at = NOW()
+WHERE id = $2 AND user_id = $3
+RETURNING id, user_id, name, created_at, updated_at
+`
+
+type UpdateBonusTypeParams struct {
+	Name   pgtype.Text `json:"name"`
+	ID     uuid.UUID   `json:"id"`
+	UserID uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) UpdateBonusType(ctx context.Context, arg UpdateBonusTypeParams) (BonusType, error) {
+	row := q.db.QueryRow(ctx, updateBonusType, arg.Name, arg.ID, arg.UserID)
+	var i BonusType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
