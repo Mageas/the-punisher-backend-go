@@ -10,10 +10,13 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
+const (
+	adminEmail    = "admin@test.fr"
+	adminPassword = "admin@test.fr"
+)
+
 func UserSeed(ctx context.Context, repo repository.Querier) error {
 	// Create Admin User
-	adminEmail := "admin@test.fr"
-	adminPassword := "admin@test.fr"
 	adminHashedPassword, err := hash.HashPassword(adminPassword)
 	if err != nil {
 		return fmt.Errorf("failed to hash admin password: %w", err)

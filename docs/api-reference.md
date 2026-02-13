@@ -45,6 +45,11 @@ Principes:
 ### GET `/students/{id}`
 ### PUT `/students/{id}`
 ### DELETE `/students/{id}`
+
+Note:
+- les réponses `students` restent plates (pas d'IDs de relations embarqués).
+- pour les relations, utiliser les endpoints dédiés ci-dessous.
+
 ### GET `/students/{id}/classrooms?page=1`
 ### GET `/students/{id}/bonuses?page=1`
 ### GET `/students/{id}/penalties?page=1`
