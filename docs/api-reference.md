@@ -101,12 +101,13 @@ Body:
 {
   "student_id": "uuid",
   "bonus_type_id": "uuid",
-  "points": 1
+  "points": 1.5
 }
 ```
 
 ### GET `/bonuses?page=1`
 ### GET `/bonuses/{id}`
+### DELETE `/bonuses/{id}`
 ### POST `/bonuses/{id}/use`
 
 Effet:

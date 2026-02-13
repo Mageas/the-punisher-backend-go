@@ -19,6 +19,16 @@ type BonusType struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Bonuse struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	StudentID   uuid.UUID          `json:"student_id"`
+	BonusTypeID uuid.UUID          `json:"bonus_type_id"`
+	Points      float64            `json:"points"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UsedAt      pgtype.Timestamptz `json:"used_at"`
+}
+
 type Classroom struct {
 	ID          uuid.UUID   `json:"id"`
 	UserID      uuid.UUID   `json:"user_id"`

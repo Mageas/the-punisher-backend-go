@@ -87,7 +87,7 @@ erDiagram
         uuid user_id FK ""
         uuid student_id FK ""
         uuid bonus_type_id FK ""
-        int points  ""
+        double points  ""
         timestamp created_at  ""
         timestamp used_at "Nullable (Consommé le)"
     }

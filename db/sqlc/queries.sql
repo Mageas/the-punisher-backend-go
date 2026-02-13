@@ -208,3 +208,50 @@ RETURNING id, user_id, name, created_at, updated_at;
 -- name: DeleteBonusTypeByUser :execrows
 DELETE FROM bonus_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- ==================== Bonus ====================
+
+-- name: CreateBonus :one
+INSERT INTO bonuses (
+    user_id, student_id, bonus_type_id, points
+) VALUES (
+    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(bonus_type_id), sqlc.arg(points)
+)
+RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at;
+
+-- name: GetBonusByUser :one
+SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
+FROM bonuses
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+
+-- name: CountBonusesByUser :one
+SELECT COUNT(*) FROM bonuses WHERE user_id = sqlc.arg(user_id);
+
+-- name: ListBonusesByUser :many
+SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
+FROM bonuses
+WHERE user_id = sqlc.arg(user_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: CountBonusesByStudent :one
+SELECT COUNT(*)
+FROM bonuses
+WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id);
+
+-- name: ListBonusesByStudent :many
+SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
+FROM bonuses
+WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: UseBonus :one
+UPDATE bonuses
+SET used_at = NOW()
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND used_at IS NULL
+RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at;
+
+-- name: DeleteBonusByUser :execrows
+DELETE FROM bonuses
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);

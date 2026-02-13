@@ -46,6 +46,9 @@ func (app *application) mount() http.Handler {
 	classroomService := service.NewClassroomService(repo)
 	classroomHandler := handler.NewClassroomHandler(classroomService)
 
+	bonusService := service.NewBonusService(repo)
+	bonusHandler := handler.NewBonusHandler(bonusService)
+
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
 		r.Post("/", studentHandler.CreateStudent)
@@ -54,6 +57,7 @@ func (app *application) mount() http.Handler {
 		r.Put("/{id}", studentHandler.UpdateStudent)
 		r.Delete("/{id}", studentHandler.DeleteStudent)
 		r.Get("/{id}/classrooms", classroomHandler.ListClassroomsByStudent)
+		r.Get("/{id}/bonuses", bonusHandler.ListBonusesByStudent)
 	})
 
 	r.Route("/v1/classrooms", func(r chi.Router) {
@@ -78,6 +82,15 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", bonusTypeHandler.GetBonusType)
 		r.Put("/{id}", bonusTypeHandler.UpdateBonusType)
 		r.Delete("/{id}", bonusTypeHandler.DeleteBonusType)
+	})
+
+	r.Route("/v1/bonuses", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", bonusHandler.CreateBonus)
+		r.Get("/", bonusHandler.ListBonuses)
+		r.Get("/{id}", bonusHandler.GetBonus)
+		r.Post("/{id}/use", bonusHandler.UseBonus)
+		r.Delete("/{id}", bonusHandler.DeleteBonus)
 	})
 
 	return r
