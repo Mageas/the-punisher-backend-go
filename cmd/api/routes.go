@@ -68,5 +68,17 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}/students", classroomHandler.ListStudentsByClassroom)
 	})
 
+	bonusTypeService := service.NewBonusTypeService(repo)
+	bonusTypeHandler := handler.NewBonusTypeHandler(bonusTypeService)
+
+	r.Route("/v1/bonus-types", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", bonusTypeHandler.CreateBonusType)
+		r.Get("/", bonusTypeHandler.ListBonusTypes)
+		r.Get("/{id}", bonusTypeHandler.GetBonusType)
+		r.Put("/{id}", bonusTypeHandler.UpdateBonusType)
+		r.Delete("/{id}", bonusTypeHandler.DeleteBonusType)
+	})
+
 	return r
 }
