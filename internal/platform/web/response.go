@@ -26,7 +26,7 @@ func WriteError(w http.ResponseWriter, status int, message error, details []api.
 	WriteJSON(
 		w,
 		status,
-		&api.Error{Error: message.Error(), ErrorCode: status, ErrorDetails: details},
+		&api.ErrorResponse{Error: message.Error(), ErrorCode: status, ErrorDetails: details},
 		nil,
 	)
 }
@@ -34,13 +34,6 @@ func WriteError(w http.ResponseWriter, status int, message error, details []api.
 func WriteServerError(w http.ResponseWriter, err error) {
 	slog.Error(err.Error())
 	WriteError(w, http.StatusInternalServerError, api.ErrInternalError, nil)
-}
-
-func WriteConflictError(w http.ResponseWriter, field string, errorKey string) {
-	details := []api.ErrorDetail{
-		{Field: field, Error: errorKey},
-	}
-	WriteError(w, http.StatusConflict, api.ErrConflict, details)
 }
 
 func WriteJSONDecodeError(w http.ResponseWriter, err error) {
@@ -93,37 +86,9 @@ func WriteValidationError(w http.ResponseWriter, err error) {
 }
 
 func WriteFromError(w http.ResponseWriter, err error) {
-	if errors.Is(err, api.ErrUnauthorized) ||
-		errors.Is(err, api.ErrJWTInvalidToken) ||
-		errors.Is(err, api.ErrJWTInvalidSigningMethod) ||
-		errors.Is(err, api.ErrJWTExpired) ||
-		errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
-		WriteError(w, http.StatusUnauthorized, err, nil)
-		return
-	}
-
-	if errors.Is(err, api.ErrInvalidRequestBody) {
-		WriteError(w, http.StatusBadRequest, err, nil)
-		return
-	}
-
-	if errors.Is(err, api.ErrEmailAlreadyExists) {
-		WriteConflictError(w, "email", api.KeyValidationEmailAlreadyExists)
-		return
-	}
-
-	if errors.Is(err, api.ErrStudentNotFound) {
-		WriteError(w, http.StatusNotFound, err, nil)
-		return
-	}
-
-	if errors.Is(err, api.ErrClassroomNotFound) {
-		WriteError(w, http.StatusNotFound, err, nil)
-		return
-	}
-
-	if errors.Is(err, api.ErrStudentClassroomRelationExists) {
-		WriteError(w, http.StatusConflict, err, nil)
+	var apiErr *api.APIError
+	if errors.As(err, &apiErr) {
+		WriteError(w, apiErr.StatusCode, apiErr, apiErr.Details)
 		return
 	}
 

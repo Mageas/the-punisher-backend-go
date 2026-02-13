@@ -25,7 +25,7 @@ func (h *ClassroomHandler) CreateClassroom(w http.ResponseWriter, r *http.Reques
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	var req dto.RequestClassroomDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}
@@ -87,7 +87,7 @@ func (h *ClassroomHandler) UpdateClassroom(w http.ResponseWriter, r *http.Reques
 	}
 
 	var req dto.UpdateClassroomDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}
@@ -133,7 +133,7 @@ func (h *ClassroomHandler) AddStudentToClassroom(w http.ResponseWriter, r *http.
 	}
 
 	var req dto.StudentClassroomRequestDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}

@@ -25,7 +25,7 @@ func (h *StudentHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	var req dto.RequestStudentDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}
@@ -87,7 +87,7 @@ func (h *StudentHandler) UpdateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateStudentDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}

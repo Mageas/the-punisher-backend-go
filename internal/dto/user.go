@@ -23,7 +23,7 @@ type ReturnUserDto struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-func FromRepository(u *repository.CreateUserRow) *ReturnUserDto {
+func UserFromRepository(u *repository.CreateUserRow) *ReturnUserDto {
 	if u == nil {
 		return nil
 	}
@@ -38,11 +38,11 @@ func FromRepository(u *repository.CreateUserRow) *ReturnUserDto {
 	}
 }
 
-func FromRepositoryList(users []*repository.CreateUserRow) []*ReturnUserDto {
+func UserListFromRepository(users []*repository.CreateUserRow) []*ReturnUserDto {
 	dtos := make([]*ReturnUserDto, 0, len(users))
 
 	for _, u := range users {
-		if dto := FromRepository(u); dto != nil {
+		if dto := UserFromRepository(u); dto != nil {
 			dtos = append(dtos, dto)
 		}
 	}
