@@ -48,6 +48,8 @@ var (
 
 	ErrStudentNotFound   = NewAPIError(http.StatusNotFound, "student_not_found")
 	ErrBonusTypeNotFound = NewAPIError(http.StatusNotFound, "bonus_type_not_found")
+	ErrBonusNotFound     = NewAPIError(http.StatusNotFound, "bonus_not_found")
+	ErrBonusAlreadyUsed  = NewAPIError(http.StatusConflict, "bonus_already_used")
 
 	ErrClassroomNotFound              = NewAPIError(http.StatusNotFound, "classroom_not_found")
 	ErrStudentClassroomRelationExists = NewAPIError(http.StatusConflict, "student_classroom_relation_exists")
