@@ -13,6 +13,78 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addStudentToClassroom = `-- name: AddStudentToClassroom :exec
+
+INSERT INTO student_classrooms (student_id, classroom_id)
+SELECT $1, $2
+WHERE EXISTS (
+    SELECT 1 FROM students st WHERE st.id = $1 AND st.user_id = $3
+) AND EXISTS (
+    SELECT 1 FROM classrooms cl WHERE cl.id = $2 AND cl.user_id = $3
+)
+`
+
+type AddStudentToClassroomParams struct {
+	StudentID   uuid.UUID `json:"student_id"`
+	ClassroomID uuid.UUID `json:"classroom_id"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+// ==================== StudentClassroom ====================
+func (q *Queries) AddStudentToClassroom(ctx context.Context, arg AddStudentToClassroomParams) error {
+	_, err := q.db.Exec(ctx, addStudentToClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
+	return err
+}
+
+const countClassroomsByStudent = `-- name: CountClassroomsByStudent :one
+SELECT COUNT(*)
+FROM student_classrooms sc
+JOIN students s ON s.id = sc.student_id
+WHERE sc.student_id = $1 AND s.user_id = $2
+`
+
+type CountClassroomsByStudentParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) CountClassroomsByStudent(ctx context.Context, arg CountClassroomsByStudentParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countClassroomsByStudent, arg.StudentID, arg.UserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countClassroomsByUser = `-- name: CountClassroomsByUser :one
+SELECT COUNT(*) FROM classrooms WHERE user_id = $1
+`
+
+func (q *Queries) CountClassroomsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countClassroomsByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countStudentsByClassroom = `-- name: CountStudentsByClassroom :one
+SELECT COUNT(*)
+FROM student_classrooms sc
+JOIN classrooms c ON c.id = sc.classroom_id
+WHERE sc.classroom_id = $1 AND c.user_id = $2
+`
+
+type CountStudentsByClassroomParams struct {
+	ClassroomID uuid.UUID `json:"classroom_id"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudentsByClassroom, arg.ClassroomID, arg.UserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countStudentsByUser = `-- name: CountStudentsByUser :one
 SELECT COUNT(*) FROM students WHERE user_id = $1
 `
@@ -22,6 +94,44 @@ func (q *Queries) CountStudentsByUser(ctx context.Context, userID uuid.UUID) (in
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const createClassroom = `-- name: CreateClassroom :one
+
+INSERT INTO classrooms (
+    user_id, name, year, main_teacher
+) VALUES (
+    $1, $2, $3, $4
+)
+RETURNING id, user_id, name, year, main_teacher, created_at, updated_at
+`
+
+type CreateClassroomParams struct {
+	UserID      uuid.UUID   `json:"user_id"`
+	Name        string      `json:"name"`
+	Year        pgtype.Text `json:"year"`
+	MainTeacher pgtype.Text `json:"main_teacher"`
+}
+
+// ==================== Classroom ====================
+func (q *Queries) CreateClassroom(ctx context.Context, arg CreateClassroomParams) (Classroom, error) {
+	row := q.db.QueryRow(ctx, createClassroom,
+		arg.UserID,
+		arg.Name,
+		arg.Year,
+		arg.MainTeacher,
+	)
+	var i Classroom
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Year,
+		&i.MainTeacher,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const createRefreshToken = `-- name: CreateRefreshToken :one
@@ -136,6 +246,21 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const deleteClassroomByUser = `-- name: DeleteClassroomByUser :exec
+DELETE FROM classrooms
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteClassroomByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) error {
+	_, err := q.db.Exec(ctx, deleteClassroomByUser, arg.ID, arg.UserID)
+	return err
+}
+
 const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
 DELETE FROM refresh_tokens
 WHERE token = $1
@@ -159,6 +284,32 @@ type DeleteStudentByUserParams struct {
 func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) error {
 	_, err := q.db.Exec(ctx, deleteStudentByUser, arg.ID, arg.UserID)
 	return err
+}
+
+const getClassroomByUser = `-- name: GetClassroomByUser :one
+SELECT id, user_id, name, year, main_teacher, created_at, updated_at
+FROM classrooms
+WHERE id = $1 AND user_id = $2 LIMIT 1
+`
+
+type GetClassroomByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error) {
+	row := q.db.QueryRow(ctx, getClassroomByUser, arg.ID, arg.UserID)
+	var i Classroom
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Year,
+		&i.MainTeacher,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const getRefreshToken = `-- name: GetRefreshToken :one
@@ -230,6 +381,98 @@ func (q *Queries) GetUserCredentialsByEmailForAuth(ctx context.Context, email st
 	return i, err
 }
 
+const listClassroomsByStudent = `-- name: ListClassroomsByStudent :many
+SELECT c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at
+FROM classrooms c
+JOIN student_classrooms sc ON sc.classroom_id = c.id
+JOIN students s ON s.id = sc.student_id
+WHERE sc.student_id = $1 AND s.user_id = $2
+ORDER BY c.created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListClassroomsByStudentParams struct {
+	StudentID   uuid.UUID `json:"student_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error) {
+	rows, err := q.db.Query(ctx, listClassroomsByStudent,
+		arg.StudentID,
+		arg.UserID,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Classroom
+	for rows.Next() {
+		var i Classroom
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.Year,
+			&i.MainTeacher,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClassroomsByUser = `-- name: ListClassroomsByUser :many
+SELECT id, user_id, name, year, main_teacher, created_at, updated_at
+FROM classrooms
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListClassroomsByUserParams struct {
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error) {
+	rows, err := q.db.Query(ctx, listClassroomsByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Classroom
+	for rows.Next() {
+		var i Classroom
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.Year,
+			&i.MainTeacher,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRefreshTokensByUserId = `-- name: ListRefreshTokensByUserId :many
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
@@ -255,6 +498,55 @@ func (q *Queries) ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUI
 			&i.RevokedAt,
 			&i.ExpiresAt,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentsByClassroom = `-- name: ListStudentsByClassroom :many
+SELECT s.id, s.user_id, s.first_name, s.last_name, s.created_at, s.updated_at
+FROM students s
+JOIN student_classrooms sc ON sc.student_id = s.id
+JOIN classrooms c ON c.id = sc.classroom_id
+WHERE sc.classroom_id = $1 AND c.user_id = $2
+ORDER BY s.created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListStudentsByClassroomParams struct {
+	ClassroomID uuid.UUID `json:"classroom_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]Student, error) {
+	rows, err := q.db.Query(ctx, listStudentsByClassroom,
+		arg.ClassroomID,
+		arg.UserID,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Student
+	for rows.Next() {
+		var i Student
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.FirstName,
+			&i.LastName,
+			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -307,6 +599,26 @@ func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUser
 	return items, nil
 }
 
+const removeStudentFromClassroom = `-- name: RemoveStudentFromClassroom :exec
+DELETE FROM student_classrooms
+WHERE student_id = $1
+  AND classroom_id = $2
+  AND EXISTS (
+    SELECT 1 FROM classrooms cl WHERE cl.id = $2 AND cl.user_id = $3
+  )
+`
+
+type RemoveStudentFromClassroomParams struct {
+	StudentID   uuid.UUID `json:"student_id"`
+	ClassroomID uuid.UUID `json:"classroom_id"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) error {
+	_, err := q.db.Exec(ctx, removeStudentFromClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
+	return err
+}
+
 const revokeRefreshToken = `-- name: RevokeRefreshToken :one
 UPDATE refresh_tokens
 SET revoked_at = NOW()
@@ -331,6 +643,46 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (RevokeR
 		&i.Token,
 		&i.RevokedAt,
 		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const updateClassroomByUser = `-- name: UpdateClassroomByUser :one
+UPDATE classrooms
+SET
+    name = COALESCE($1, name),
+    year = COALESCE($2, year),
+    main_teacher = COALESCE($3, main_teacher),
+    updated_at = NOW()
+WHERE id = $4 AND user_id = $5
+RETURNING id, user_id, name, year, main_teacher, created_at, updated_at
+`
+
+type UpdateClassroomByUserParams struct {
+	Name        pgtype.Text `json:"name"`
+	Year        pgtype.Text `json:"year"`
+	MainTeacher pgtype.Text `json:"main_teacher"`
+	ID          uuid.UUID   `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error) {
+	row := q.db.QueryRow(ctx, updateClassroomByUser,
+		arg.Name,
+		arg.Year,
+		arg.MainTeacher,
+		arg.ID,
+		arg.UserID,
+	)
+	var i Classroom
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Year,
+		&i.MainTeacher,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

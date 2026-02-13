@@ -11,18 +11,32 @@ import (
 )
 
 type Querier interface {
+	// ==================== StudentClassroom ====================
+	AddStudentToClassroom(ctx context.Context, arg AddStudentToClassroomParams) error
+	CountClassroomsByStudent(ctx context.Context, arg CountClassroomsByStudentParams) (int64, error)
+	CountClassroomsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error)
 	CountStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	// ==================== Classroom ====================
+	CreateClassroom(ctx context.Context, arg CreateClassroomParams) (Classroom, error)
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) error
 	DeleteRefreshToken(ctx context.Context, token string) error
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) error
+	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error)
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error)
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
+	ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error)
+	ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error)
 	ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
+	ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]Student, error)
 	ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]Student, error)
+	RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) error
 	RevokeRefreshToken(ctx context.Context, token string) (RevokeRefreshTokenRow, error)
+	UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error)
 	UserEmailExists(ctx context.Context, email string) (bool, error)
 }
