@@ -39,5 +39,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := seeder.EducationSeed(ctx, repo); err != nil {
+		slog.Error("Failed to seed education data", "error", err)
+		os.Exit(1)
+	}
+
 	slog.Info("Seeding completed successfully")
 }
