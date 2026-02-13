@@ -32,6 +32,9 @@ var (
 	ErrJWTExpired              = errors.New("jwt_expired")
 
 	ErrStudentNotFound = errors.New("student_not_found")
+
+	ErrClassroomNotFound              = errors.New("classroom_not_found")
+	ErrStudentClassroomRelationExists = errors.New("student_classroom_relation_exists")
 )
 
 const (

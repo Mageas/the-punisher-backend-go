@@ -117,5 +117,15 @@ func WriteFromError(w http.ResponseWriter, err error) {
 		return
 	}
 
+	if errors.Is(err, api.ErrClassroomNotFound) {
+		WriteError(w, http.StatusNotFound, err, nil)
+		return
+	}
+
+	if errors.Is(err, api.ErrStudentClassroomRelationExists) {
+		WriteError(w, http.StatusConflict, err, nil)
+		return
+	}
+
 	WriteServerError(w, err)
 }

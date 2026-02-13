@@ -11,6 +11,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Classroom struct {
+	ID          uuid.UUID   `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Name        string      `json:"name"`
+	Year        pgtype.Text `json:"year"`
+	MainTeacher pgtype.Text `json:"main_teacher"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+}
+
 type RefreshToken struct {
 	ID        uuid.UUID          `json:"id"`
 	UserID    uuid.UUID          `json:"user_id"`
@@ -29,6 +39,12 @@ type Student struct {
 	LastName  string    `json:"last_name"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type StudentClassroom struct {
+	StudentID   uuid.UUID `json:"student_id"`
+	ClassroomID uuid.UUID `json:"classroom_id"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type User struct {
