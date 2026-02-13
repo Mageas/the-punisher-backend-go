@@ -178,6 +178,7 @@ func (q *Queries) CreateClassroom(ctx context.Context, arg CreateClassroomParams
 }
 
 const createRefreshToken = `-- name: CreateRefreshToken :one
+
 INSERT INTO refresh_tokens (
     user_id, token, user_agent, client_ip, expires_at
 ) VALUES (
@@ -194,6 +195,7 @@ type CreateRefreshTokenParams struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
+// ==================== RefreshToken ====================
 func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error) {
 	row := q.db.QueryRow(ctx, createRefreshToken,
 		arg.UserID,
@@ -217,6 +219,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 }
 
 const createStudent = `-- name: CreateStudent :one
+
 INSERT INTO students (
     user_id, first_name, last_name
 ) VALUES (
@@ -231,6 +234,7 @@ type CreateStudentParams struct {
 	LastName  string    `json:"last_name"`
 }
 
+// ==================== Student ====================
 func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
 	row := q.db.QueryRow(ctx, createStudent, arg.UserID, arg.FirstName, arg.LastName)
 	var i Student
@@ -246,6 +250,7 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 }
 
 const createUser = `-- name: CreateUser :one
+
 INSERT INTO users (
     email, first_name, last_name, password_hash
 ) VALUES (
@@ -270,6 +275,7 @@ type CreateUserRow struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// ==================== User ====================
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
@@ -289,18 +295,18 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
-const deleteBonusType = `-- name: DeleteBonusType :execrows
+const deleteBonusTypeByUser = `-- name: DeleteBonusTypeByUser :execrows
 DELETE FROM bonus_types
 WHERE id = $1 AND user_id = $2
 `
 
-type DeleteBonusTypeParams struct {
+type DeleteBonusTypeByUserParams struct {
 	ID     uuid.UUID `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) DeleteBonusType(ctx context.Context, arg DeleteBonusTypeParams) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteBonusType, arg.ID, arg.UserID)
+func (q *Queries) DeleteBonusTypeByUser(ctx context.Context, arg DeleteBonusTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteBonusTypeByUser, arg.ID, arg.UserID)
 	if err != nil {
 		return 0, err
 	}
@@ -353,19 +359,19 @@ func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUs
 	return result.RowsAffected(), nil
 }
 
-const getBonusType = `-- name: GetBonusType :one
+const getBonusTypeByUser = `-- name: GetBonusTypeByUser :one
 SELECT id, user_id, name, created_at, updated_at
 FROM bonus_types
 WHERE id = $1 AND user_id = $2 LIMIT 1
 `
 
-type GetBonusTypeParams struct {
+type GetBonusTypeByUserParams struct {
 	ID     uuid.UUID `json:"id"`
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetBonusType(ctx context.Context, arg GetBonusTypeParams) (BonusType, error) {
-	row := q.db.QueryRow(ctx, getBonusType, arg.ID, arg.UserID)
+func (q *Queries) GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error) {
+	row := q.db.QueryRow(ctx, getBonusTypeByUser, arg.ID, arg.UserID)
 	var i BonusType
 	err := row.Scan(
 		&i.ID,
@@ -781,7 +787,7 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (RevokeR
 	return i, err
 }
 
-const updateBonusType = `-- name: UpdateBonusType :one
+const updateBonusTypeByUser = `-- name: UpdateBonusTypeByUser :one
 UPDATE bonus_types
 SET
     name = COALESCE($1, name),
@@ -790,14 +796,14 @@ WHERE id = $2 AND user_id = $3
 RETURNING id, user_id, name, created_at, updated_at
 `
 
-type UpdateBonusTypeParams struct {
+type UpdateBonusTypeByUserParams struct {
 	Name   pgtype.Text `json:"name"`
 	ID     uuid.UUID   `json:"id"`
 	UserID uuid.UUID   `json:"user_id"`
 }
 
-func (q *Queries) UpdateBonusType(ctx context.Context, arg UpdateBonusTypeParams) (BonusType, error) {
-	row := q.db.QueryRow(ctx, updateBonusType, arg.Name, arg.ID, arg.UserID)
+func (q *Queries) UpdateBonusTypeByUser(ctx context.Context, arg UpdateBonusTypeByUserParams) (BonusType, error) {
+	row := q.db.QueryRow(ctx, updateBonusTypeByUser, arg.Name, arg.ID, arg.UserID)
 	var i BonusType
 	err := row.Scan(
 		&i.ID,
