@@ -22,14 +22,17 @@ type Querier interface {
 	CreateBonusType(ctx context.Context, arg CreateBonusTypeParams) (BonusType, error)
 	// ==================== Classroom ====================
 	CreateClassroom(ctx context.Context, arg CreateClassroomParams) (Classroom, error)
+	// ==================== RefreshToken ====================
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
+	// ==================== Student ====================
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
+	// ==================== User ====================
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
-	DeleteBonusType(ctx context.Context, arg DeleteBonusTypeParams) (int64, error)
+	DeleteBonusTypeByUser(ctx context.Context, arg DeleteBonusTypeByUserParams) (int64, error)
 	DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error)
 	DeleteRefreshToken(ctx context.Context, token string) error
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
-	GetBonusType(ctx context.Context, arg GetBonusTypeParams) (BonusType, error)
+	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
 	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error)
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error)
@@ -42,7 +45,7 @@ type Querier interface {
 	ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]Student, error)
 	RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) (int64, error)
 	RevokeRefreshToken(ctx context.Context, token string) (RevokeRefreshTokenRow, error)
-	UpdateBonusType(ctx context.Context, arg UpdateBonusTypeParams) (BonusType, error)
+	UpdateBonusTypeByUser(ctx context.Context, arg UpdateBonusTypeByUserParams) (BonusType, error)
 	UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error)
 	UserEmailExists(ctx context.Context, email string) (bool, error)

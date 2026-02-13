@@ -23,10 +23,10 @@ type BonusTypeService interface {
 }
 
 type bonusTypeService struct {
-	repo *repository.Queries
+	repo repository.Querier
 }
 
-func NewBonusTypeService(repo *repository.Queries) BonusTypeService {
+func NewBonusTypeService(repo repository.Querier) BonusTypeService {
 	return &bonusTypeService{
 		repo: repo,
 	}
@@ -47,7 +47,7 @@ func (s *bonusTypeService) CreateBonusType(ctx context.Context, userID uuid.UUID
 }
 
 func (s *bonusTypeService) GetBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) (*dto.ReturnBonusTypeDto, error) {
-	bt, err := s.repo.GetBonusType(ctx, repository.GetBonusTypeParams{
+	bt, err := s.repo.GetBonusTypeByUser(ctx, repository.GetBonusTypeByUserParams{
 		ID:     bonusTypeID,
 		UserID: userID,
 	})
@@ -80,7 +80,7 @@ func (s *bonusTypeService) ListBonusTypes(ctx context.Context, userID uuid.UUID,
 }
 
 func (s *bonusTypeService) UpdateBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID, req dto.UpdateBonusTypeDto) (*dto.ReturnBonusTypeDto, error) {
-	arg := repository.UpdateBonusTypeParams{
+	arg := repository.UpdateBonusTypeByUserParams{
 		ID:     bonusTypeID,
 		UserID: userID,
 	}
@@ -89,7 +89,7 @@ func (s *bonusTypeService) UpdateBonusType(ctx context.Context, userID, bonusTyp
 		arg.Name = pgtype.Text{String: *req.Name, Valid: true}
 	}
 
-	bt, err := s.repo.UpdateBonusType(ctx, arg)
+	bt, err := s.repo.UpdateBonusTypeByUser(ctx, arg)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, api.ErrBonusTypeNotFound
@@ -101,7 +101,7 @@ func (s *bonusTypeService) UpdateBonusType(ctx context.Context, userID, bonusTyp
 }
 
 func (s *bonusTypeService) DeleteBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) error {
-	rowsAffected, err := s.repo.DeleteBonusType(ctx, repository.DeleteBonusTypeParams{
+	rowsAffected, err := s.repo.DeleteBonusTypeByUser(ctx, repository.DeleteBonusTypeByUserParams{
 		ID:     bonusTypeID,
 		UserID: userID,
 	})

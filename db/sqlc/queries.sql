@@ -1,3 +1,5 @@
+-- ==================== User ====================
+
 -- name: CreateUser :one
 INSERT INTO users (
     email, first_name, last_name, password_hash
@@ -13,6 +15,8 @@ SELECT EXISTS (
 
 -- name: GetUserCredentialsByEmailForAuth :one
 SELECT id, email, password_hash FROM users WHERE email = LOWER(sqlc.arg(email)) LIMIT 1;
+
+-- ==================== RefreshToken ====================
 
 -- name: CreateRefreshToken :one
 INSERT INTO refresh_tokens (
@@ -42,6 +46,8 @@ SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, create
 FROM refresh_tokens
 WHERE user_id = sqlc.arg(user_id)
 ORDER BY created_at DESC;
+
+-- ==================== Student ====================
 
 -- name: CreateStudent :one
 INSERT INTO students (
@@ -176,7 +182,7 @@ INSERT INTO bonus_types (
 )
 RETURNING id, user_id, name, created_at, updated_at;
 
--- name: GetBonusType :one
+-- name: GetBonusTypeByUser :one
 SELECT id, user_id, name, created_at, updated_at
 FROM bonus_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
@@ -191,7 +197,7 @@ WHERE user_id = sqlc.arg(user_id)
 ORDER BY created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
--- name: UpdateBonusType :one
+-- name: UpdateBonusTypeByUser :one
 UPDATE bonus_types
 SET
     name = COALESCE(sqlc.narg(name), name),
@@ -199,6 +205,6 @@ SET
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)
 RETURNING id, user_id, name, created_at, updated_at;
 
--- name: DeleteBonusType :execrows
+-- name: DeleteBonusTypeByUser :execrows
 DELETE FROM bonus_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
