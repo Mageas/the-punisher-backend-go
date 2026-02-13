@@ -81,6 +81,9 @@ func (app *application) mount() http.Handler {
 	studentService := service.NewStudentService(repo)
 	studentHandler := handler.NewStudentHandler(studentService)
 
+	classroomService := service.NewClassroomService(repo)
+	classroomHandler := handler.NewClassroomHandler(classroomService)
+
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
 		r.Post("/", studentHandler.CreateStudent)
@@ -88,6 +91,19 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", studentHandler.GetStudent)
 		r.Put("/{id}", studentHandler.UpdateStudent)
 		r.Delete("/{id}", studentHandler.DeleteStudent)
+		r.Get("/{id}/classrooms", classroomHandler.ListClassroomsByStudent)
+	})
+
+	r.Route("/v1/classrooms", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", classroomHandler.CreateClassroom)
+		r.Get("/", classroomHandler.ListClassrooms)
+		r.Get("/{id}", classroomHandler.GetClassroom)
+		r.Put("/{id}", classroomHandler.UpdateClassroom)
+		r.Delete("/{id}", classroomHandler.DeleteClassroom)
+		r.Post("/{id}/students", classroomHandler.AddStudentToClassroom)
+		r.Delete("/{id}/students/{studentId}", classroomHandler.RemoveStudentFromClassroom)
+		r.Get("/{id}/students", classroomHandler.ListStudentsByClassroom)
 	})
 
 	return r
