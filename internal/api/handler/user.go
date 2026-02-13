@@ -30,7 +30,7 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.RequestUserDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}

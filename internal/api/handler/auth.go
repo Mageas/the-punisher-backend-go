@@ -32,7 +32,7 @@ func NewAuthHandler(service service.AuthService, cfg config.JWTConfig, refreshTo
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req dto.LoginRequestDto
-	if err := web.DecodeJSON(w, r, &req); err != nil {
+	if err := web.DecodeJSON(r, &req); err != nil {
 		web.WriteJSONDecodeError(w, err)
 		return
 	}

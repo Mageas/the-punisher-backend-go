@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -77,6 +78,8 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 	if err != nil {
 		return nil, fmt.Errorf("failed to create refresh token: %w", err)
 	}
+
+	slog.Info("user logged in", "user_id", userCredentials.ID, "remote_addr", req.RemoteAddr)
 
 	return &dto.LoginResponseDto{
 		AccessToken:  accessToken,

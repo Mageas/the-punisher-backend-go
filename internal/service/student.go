@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -38,6 +39,8 @@ func (s *studentService) CreateStudent(ctx context.Context, userID uuid.UUID, re
 	if err != nil {
 		return nil, fmt.Errorf("failed to create student: %w", err)
 	}
+
+	slog.Info("student created", "student_id", student.ID, "user_id", userID)
 
 	return dto.StudentFromRepository(&student), nil
 }
@@ -100,13 +103,19 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID uuid.UUID, st
 }
 
 func (s *studentService) DeleteStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error {
-	err := s.repo.DeleteStudentByUser(ctx, repository.DeleteStudentByUserParams{
+	rowsAffected, err := s.repo.DeleteStudentByUser(ctx, repository.DeleteStudentByUserParams{
 		ID:     studentID,
 		UserID: userID,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete student: %w", err)
 	}
+
+	if rowsAffected == 0 {
+		return api.ErrStudentNotFound
+	}
+
+	slog.Info("student deleted", "student_id", studentID, "user_id", userID)
 
 	return nil
 }

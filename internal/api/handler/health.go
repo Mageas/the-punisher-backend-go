@@ -3,15 +3,16 @@ package handler
 import (
 	"net/http"
 
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
 )
 
 type HealthHandler struct {
-	service *service.HealthService
+	service service.HealthChecker
 }
 
-func NewHealthHandler(service *service.HealthService) *HealthHandler {
+func NewHealthHandler(service service.HealthChecker) *HealthHandler {
 	return &HealthHandler{service: service}
 }
 
@@ -20,7 +21,7 @@ func (h *HealthHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 
 	statusCode := http.StatusOK
 
-	if data.Status == service.StatusUnhealthy {
+	if data.Status == dto.StatusUnhealthy {
 		statusCode = http.StatusServiceUnavailable
 	}
 

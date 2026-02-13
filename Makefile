@@ -6,7 +6,7 @@ dev:
 
 .PHONY: build
 build:
-	go build -o ./bin/main ./cmd/api/main.go
+	go build -o ./bin/main ./cmd/api
 
 .PHONY: migrate-create
 migrate-create:
