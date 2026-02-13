@@ -75,7 +75,7 @@ SET
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)
 RETURNING id, user_id, first_name, last_name, created_at, updated_at;
 
--- name: DeleteStudentByUser :exec
+-- name: DeleteStudentByUser :execrows
 DELETE FROM students
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 
@@ -114,13 +114,13 @@ SET
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)
 RETURNING id, user_id, name, year, main_teacher, created_at, updated_at;
 
--- name: DeleteClassroomByUser :exec
+-- name: DeleteClassroomByUser :execrows
 DELETE FROM classrooms
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 
 -- ==================== StudentClassroom ====================
 
--- name: AddStudentToClassroom :exec
+-- name: AddStudentToClassroom :execrows
 INSERT INTO student_classrooms (student_id, classroom_id)
 SELECT sqlc.arg(student_id), sqlc.arg(classroom_id)
 WHERE EXISTS (
@@ -129,7 +129,7 @@ WHERE EXISTS (
     SELECT 1 FROM classrooms cl WHERE cl.id = sqlc.arg(classroom_id) AND cl.user_id = sqlc.arg(user_id)
 );
 
--- name: RemoveStudentFromClassroom :exec
+-- name: RemoveStudentFromClassroom :execrows
 DELETE FROM student_classrooms
 WHERE student_id = sqlc.arg(student_id)
   AND classroom_id = sqlc.arg(classroom_id)

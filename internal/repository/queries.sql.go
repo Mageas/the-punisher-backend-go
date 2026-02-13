@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addStudentToClassroom = `-- name: AddStudentToClassroom :exec
+const addStudentToClassroom = `-- name: AddStudentToClassroom :execrows
 
 INSERT INTO student_classrooms (student_id, classroom_id)
 SELECT $1, $2
@@ -31,9 +31,12 @@ type AddStudentToClassroomParams struct {
 }
 
 // ==================== StudentClassroom ====================
-func (q *Queries) AddStudentToClassroom(ctx context.Context, arg AddStudentToClassroomParams) error {
-	_, err := q.db.Exec(ctx, addStudentToClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
-	return err
+func (q *Queries) AddStudentToClassroom(ctx context.Context, arg AddStudentToClassroomParams) (int64, error) {
+	result, err := q.db.Exec(ctx, addStudentToClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const countClassroomsByStudent = `-- name: CountClassroomsByStudent :one
@@ -246,7 +249,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
-const deleteClassroomByUser = `-- name: DeleteClassroomByUser :exec
+const deleteClassroomByUser = `-- name: DeleteClassroomByUser :execrows
 DELETE FROM classrooms
 WHERE id = $1 AND user_id = $2
 `
@@ -256,9 +259,12 @@ type DeleteClassroomByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) error {
-	_, err := q.db.Exec(ctx, deleteClassroomByUser, arg.ID, arg.UserID)
-	return err
+func (q *Queries) DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteClassroomByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
@@ -271,7 +277,7 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, token string) error {
 	return err
 }
 
-const deleteStudentByUser = `-- name: DeleteStudentByUser :exec
+const deleteStudentByUser = `-- name: DeleteStudentByUser :execrows
 DELETE FROM students
 WHERE id = $1 AND user_id = $2
 `
@@ -281,9 +287,12 @@ type DeleteStudentByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) error {
-	_, err := q.db.Exec(ctx, deleteStudentByUser, arg.ID, arg.UserID)
-	return err
+func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteStudentByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getClassroomByUser = `-- name: GetClassroomByUser :one
@@ -599,7 +608,7 @@ func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUser
 	return items, nil
 }
 
-const removeStudentFromClassroom = `-- name: RemoveStudentFromClassroom :exec
+const removeStudentFromClassroom = `-- name: RemoveStudentFromClassroom :execrows
 DELETE FROM student_classrooms
 WHERE student_id = $1
   AND classroom_id = $2
@@ -614,9 +623,12 @@ type RemoveStudentFromClassroomParams struct {
 	UserID      uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) error {
-	_, err := q.db.Exec(ctx, removeStudentFromClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
-	return err
+func (q *Queries) RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) (int64, error) {
+	result, err := q.db.Exec(ctx, removeStudentFromClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const revokeRefreshToken = `-- name: RevokeRefreshToken :one
