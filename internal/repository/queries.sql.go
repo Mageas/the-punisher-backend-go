@@ -157,14 +157,14 @@ type CreateBonusParams struct {
 }
 
 // ==================== Bonus ====================
-func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonuse, error) {
+func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonus, error) {
 	row := q.db.QueryRow(ctx, createBonus,
 		arg.UserID,
 		arg.StudentID,
 		arg.BonusTypeID,
 		arg.Points,
 	)
-	var i Bonuse
+	var i Bonus
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -455,9 +455,9 @@ type GetBonusByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonuse, error) {
+func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonus, error) {
 	row := q.db.QueryRow(ctx, getBonusByUser, arg.ID, arg.UserID)
-	var i Bonuse
+	var i Bonus
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -644,7 +644,7 @@ type ListBonusesByStudentParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonuse, error) {
+func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonus, error) {
 	rows, err := q.db.Query(ctx, listBonusesByStudent,
 		arg.StudentID,
 		arg.UserID,
@@ -655,9 +655,9 @@ func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStu
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Bonuse
+	var items []Bonus
 	for rows.Next() {
-		var i Bonuse
+		var i Bonus
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -691,15 +691,15 @@ type ListBonusesByUserParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonuse, error) {
+func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error) {
 	rows, err := q.db.Query(ctx, listBonusesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Bonuse
+	var items []Bonus
 	for rows.Next() {
-		var i Bonuse
+		var i Bonus
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1104,9 +1104,9 @@ type UseBonusParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (Bonuse, error) {
+func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, error) {
 	row := q.db.QueryRow(ctx, useBonus, arg.ID, arg.UserID)
-	var i Bonuse
+	var i Bonus
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,

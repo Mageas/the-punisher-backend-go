@@ -23,7 +23,7 @@ type ReturnBonusDto struct {
 	UsedAt      *time.Time `json:"used_at"`
 }
 
-func BonusFromRepository(b *repository.Bonuse) *ReturnBonusDto {
+func BonusFromRepository(b *repository.Bonus) *ReturnBonusDto {
 	if b == nil {
 		return nil
 	}
@@ -43,7 +43,7 @@ func BonusFromRepository(b *repository.Bonuse) *ReturnBonusDto {
 	return dto
 }
 
-func BonusListFromRepository(bonuses []repository.Bonuse) []*ReturnBonusDto {
+func BonusListFromRepository(bonuses []repository.Bonus) []*ReturnBonusDto {
 	dtos := make([]*ReturnBonusDto, 0, len(bonuses))
 
 	for _, bonus := range bonuses {
