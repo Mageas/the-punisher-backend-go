@@ -368,6 +368,13 @@ SELECT COUNT(*)
 FROM penalties
 WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id);
 
+-- name: CountPenaltiesByStudentAndType :one
+SELECT COUNT(*)
+FROM penalties
+WHERE student_id = sqlc.arg(student_id)
+  AND user_id = sqlc.arg(user_id)
+  AND penalty_type_id = sqlc.arg(penalty_type_id);
+
 -- name: ListPenaltiesByStudent :many
 SELECT id, user_id, student_id, penalty_type_id, created_at
 FROM penalties
@@ -379,6 +386,57 @@ LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 DELETE FROM penalties
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 
+-- ==================== Rule ====================
+
+-- name: CreateRule :one
+INSERT INTO rules (
+    user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, due_at_after_days
+) VALUES (
+    sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(resulting_punishment_type_id), sqlc.arg(penalty_type_id), sqlc.arg(threshold), sqlc.arg(mode), sqlc.arg(is_active), sqlc.arg(due_at_after_days)
+)
+RETURNING id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days;
+
+-- name: GetRuleByUser :one
+SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+FROM rules
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+
+-- name: CountRulesByUser :one
+SELECT COUNT(*) FROM rules WHERE user_id = sqlc.arg(user_id);
+
+-- name: ListRulesByUser :many
+SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+FROM rules
+WHERE user_id = sqlc.arg(user_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: ListActiveRulesByUserAndPenaltyType :many
+SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+FROM rules
+WHERE user_id = sqlc.arg(user_id)
+  AND penalty_type_id = sqlc.arg(penalty_type_id)
+  AND is_active = TRUE
+ORDER BY created_at DESC;
+
+-- name: UpdateRuleByUser :one
+UPDATE rules
+SET
+    name = COALESCE(sqlc.narg(name), name),
+    resulting_punishment_type_id = COALESCE(sqlc.narg(resulting_punishment_type_id), resulting_punishment_type_id),
+    penalty_type_id = COALESCE(sqlc.narg(penalty_type_id), penalty_type_id),
+    threshold = COALESCE(sqlc.narg(threshold), threshold),
+    mode = COALESCE(sqlc.narg(mode), mode),
+    is_active = COALESCE(sqlc.narg(is_active)::boolean, is_active),
+    due_at_after_days = COALESCE(sqlc.narg(due_at_after_days), due_at_after_days),
+    updated_at = NOW()
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)
+RETURNING id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days;
+
+-- name: DeleteRuleByUser :execrows
+DELETE FROM rules
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
 -- ==================== Punishment ====================
 
 -- name: CreatePunishment :one
@@ -386,6 +444,14 @@ INSERT INTO punishments (
     user_id, student_id, punishment_type_id, due_at
 ) VALUES (
     sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(due_at)
+)
+RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
+
+-- name: CreatePunishmentFromRule :one
+INSERT INTO punishments (
+    user_id, student_id, punishment_type_id, triggering_rule_id, due_at
+) VALUES (
+    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(triggering_rule_id), sqlc.arg(due_at)
 )
 RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
 

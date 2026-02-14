@@ -83,7 +83,7 @@ Le backend est organisé par domaine:
 ### 4.2 Rule Engine
 
 - input: élève, user, nouvel événement de pénalité.
-- source: table `rules` (`penalty_type_id`, `threshold`, `mode`, `is_active`).
+- source: table `rules` (`penalty_type_id`, `threshold`, `due_at_after_days`, `mode`, `is_active`).
 - filtre obligatoire: évaluer uniquement les règles où `is_active = true`.
 - output: zéro ou plusieurs `punishments`.
 
@@ -120,6 +120,7 @@ Chaque règle stocke un trigger simple:
 {
   "penalty_type_id": "uuid",
   "threshold": 3,
+  "due_at_after_days": 7,
   "mode": "at|every|after",
   "is_active": true
 }
@@ -128,6 +129,7 @@ Chaque règle stocke un trigger simple:
 Sémantique:
 - `penalty_type_id`: type de pénalité observé pour la règle.
 - `threshold`: nombre de pénalités à atteindre.
+- `due_at_after_days`: nombre de jours appliqué pour calculer `punishments.due_at` (`now + X jours`) en création automatique.
 - `mode`:
   - `at`: déclenche une fois quand `count == threshold`
   - `every`: déclenche à chaque multiple (`count % threshold == 0`)
@@ -136,6 +138,7 @@ Sémantique:
 
 Validation minimale à imposer:
 - `threshold >= 1`.
+- `due_at_after_days >= 0`.
 - `mode` ∈ {`at`, `every`, `after`}.
 - `is_active` booléen (par défaut `true` à la création).
 - `penalty_type_id` appartient au même user.

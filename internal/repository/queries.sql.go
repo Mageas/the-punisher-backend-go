@@ -138,6 +138,27 @@ func (q *Queries) CountPenaltiesByStudent(ctx context.Context, arg CountPenaltie
 	return count, err
 }
 
+const countPenaltiesByStudentAndType = `-- name: CountPenaltiesByStudentAndType :one
+SELECT COUNT(*)
+FROM penalties
+WHERE student_id = $1
+  AND user_id = $2
+  AND penalty_type_id = $3
+`
+
+type CountPenaltiesByStudentAndTypeParams struct {
+	StudentID     uuid.UUID `json:"student_id"`
+	UserID        uuid.UUID `json:"user_id"`
+	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+}
+
+func (q *Queries) CountPenaltiesByStudentAndType(ctx context.Context, arg CountPenaltiesByStudentAndTypeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPenaltiesByStudentAndType, arg.StudentID, arg.UserID, arg.PenaltyTypeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countPenaltiesByUser = `-- name: CountPenaltiesByUser :one
 SELECT COUNT(*) FROM penalties WHERE user_id = $1
 `
@@ -206,6 +227,17 @@ type CountPunishmentsByUserParams struct {
 
 func (q *Queries) CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countPunishmentsByUser, arg.UserID, arg.Resolved)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRulesByUser = `-- name: CountRulesByUser :one
+SELECT COUNT(*) FROM rules WHERE user_id = $1
+`
+
+func (q *Queries) CountRulesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countRulesByUser, userID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -444,6 +476,45 @@ func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentPara
 	return i, err
 }
 
+const createPunishmentFromRule = `-- name: CreatePunishmentFromRule :one
+INSERT INTO punishments (
+    user_id, student_id, punishment_type_id, triggering_rule_id, due_at
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+`
+
+type CreatePunishmentFromRuleParams struct {
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	PunishmentTypeID uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID pgtype.UUID `json:"triggering_rule_id"`
+	DueAt            time.Time   `json:"due_at"`
+}
+
+func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunishmentFromRuleParams) (Punishment, error) {
+	row := q.db.QueryRow(ctx, createPunishmentFromRule,
+		arg.UserID,
+		arg.StudentID,
+		arg.PunishmentTypeID,
+		arg.TriggeringRuleID,
+		arg.DueAt,
+	)
+	var i Punishment
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.StudentID,
+		&i.PunishmentTypeID,
+		&i.TriggeringRuleID,
+		&i.CreatedAt,
+		&i.DueAt,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
 const createPunishmentType = `-- name: CreatePunishmentType :one
 
 INSERT INTO punishment_types (
@@ -510,6 +581,56 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 		&i.RevokedAt,
 		&i.ExpiresAt,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createRule = `-- name: CreateRule :one
+
+INSERT INTO rules (
+    user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, due_at_after_days
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+RETURNING id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+`
+
+type CreateRuleParams struct {
+	UserID                    uuid.UUID `json:"user_id"`
+	Name                      string    `json:"name"`
+	ResultingPunishmentTypeID uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID             uuid.UUID `json:"penalty_type_id"`
+	Threshold                 int32     `json:"threshold"`
+	Mode                      string    `json:"mode"`
+	IsActive                  bool      `json:"is_active"`
+	DueAtAfterDays            int32     `json:"due_at_after_days"`
+}
+
+// ==================== Rule ====================
+func (q *Queries) CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, error) {
+	row := q.db.QueryRow(ctx, createRule,
+		arg.UserID,
+		arg.Name,
+		arg.ResultingPunishmentTypeID,
+		arg.PenaltyTypeID,
+		arg.Threshold,
+		arg.Mode,
+		arg.IsActive,
+		arg.DueAtAfterDays,
+	)
+	var i Rule
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.ResultingPunishmentTypeID,
+		&i.PenaltyTypeID,
+		&i.Threshold,
+		&i.Mode,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DueAtAfterDays,
 	)
 	return i, err
 }
@@ -725,6 +846,24 @@ WHERE token = $1
 func (q *Queries) DeleteRefreshToken(ctx context.Context, token string) error {
 	_, err := q.db.Exec(ctx, deleteRefreshToken, token)
 	return err
+}
+
+const deleteRuleByUser = `-- name: DeleteRuleByUser :execrows
+DELETE FROM rules
+WHERE id = $1 AND user_id = $2
+`
+
+type DeleteRuleByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteRuleByUser(ctx context.Context, arg DeleteRuleByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRuleByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteStudentByUser = `-- name: DeleteStudentByUser :execrows
@@ -947,6 +1086,36 @@ func (q *Queries) GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams
 	return i, err
 }
 
+const getRuleByUser = `-- name: GetRuleByUser :one
+SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+FROM rules
+WHERE id = $1 AND user_id = $2 LIMIT 1
+`
+
+type GetRuleByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (Rule, error) {
+	row := q.db.QueryRow(ctx, getRuleByUser, arg.ID, arg.UserID)
+	var i Rule
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.ResultingPunishmentTypeID,
+		&i.PenaltyTypeID,
+		&i.Threshold,
+		&i.Mode,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DueAtAfterDays,
+	)
+	return i, err
+}
+
 const getStudentByUser = `-- name: GetStudentByUser :one
 SELECT id, user_id, first_name, last_name, created_at, updated_at
 FROM students
@@ -987,6 +1156,52 @@ func (q *Queries) GetUserCredentialsByEmailForAuth(ctx context.Context, email st
 	var i GetUserCredentialsByEmailForAuthRow
 	err := row.Scan(&i.ID, &i.Email, &i.PasswordHash)
 	return i, err
+}
+
+const listActiveRulesByUserAndPenaltyType = `-- name: ListActiveRulesByUserAndPenaltyType :many
+SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+FROM rules
+WHERE user_id = $1
+  AND penalty_type_id = $2
+  AND is_active = TRUE
+ORDER BY created_at DESC
+`
+
+type ListActiveRulesByUserAndPenaltyTypeParams struct {
+	UserID        uuid.UUID `json:"user_id"`
+	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+}
+
+func (q *Queries) ListActiveRulesByUserAndPenaltyType(ctx context.Context, arg ListActiveRulesByUserAndPenaltyTypeParams) ([]Rule, error) {
+	rows, err := q.db.Query(ctx, listActiveRulesByUserAndPenaltyType, arg.UserID, arg.PenaltyTypeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Rule
+	for rows.Next() {
+		var i Rule
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.ResultingPunishmentTypeID,
+			&i.PenaltyTypeID,
+			&i.Threshold,
+			&i.Mode,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DueAtAfterDays,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listBonusTypesByUser = `-- name: ListBonusTypesByUser :many
@@ -1527,6 +1742,52 @@ func (q *Queries) ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUI
 	return items, nil
 }
 
+const listRulesByUser = `-- name: ListRulesByUser :many
+SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+FROM rules
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListRulesByUserParams struct {
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]Rule, error) {
+	rows, err := q.db.Query(ctx, listRulesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Rule
+	for rows.Next() {
+		var i Rule
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.ResultingPunishmentTypeID,
+			&i.PenaltyTypeID,
+			&i.Threshold,
+			&i.Mode,
+			&i.IsActive,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DueAtAfterDays,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStudentsByClassroom = `-- name: ListStudentsByClassroom :many
 SELECT s.id, s.user_id, s.first_name, s.last_name, s.created_at, s.updated_at
 FROM students s
@@ -1816,6 +2077,62 @@ func (q *Queries) UpdatePunishmentTypeByUser(ctx context.Context, arg UpdatePuni
 		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updateRuleByUser = `-- name: UpdateRuleByUser :one
+UPDATE rules
+SET
+    name = COALESCE($1, name),
+    resulting_punishment_type_id = COALESCE($2, resulting_punishment_type_id),
+    penalty_type_id = COALESCE($3, penalty_type_id),
+    threshold = COALESCE($4, threshold),
+    mode = COALESCE($5, mode),
+    is_active = COALESCE($6::boolean, is_active),
+    due_at_after_days = COALESCE($7, due_at_after_days),
+    updated_at = NOW()
+WHERE id = $8 AND user_id = $9
+RETURNING id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+`
+
+type UpdateRuleByUserParams struct {
+	Name                      pgtype.Text `json:"name"`
+	ResultingPunishmentTypeID pgtype.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID             pgtype.UUID `json:"penalty_type_id"`
+	Threshold                 pgtype.Int4 `json:"threshold"`
+	Mode                      pgtype.Text `json:"mode"`
+	IsActive                  pgtype.Bool `json:"is_active"`
+	DueAtAfterDays            pgtype.Int4 `json:"due_at_after_days"`
+	ID                        uuid.UUID   `json:"id"`
+	UserID                    uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (Rule, error) {
+	row := q.db.QueryRow(ctx, updateRuleByUser,
+		arg.Name,
+		arg.ResultingPunishmentTypeID,
+		arg.PenaltyTypeID,
+		arg.Threshold,
+		arg.Mode,
+		arg.IsActive,
+		arg.DueAtAfterDays,
+		arg.ID,
+		arg.UserID,
+	)
+	var i Rule
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.ResultingPunishmentTypeID,
+		&i.PenaltyTypeID,
+		&i.Threshold,
+		&i.Mode,
+		&i.IsActive,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DueAtAfterDays,
 	)
 	return i, err
 }

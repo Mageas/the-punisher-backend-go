@@ -85,6 +85,20 @@ type RefreshToken struct {
 	CreatedAt time.Time          `json:"created_at"`
 }
 
+type Rule struct {
+	ID                        uuid.UUID `json:"id"`
+	UserID                    uuid.UUID `json:"user_id"`
+	Name                      string    `json:"name"`
+	ResultingPunishmentTypeID uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID             uuid.UUID `json:"penalty_type_id"`
+	Threshold                 int32     `json:"threshold"`
+	Mode                      string    `json:"mode"`
+	IsActive                  bool      `json:"is_active"`
+	CreatedAt                 time.Time `json:"created_at"`
+	UpdatedAt                 time.Time `json:"updated_at"`
+	DueAtAfterDays            int32     `json:"due_at_after_days"`
+}
+
 type Student struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`

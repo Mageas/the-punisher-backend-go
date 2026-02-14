@@ -158,6 +158,7 @@ Body:
   "resulting_punishment_type_id": "uuid",
   "penalty_type_id": "uuid-oubli-materiel",
   "threshold": 3,
+  "due_at_after_days": 7,
   "mode": "every",
   "is_active": true
 }
@@ -166,11 +167,14 @@ Body:
 Contraintes:
 - `mode`: `after|at|every`
 - `threshold >= 1`
+- `due_at_after_days >= 0`
 - `is_active` booléen (`true` par défaut).
 - `penalty_type_id` doit appartenir au même user.
 - `resulting_punishment_type_id` doit appartenir au même user.
 - seules les règles avec `is_active = true` peuvent déclencher automatiquement une `Punishment`.
 - si un `penalty_type` est supprimé, ses règles associées sont supprimées en cascade.
+- lors d'un déclenchement automatique, `punishments.due_at = now + due_at_after_days`.
+- `punishments.resolved_at` reste `NULL` à la création.
 
 Autres exemples:
 
@@ -180,6 +184,7 @@ Autres exemples:
   "resulting_punishment_type_id": "uuid",
   "penalty_type_id": "uuid-retard",
   "threshold": 3,
+  "due_at_after_days": 3,
   "mode": "at",
   "is_active": true
 }
@@ -191,6 +196,7 @@ Autres exemples:
   "resulting_punishment_type_id": "uuid",
   "penalty_type_id": "uuid-bavardage",
   "threshold": 5,
+  "due_at_after_days": 14,
   "mode": "every",
   "is_active": false
 }
@@ -202,6 +208,7 @@ Autres exemples:
   "resulting_punishment_type_id": "uuid",
   "penalty_type_id": "uuid-bavardage",
   "threshold": 2,
+  "due_at_after_days": 10,
   "mode": "after",
   "is_active": true
 }
@@ -238,6 +245,10 @@ Paramètre optionnel:
 Effet:
 - passe `resolved_at` de `NULL` à timestamp.
 - si déjà résolue: conflit.
+
+Format de réponse `punishments`:
+- `triggering_rule_id` est toujours présent dans le JSON.
+- valeur `null` pour une punition manuelle, UUID pour une punition automatique.
 
 ## 11. Codes d'erreur recommandés
 
