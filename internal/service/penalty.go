@@ -27,14 +27,40 @@ type penaltyService struct {
 	repo repository.Querier
 }
 
+type transactionalPenaltyRepo interface {
+	repository.Querier
+	Begin(ctx context.Context) (pgx.Tx, error)
+	WithTxQuerier(tx pgx.Tx) repository.Querier
+}
+
 func NewPenaltyService(repo repository.Querier) PenaltyService {
 	return &penaltyService{repo: repo}
 }
 
 func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyDto, error) {
-	penalty, err := s.createPenaltyWithRepo(ctx, s.repo, userID, studentID, penaltyTypeID)
+	txRepo, ok := s.repo.(transactionalPenaltyRepo)
+	if !ok {
+		return nil, fmt.Errorf("penalty repository does not support transactions")
+	}
+
+	tx, err := txRepo.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			slog.Error("failed to rollback transaction", "error", rollbackErr)
+		}
+	}()
+
+	penalty, err := s.createPenaltyWithRepo(ctx, txRepo.WithTxQuerier(tx), userID, studentID, penaltyTypeID)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	slog.Info("penalty created", "penalty_id", penalty.ID, "user_id", userID, "student_id", studentID, "penalty_type_id", penaltyTypeID)
