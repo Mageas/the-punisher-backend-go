@@ -140,7 +140,7 @@ Body:
 
 Effet métier:
 - enregistre une pénalité,
-- déclenche l'évaluation des règles.
+- déclenche l'évaluation des règles actives (`is_active = true`).
 
 ### GET `/penalties?page=1`
 ### GET `/penalties/{id}`
@@ -156,84 +156,43 @@ Body:
 {
   "name": "3 oublis matériel => retenue",
   "resulting_punishment_type_id": "uuid",
-  "conditions": {
-    "operator": "OR",
-    "triggers": [
-      {
-        "type": "penalty_count",
-        "penalty_type_ids": ["uuid-oubli-materiel"],
-        "threshold": 3,
-        "mode": "every"
-      }
-    ]
-  }
+  "penalty_type_id": "uuid-oubli-materiel",
+  "threshold": 3,
+  "mode": "every",
+  "is_active": true
 }
 ```
+
+Contraintes:
+- `mode`: `after|at|every`
+- `threshold >= 1`
+- `is_active` booléen (`true` par défaut).
+- `penalty_type_id` doit appartenir au même user.
+- `resulting_punishment_type_id` doit appartenir au même user.
+- seules les règles avec `is_active = true` peuvent déclencher automatiquement une `Punishment`.
+- si un `penalty_type` est supprimé, ses règles associées sont supprimées en cascade.
 
 Autres exemples:
 
 ```json
 {
-  "name": "5 pénalités toutes catégories => mot aux parents",
+  "name": "3 retards => retenue (déclenchement au seuil)",
   "resulting_punishment_type_id": "uuid",
-  "conditions": {
-    "operator": "OR",
-    "triggers": [
-      {
-        "type": "penalty_count",
-        "threshold": 5,
-        "mode": "every"
-      }
-    ]
-  }
+  "penalty_type_id": "uuid-retard",
+  "threshold": 3,
+  "mode": "at",
+  "is_active": true
 }
 ```
 
 ```json
 {
-  "name": "3 retards OU 2 bavardages => retenue",
+  "name": "Tous les 5 bavardages => mot aux parents",
   "resulting_punishment_type_id": "uuid",
-  "conditions": {
-    "operator": "OR",
-    "triggers": [
-      {
-        "type": "penalty_count",
-        "penalty_type_ids": ["uuid-retard"],
-        "threshold": 3,
-        "mode": "every"
-      },
-      {
-        "type": "penalty_count",
-        "penalty_type_ids": ["uuid-bavardage"],
-        "threshold": 2,
-        "mode": "every"
-      }
-    ]
-  }
-}
-```
-
-```json
-{
-  "name": "3 retards ET 1 oubli matériel => retenue",
-  "resulting_punishment_type_id": "uuid",
-  "conditions": {
-    "operator": "AND",
-    "triggers": [
-      {
-        "type": "penalty_count",
-        "penalty_type_ids": ["uuid-retard"],
-        "threshold": 3,
-        "mode": "every"
-      },
-      {
-        "type": "penalty_count",
-        "penalty_type_ids": ["uuid-oubli-materiel"],
-        "threshold": 1,
-        "mode": "at"
-      }
-    ]
-  }
+  "penalty_type_id": "uuid-bavardage",
+  "threshold": 5,
+  "mode": "every",
+  "is_active": false
 }
 ```
 
@@ -241,17 +200,10 @@ Autres exemples:
 {
   "name": "Après 2 bavardages, chaque nouveau bavardage => mot aux parents",
   "resulting_punishment_type_id": "uuid",
-  "conditions": {
-    "operator": "OR",
-    "triggers": [
-      {
-        "type": "penalty_count",
-        "penalty_type_ids": ["uuid-bavardage"],
-        "threshold": 2,
-        "mode": "after"
-      }
-    ]
-  }
+  "penalty_type_id": "uuid-bavardage",
+  "threshold": 2,
+  "mode": "after",
+  "is_active": true
 }
 ```
 

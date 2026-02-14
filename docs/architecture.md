@@ -12,7 +12,7 @@ Responsabilités:
 - `Handler`: parsing HTTP, validation, format réponse.
 - `Service`: logique métier et orchestration.
 - `Repository`: accès SQL typé (sqlc).
-- `Rule Engine` (dans service): évaluation des `rules.conditions`.
+- `Rule Engine` (dans service): évaluation des triggers des `rules`.
 
 Structure du Repo:
 ```text
@@ -83,7 +83,8 @@ Le backend est organisé par domaine:
 ### 4.2 Rule Engine
 
 - input: élève, user, nouvel événement de pénalité.
-- source: table `rules.conditions` (JSONB).
+- source: table `rules` (`penalty_type_id`, `threshold`, `mode`, `is_active`).
+- filtre obligatoire: évaluer uniquement les règles où `is_active = true`.
 - output: zéro ou plusieurs `punishments`.
 
 ### 4.3 Punishments
@@ -111,50 +112,37 @@ Le backend est organisé par domaine:
 - marquer bonus consommé (`used_at = NOW()`),
 - vérifier `rowsAffected == 1` pour éviter double consommation.
 
-## 6. Contrat JSON des règles
+## 6. Contrat des règles
 
-`rules.conditions` suit un arbre récursif:
-
-Noeud logique:
+Chaque règle stocke un trigger simple:
 
 ```json
 {
-  "operator": "AND|OR",
-  "triggers": ["node|leaf", "node|leaf"]
-}
-```
-
-Feuille (seule règle supportée pour l'instant):
-
-```json
-{
-  "type": "penalty_count",
-  "penalty_type_ids": ["uuid", "uuid"],
+  "penalty_type_id": "uuid",
   "threshold": 3,
-  "mode": "at|every|after"
+  "mode": "at|every|after",
+  "is_active": true
 }
 ```
 
 Sémantique:
-- `type` permet d'ouvrir à d'autres triggers plus tard. Pour l'instant, seul `penalty_count` existe.
-- `penalty_type_ids` est optionnel:
-  - absent => tous les types de pénalités
-  - présent => filtre "IN" (type A ou B)
-- `threshold` = X
+- `penalty_type_id`: type de pénalité observé pour la règle.
+- `threshold`: nombre de pénalités à atteindre.
 - `mode`:
-  - `at`: déclenche une fois quand `count == X`
-  - `every`: déclenche à chaque multiple (`count % X == 0`)
-  - `after`: déclenche à chaque nouvel événement si `count > X`
+  - `at`: déclenche une fois quand `count == threshold`
+  - `every`: déclenche à chaque multiple (`count % threshold == 0`)
+  - `after`: déclenche à chaque nouvel événement si `count > threshold`
+- `is_active`: active/désactive la règle sans suppression.
 
 Validation minimale à imposer:
-- `operator` obligatoire sur noeuds.
-- `triggers` non vide.
 - `threshold >= 1`.
 - `mode` ∈ {`at`, `every`, `after`}.
-- `penalty_type_ids` appartient au même user (si fourni).
+- `is_active` booléen (par défaut `true` à la création).
+- `penalty_type_id` appartient au même user.
 
-Point d'attention:
-- lors de l'implémentation des Rules, veiller à supprimer les "enfants" contenus dans `conditions` qui ne sont plus référencés (ex: update/suppression de règles). Si `conditions` est stocké en JSONB, remplacer le document entier pour éviter des résidus.
+Intégrité référentielle:
+- la relation `rules.penalty_type_id -> penalty_types.id` doit être en `ON DELETE CASCADE`.
+- suppression d'un `penalty_type` => suppression automatique des règles associées.
 
 ## 7. SQLC conventions
 
