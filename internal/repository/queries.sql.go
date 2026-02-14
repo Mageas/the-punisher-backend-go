@@ -160,6 +160,17 @@ func (q *Queries) CountPenaltyTypesByUser(ctx context.Context, userID uuid.UUID)
 	return count, err
 }
 
+const countPunishmentTypesByUser = `-- name: CountPunishmentTypesByUser :one
+SELECT COUNT(*) FROM punishment_types WHERE user_id = $1
+`
+
+func (q *Queries) CountPunishmentTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPunishmentTypesByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countStudentsByClassroom = `-- name: CountStudentsByClassroom :one
 SELECT COUNT(*)
 FROM student_classrooms sc
@@ -344,6 +355,35 @@ type CreatePenaltyTypeParams struct {
 func (q *Queries) CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error) {
 	row := q.db.QueryRow(ctx, createPenaltyType, arg.UserID, arg.Name)
 	var i PenaltyType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPunishmentType = `-- name: CreatePunishmentType :one
+
+INSERT INTO punishment_types (
+    user_id, name
+) VALUES (
+    $1, $2
+)
+RETURNING id, user_id, name, created_at, updated_at
+`
+
+type CreatePunishmentTypeParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+}
+
+// ==================== PunishmentType ====================
+func (q *Queries) CreatePunishmentType(ctx context.Context, arg CreatePunishmentTypeParams) (PunishmentType, error) {
+	row := q.db.QueryRow(ctx, createPunishmentType, arg.UserID, arg.Name)
+	var i PunishmentType
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -562,6 +602,24 @@ func (q *Queries) DeletePenaltyTypeByUser(ctx context.Context, arg DeletePenalty
 	return result.RowsAffected(), nil
 }
 
+const deletePunishmentTypeByUser = `-- name: DeletePunishmentTypeByUser :execrows
+DELETE FROM punishment_types
+WHERE id = $1 AND user_id = $2
+`
+
+type DeletePunishmentTypeByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeletePunishmentTypeByUser(ctx context.Context, arg DeletePunishmentTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePunishmentTypeByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
 DELETE FROM refresh_tokens
 WHERE token = $1
@@ -704,6 +762,30 @@ type GetPenaltyTypeByUserParams struct {
 func (q *Queries) GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeByUserParams) (PenaltyType, error) {
 	row := q.db.QueryRow(ctx, getPenaltyTypeByUser, arg.ID, arg.UserID)
 	var i PenaltyType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPunishmentTypeByUser = `-- name: GetPunishmentTypeByUser :one
+SELECT id, user_id, name, created_at, updated_at
+FROM punishment_types
+WHERE id = $1 AND user_id = $2 LIMIT 1
+`
+
+type GetPunishmentTypeByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetPunishmentTypeByUser(ctx context.Context, arg GetPunishmentTypeByUserParams) (PunishmentType, error) {
+	row := q.db.QueryRow(ctx, getPunishmentTypeByUser, arg.ID, arg.UserID)
+	var i PunishmentType
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -1142,6 +1224,46 @@ func (q *Queries) ListPenaltyTypesByUser(ctx context.Context, arg ListPenaltyTyp
 	return items, nil
 }
 
+const listPunishmentTypesByUser = `-- name: ListPunishmentTypesByUser :many
+SELECT id, user_id, name, created_at, updated_at
+FROM punishment_types
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListPunishmentTypesByUserParams struct {
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListPunishmentTypesByUser(ctx context.Context, arg ListPunishmentTypesByUserParams) ([]PunishmentType, error) {
+	rows, err := q.db.Query(ctx, listPunishmentTypesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PunishmentType
+	for rows.Next() {
+		var i PunishmentType
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRefreshTokensByUserId = `-- name: ListRefreshTokensByUserId :many
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
@@ -1405,6 +1527,34 @@ type UpdatePenaltyTypeByUserParams struct {
 func (q *Queries) UpdatePenaltyTypeByUser(ctx context.Context, arg UpdatePenaltyTypeByUserParams) (PenaltyType, error) {
 	row := q.db.QueryRow(ctx, updatePenaltyTypeByUser, arg.Name, arg.ID, arg.UserID)
 	var i PenaltyType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePunishmentTypeByUser = `-- name: UpdatePunishmentTypeByUser :one
+UPDATE punishment_types
+SET
+    name = COALESCE($1, name),
+    updated_at = NOW()
+WHERE id = $2 AND user_id = $3
+RETURNING id, user_id, name, created_at, updated_at
+`
+
+type UpdatePunishmentTypeByUserParams struct {
+	Name   pgtype.Text `json:"name"`
+	ID     uuid.UUID   `json:"id"`
+	UserID uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) UpdatePunishmentTypeByUser(ctx context.Context, arg UpdatePunishmentTypeByUserParams) (PunishmentType, error) {
+	row := q.db.QueryRow(ctx, updatePunishmentTypeByUser, arg.Name, arg.ID, arg.UserID)
+	var i PunishmentType
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
