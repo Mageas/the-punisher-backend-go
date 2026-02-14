@@ -53,27 +53,38 @@ func (q *Queries) CountBonusTypesByUser(ctx context.Context, userID uuid.UUID) (
 const countBonusesByStudent = `-- name: CountBonusesByStudent :one
 SELECT COUNT(*)
 FROM bonuses
-WHERE student_id = $1 AND user_id = $2
+WHERE student_id = $1
+  AND user_id = $2
+  AND ($3::boolean IS NULL OR (used_at IS NOT NULL) = $3::boolean)
 `
 
 type CountBonusesByStudentParams struct {
-	StudentID uuid.UUID `json:"student_id"`
-	UserID    uuid.UUID `json:"user_id"`
+	StudentID uuid.UUID   `json:"student_id"`
+	UserID    uuid.UUID   `json:"user_id"`
+	Used      pgtype.Bool `json:"used"`
 }
 
 func (q *Queries) CountBonusesByStudent(ctx context.Context, arg CountBonusesByStudentParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countBonusesByStudent, arg.StudentID, arg.UserID)
+	row := q.db.QueryRow(ctx, countBonusesByStudent, arg.StudentID, arg.UserID, arg.Used)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const countBonusesByUser = `-- name: CountBonusesByUser :one
-SELECT COUNT(*) FROM bonuses WHERE user_id = $1
+SELECT COUNT(*)
+FROM bonuses
+WHERE user_id = $1
+  AND ($2::boolean IS NULL OR (used_at IS NOT NULL) = $2::boolean)
 `
 
-func (q *Queries) CountBonusesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countBonusesByUser, userID)
+type CountBonusesByUserParams struct {
+	UserID uuid.UUID   `json:"user_id"`
+	Used   pgtype.Bool `json:"used"`
+}
+
+func (q *Queries) CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countBonusesByUser, arg.UserID, arg.Used)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -632,22 +643,26 @@ func (q *Queries) ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesBy
 const listBonusesByStudent = `-- name: ListBonusesByStudent :many
 SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
 FROM bonuses
-WHERE student_id = $1 AND user_id = $2
+WHERE student_id = $1
+  AND user_id = $2
+  AND ($3::boolean IS NULL OR (used_at IS NOT NULL) = $3::boolean)
 ORDER BY created_at DESC
-LIMIT $4 OFFSET $3
+LIMIT $5 OFFSET $4
 `
 
 type ListBonusesByStudentParams struct {
-	StudentID   uuid.UUID `json:"student_id"`
-	UserID      uuid.UUID `json:"user_id"`
-	QueryOffset int32     `json:"query_offset"`
-	QueryLimit  int32     `json:"query_limit"`
+	StudentID   uuid.UUID   `json:"student_id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Used        pgtype.Bool `json:"used"`
+	QueryOffset int32       `json:"query_offset"`
+	QueryLimit  int32       `json:"query_limit"`
 }
 
 func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonus, error) {
 	rows, err := q.db.Query(ctx, listBonusesByStudent,
 		arg.StudentID,
 		arg.UserID,
+		arg.Used,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)
@@ -681,18 +696,25 @@ const listBonusesByUser = `-- name: ListBonusesByUser :many
 SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
 FROM bonuses
 WHERE user_id = $1
+  AND ($2::boolean IS NULL OR (used_at IS NOT NULL) = $2::boolean)
 ORDER BY created_at DESC
-LIMIT $3 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListBonusesByUserParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	QueryOffset int32     `json:"query_offset"`
-	QueryLimit  int32     `json:"query_limit"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Used        pgtype.Bool `json:"used"`
+	QueryOffset int32       `json:"query_offset"`
+	QueryLimit  int32       `json:"query_limit"`
 }
 
 func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error) {
-	rows, err := q.db.Query(ctx, listBonusesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	rows, err := q.db.Query(ctx, listBonusesByUser,
+		arg.UserID,
+		arg.Used,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

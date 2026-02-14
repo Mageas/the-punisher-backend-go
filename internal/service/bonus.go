@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -16,8 +17,8 @@ import (
 type BonusService interface {
 	CreateBonus(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, bonusTypeID uuid.UUID, points float64) (*dto.ReturnBonusDto, error)
 	GetBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error)
-	ListBonuses(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
-	ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
+	ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
+	ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
 	UseBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error)
 	DeleteBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) error
 }
@@ -72,13 +73,26 @@ func (s *bonusService) GetBonus(ctx context.Context, userID uuid.UUID, bonusID u
 	return dto.BonusFromRepository(&bonus), nil
 }
 
-func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
-	totalCount, err := s.repo.CountBonusesByUser(ctx, userID)
+func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
+	usedParam := pgtype.Bool{}
+	if used != nil {
+		usedParam = pgtype.Bool{Bool: *used, Valid: true}
+	}
+
+	totalCount, err := s.repo.CountBonusesByUser(ctx, repository.CountBonusesByUserParams{
+		UserID: userID,
+		Used:   usedParam,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count bonuses: %w", err)
 	}
 
-	bonuses, err := s.repo.ListBonusesByUser(ctx, repository.ListBonusesByUserParams{UserID: userID, QueryLimit: limit, QueryOffset: offset})
+	bonuses, err := s.repo.ListBonusesByUser(ctx, repository.ListBonusesByUserParams{
+		UserID:      userID,
+		Used:        usedParam,
+		QueryLimit:  limit,
+		QueryOffset: offset,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list bonuses: %w", err)
 	}
@@ -86,7 +100,7 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, limit,
 	return dto.BonusListFromRepository(bonuses), totalCount, nil
 }
 
-func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
+func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, 0, api.ErrStudentNotFound
@@ -94,12 +108,27 @@ func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUI
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)
 	}
 
-	totalCount, err := s.repo.CountBonusesByStudent(ctx, repository.CountBonusesByStudentParams{StudentID: studentID, UserID: userID})
+	usedParam := pgtype.Bool{}
+	if used != nil {
+		usedParam = pgtype.Bool{Bool: *used, Valid: true}
+	}
+
+	totalCount, err := s.repo.CountBonusesByStudent(ctx, repository.CountBonusesByStudentParams{
+		StudentID: studentID,
+		UserID:    userID,
+		Used:      usedParam,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count bonuses by student: %w", err)
 	}
 
-	bonuses, err := s.repo.ListBonusesByStudent(ctx, repository.ListBonusesByStudentParams{StudentID: studentID, UserID: userID, QueryLimit: limit, QueryOffset: offset})
+	bonuses, err := s.repo.ListBonusesByStudent(ctx, repository.ListBonusesByStudentParams{
+		StudentID:   studentID,
+		UserID:      userID,
+		Used:        usedParam,
+		QueryLimit:  limit,
+		QueryOffset: offset,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list bonuses by student: %w", err)
 	}
