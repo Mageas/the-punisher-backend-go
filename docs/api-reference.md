@@ -52,6 +52,8 @@ Note:
 
 ### GET `/students/{id}/classrooms?page=1`
 ### GET `/students/{id}/bonuses?page=1`
+Paramètre optionnel:
+- `state`: `used|unused`. Exemple: `GET /students/{id}/bonuses?page=1&state=used`.
 ### GET `/students/{id}/penalties?page=1`
 ### GET `/students/{id}/punishments?page=1`
 
@@ -111,6 +113,8 @@ Body:
 ```
 
 ### GET `/bonuses?page=1`
+Paramètre optionnel:
+- `state`: `used|unused`. Exemple: `GET /bonuses?page=1&state=used`.
 ### GET `/bonuses/{id}`
 ### DELETE `/bonuses/{id}`
 ### POST `/bonuses/{id}/use`

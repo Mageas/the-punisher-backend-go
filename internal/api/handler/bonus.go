@@ -61,7 +61,13 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 
 	limit, offset, page := web.ParsePagination(r)
 
-	bonuses, totalCount, err := h.service.ListBonuses(r.Context(), userID, limit, offset)
+	used, details, err := web.ParseEnumQueryParamToBool(r, "state", "used", "unused")
+	if err != nil {
+		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, details)
+		return
+	}
+
+	bonuses, totalCount, err := h.service.ListBonuses(r.Context(), userID, used, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
@@ -135,7 +141,13 @@ func (h *BonusHandler) ListBonusesByStudent(w http.ResponseWriter, r *http.Reque
 
 	limit, offset, page := web.ParsePagination(r)
 
-	bonuses, totalCount, err := h.service.ListBonusesByStudent(r.Context(), userID, studentID, limit, offset)
+	used, details, err := web.ParseEnumQueryParamToBool(r, "state", "used", "unused")
+	if err != nil {
+		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, details)
+		return
+	}
+
+	bonuses, totalCount, err := h.service.ListBonusesByStudent(r.Context(), userID, studentID, used, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

@@ -225,24 +225,32 @@ FROM bonuses
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountBonusesByUser :one
-SELECT COUNT(*) FROM bonuses WHERE user_id = sqlc.arg(user_id);
+SELECT COUNT(*)
+FROM bonuses
+WHERE user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean);
 
 -- name: ListBonusesByUser :many
 SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
 FROM bonuses
 WHERE user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean)
 ORDER BY created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountBonusesByStudent :one
 SELECT COUNT(*)
 FROM bonuses
-WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id);
+WHERE student_id = sqlc.arg(student_id)
+  AND user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean);
 
 -- name: ListBonusesByStudent :many
 SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
 FROM bonuses
-WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id)
+WHERE student_id = sqlc.arg(student_id)
+  AND user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean)
 ORDER BY created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
