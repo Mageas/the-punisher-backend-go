@@ -66,6 +66,9 @@ Validation de cohérence:
 - `ListResolvedPunishmentsByUser`
 - `ResolvePunishment` (`resolved_at = NOW()` conditionnel)
 
+Note:
+- `triggering_rule_id` est réservé pour l'intégration des `Rules` (FK à ajouter quand la table existera).
+
 ## 4. Rule Engine - Implémentation recommandée
 
 ## 4.1 Entrées
@@ -146,6 +149,7 @@ Catalogue minimal:
 - `ErrPenaltyNotFound`
 - `ErrPunishmentNotFound`
 - `ErrBonusAlreadyUsed`
+- `ErrPunishmentAlreadyResolved`
 - `ErrRuleConditionInvalid`
 
 ## 9. Tests recommandés (même si non présents)

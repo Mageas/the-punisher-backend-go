@@ -56,6 +56,8 @@ Paramètre optionnel:
 - `state`: `used|unused`. Exemple: `GET /students/{id}/bonuses?page=1&state=used`.
 ### GET `/students/{id}/penalties?page=1`
 ### GET `/students/{id}/punishments?page=1`
+Paramètre optionnel:
+- `state`: `pending|resolved`. Exemple: `GET /students/{id}/punishments?page=1&state=resolved`.
 
 ## 5. Classrooms
 
@@ -189,14 +191,15 @@ Body:
 ```
 
 ### GET `/punishments?page=1`
+Paramètre optionnel:
+- `state`: `pending|resolved`. Exemple: `GET /punishments?page=1&state=pending`.
 ### GET `/punishments/{id}`
+### DELETE `/punishments/{id}`
 ### POST `/punishments/{id}/resolve`
 
 Effet:
-- renseigne `resolved_at`.
-
-### GET `/punishments/pending?page=1`
-### GET `/punishments/resolved?page=1`
+- passe `resolved_at` de `NULL` à timestamp.
+- si déjà résolue: conflit.
 
 ## 11. Codes d'erreur recommandés
 
@@ -215,3 +218,4 @@ Effet:
 - `404 punishment_not_found`
 - `409 student_classroom_relation_exists`
 - `409 bonus_already_used`
+- `409 punishment_already_resolved`

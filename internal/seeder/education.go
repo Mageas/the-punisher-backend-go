@@ -10,12 +10,14 @@ import (
 )
 
 const (
-	defaultClassCount       = 3
-	defaultStudentsPerClass = 20
-	bonusChance             = 0.30
-	maxBonusesPerStudent    = 3
-	penaltyChance           = 0.25
-	maxPenaltiesPerStudent  = 3
+	defaultClassCount        = 3
+	defaultStudentsPerClass  = 20
+	bonusChance              = 0.30
+	maxBonusesPerStudent     = 3
+	penaltyChance            = 0.25
+	maxPenaltiesPerStudent   = 3
+	punishmentChance         = 0.15
+	maxPunishmentsPerStudent = 2
 )
 
 func EducationSeed(ctx context.Context, repo repository.Querier) error {
@@ -34,7 +36,8 @@ func EducationSeed(ctx context.Context, repo repository.Querier) error {
 		return err
 	}
 
-	if _, err := ensurePunishmentTypes(ctx, repo, admin.ID); err != nil {
+	punishmentTypeIDs, err := ensurePunishmentTypes(ctx, repo, admin.ID)
+	if err != nil {
 		return err
 	}
 
@@ -62,6 +65,12 @@ func EducationSeed(ctx context.Context, repo repository.Querier) error {
 
 			if rand.Float64() < penaltyChance {
 				if err := createRandomPenaltiesForStudent(ctx, repo, admin.ID, student.ID, penaltyTypeIDs, maxPenaltiesPerStudent); err != nil {
+					return err
+				}
+			}
+
+			if rand.Float64() < punishmentChance {
+				if err := createRandomPunishmentsForStudent(ctx, repo, admin.ID, student.ID, punishmentTypeIDs, maxPunishmentsPerStudent); err != nil {
 					return err
 				}
 			}

@@ -52,6 +52,9 @@ func (app *application) mount() http.Handler {
 	penaltyService := service.NewPenaltyService(repo)
 	penaltyHandler := handler.NewPenaltyHandler(penaltyService)
 
+	punishmentService := service.NewPunishmentService(repo)
+	punishmentHandler := handler.NewPunishmentHandler(punishmentService)
+
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
 		r.Post("/", studentHandler.CreateStudent)
@@ -62,6 +65,7 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}/classrooms", classroomHandler.ListClassroomsByStudent)
 		r.Get("/{id}/bonuses", bonusHandler.ListBonusesByStudent)
 		r.Get("/{id}/penalties", penaltyHandler.ListPenaltiesByStudent)
+		r.Get("/{id}/punishments", punishmentHandler.ListPunishmentsByStudent)
 	})
 
 	r.Route("/v1/classrooms", func(r chi.Router) {
@@ -127,6 +131,15 @@ func (app *application) mount() http.Handler {
 		r.Get("/", penaltyHandler.ListPenalties)
 		r.Get("/{id}", penaltyHandler.GetPenalty)
 		r.Delete("/{id}", penaltyHandler.DeletePenalty)
+	})
+
+	r.Route("/v1/punishments", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", punishmentHandler.CreatePunishment)
+		r.Get("/", punishmentHandler.ListPunishments)
+		r.Get("/{id}", punishmentHandler.GetPunishment)
+		r.Post("/{id}/resolve", punishmentHandler.ResolvePunishment)
+		r.Delete("/{id}", punishmentHandler.DeletePunishment)
 	})
 
 	return r
