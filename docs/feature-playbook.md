@@ -58,6 +58,7 @@ Validation de cohérence:
 - `resulting_punishment_type_id` doit appartenir au même `user_id`.
 - `penalty_type_id` doit appartenir au même `user_id`.
 - `is_active` permet d'activer/désactiver une règle sans suppression.
+- `due_at_after_days` définit le décalage pour `punishments.due_at` sur création automatique.
 - la FK `rules.penalty_type_id` doit être en `ON DELETE CASCADE`.
 
 ### 3.4 Punishments
@@ -84,10 +85,10 @@ Note:
 
 1. Charger les règles du user.
 2. Filtrer les règles actives (`is_active = true`).
-3. Pour chaque règle active, lire `penalty_type_id`, `threshold`, `mode`.
+3. Pour chaque règle active, lire `penalty_type_id`, `threshold`, `due_at_after_days`, `mode`.
 4. Calculer le count `Penalties` pour (`student_id`, `user_id`, `penalty_type_id`).
 5. Appliquer le mode (`at`, `every`, `after`) sur ce compteur.
-6. Si vrai, créer une `Punishment` avec `triggering_rule_id`.
+6. Si vrai, créer une `Punishment` avec `triggering_rule_id`, `due_at = now + due_at_after_days` et `resolved_at = NULL`.
 
 ## 4.3 Protection anti-doublon (fortement recommandé)
 
@@ -116,6 +117,7 @@ type UpdateRuleDto struct {
     ResultingPunishmentTypeID *string `json:"resulting_punishment_type_id" validate:"omitempty,uuid"`
     PenaltyTypeID             *string `json:"penalty_type_id" validate:"omitempty,uuid"`
     Threshold                 *int    `json:"threshold" validate:"omitempty,min=1"`
+    DueAtAfterDays            *int    `json:"due_at_after_days" validate:"omitempty,min=0"`
     Mode                      *string `json:"mode" validate:"omitempty,oneof=after at every"`
     IsActive                  *bool   `json:"is_active" validate:"omitempty"`
 }

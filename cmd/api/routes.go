@@ -49,11 +49,14 @@ func (app *application) mount() http.Handler {
 	bonusService := service.NewBonusService(repo)
 	bonusHandler := handler.NewBonusHandler(bonusService)
 
-	penaltyService := service.NewPenaltyService(repo)
+	penaltyService := service.NewPenaltyService(repo, app.db)
 	penaltyHandler := handler.NewPenaltyHandler(penaltyService)
 
 	punishmentService := service.NewPunishmentService(repo)
 	punishmentHandler := handler.NewPunishmentHandler(punishmentService)
+
+	ruleService := service.NewRuleService(repo)
+	ruleHandler := handler.NewRuleHandler(ruleService)
 
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
@@ -140,6 +143,15 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", punishmentHandler.GetPunishment)
 		r.Post("/{id}/resolve", punishmentHandler.ResolvePunishment)
 		r.Delete("/{id}", punishmentHandler.DeletePunishment)
+	})
+
+	r.Route("/v1/rules", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", ruleHandler.CreateRule)
+		r.Get("/", ruleHandler.ListRules)
+		r.Get("/{id}", ruleHandler.GetRule)
+		r.Put("/{id}", ruleHandler.UpdateRule)
+		r.Delete("/{id}", ruleHandler.DeleteRule)
 	})
 
 	return r

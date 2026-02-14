@@ -49,6 +49,7 @@ var (
 	ErrStudentNotFound           = NewAPIError(http.StatusNotFound, "student_not_found")
 	ErrBonusTypeNotFound         = NewAPIError(http.StatusNotFound, "bonus_type_not_found")
 	ErrPenaltyTypeNotFound       = NewAPIError(http.StatusNotFound, "penalty_type_not_found")
+	ErrRuleNotFound              = NewAPIError(http.StatusNotFound, "rule_not_found")
 	ErrBonusNotFound             = NewAPIError(http.StatusNotFound, "bonus_not_found")
 	ErrPenaltyNotFound           = NewAPIError(http.StatusNotFound, "penalty_not_found")
 	ErrPunishmentTypeNotFound    = NewAPIError(http.StatusNotFound, "punishment_type_not_found")

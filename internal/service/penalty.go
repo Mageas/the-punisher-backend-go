@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -23,28 +26,39 @@ type PenaltyService interface {
 
 type penaltyService struct {
 	repo repository.Querier
+	db   *pgxpool.Pool
 }
 
-func NewPenaltyService(repo repository.Querier) PenaltyService {
-	return &penaltyService{repo: repo}
+func NewPenaltyService(repo repository.Querier, db *pgxpool.Pool) PenaltyService {
+	return &penaltyService{repo: repo, db: db}
 }
 
 func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyDto, error) {
-	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	txRepo := repository.New(tx)
+
+	if _, err := txRepo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
 		}
 		return nil, fmt.Errorf("failed to get student: %w", err)
 	}
 
-	if _, err := s.repo.GetPenaltyTypeByUser(ctx, repository.GetPenaltyTypeByUserParams{ID: penaltyTypeID, UserID: userID}); err != nil {
+	if _, err := txRepo.GetPenaltyTypeByUser(ctx, repository.GetPenaltyTypeByUserParams{ID: penaltyTypeID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, api.ErrPenaltyTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get penalty type: %w", err)
 	}
 
-	penalty, err := s.repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
+	penalty, err := txRepo.CreatePenalty(ctx, repository.CreatePenaltyParams{
 		UserID:        userID,
 		StudentID:     studentID,
 		PenaltyTypeID: penaltyTypeID,
@@ -53,9 +67,89 @@ func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, st
 		return nil, fmt.Errorf("failed to create penalty: %w", err)
 	}
 
+	if err := s.evaluateRulesForPenalty(ctx, txRepo, userID, studentID, penaltyTypeID); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
 	slog.Info("penalty created", "penalty_id", penalty.ID, "user_id", userID, "student_id", studentID, "penalty_type_id", penaltyTypeID)
 
 	return dto.PenaltyFromRepository(&penalty), nil
+}
+
+func (s *penaltyService) evaluateRulesForPenalty(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) error {
+	rules, err := repo.ListActiveRulesByUserAndPenaltyType(ctx, repository.ListActiveRulesByUserAndPenaltyTypeParams{
+		UserID:        userID,
+		PenaltyTypeID: penaltyTypeID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list active rules: %w", err)
+	}
+
+	if len(rules) == 0 {
+		return nil
+	}
+
+	penaltyCount, err := repo.CountPenaltiesByStudentAndType(ctx, repository.CountPenaltiesByStudentAndTypeParams{
+		StudentID:     studentID,
+		UserID:        userID,
+		PenaltyTypeID: penaltyTypeID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to count penalties for rule evaluation: %w", err)
+	}
+
+	for _, rule := range rules {
+		if !shouldTriggerRule(rule.Mode, rule.Threshold, penaltyCount) {
+			continue
+		}
+
+		dueAt := time.Now().UTC().Add(time.Duration(rule.DueAtAfterDays) * 24 * time.Hour)
+
+		_, err := repo.CreatePunishmentFromRule(ctx, repository.CreatePunishmentFromRuleParams{
+			UserID:           userID,
+			StudentID:        studentID,
+			PunishmentTypeID: rule.ResultingPunishmentTypeID,
+			TriggeringRuleID: pgtype.UUID{Bytes: rule.ID, Valid: true},
+			DueAt:            dueAt,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create punishment from rule: %w", err)
+		}
+
+		slog.Info(
+			"punishment created from rule",
+			"rule_id", rule.ID,
+			"user_id", userID,
+			"student_id", studentID,
+			"penalty_type_id", penaltyTypeID,
+			"penalty_count", penaltyCount,
+		)
+	}
+
+	return nil
+}
+
+func shouldTriggerRule(mode string, threshold int32, count int64) bool {
+	if threshold <= 0 {
+		return false
+	}
+
+	thresholdAsInt64 := int64(threshold)
+
+	switch mode {
+	case "at":
+		return count == thresholdAsInt64
+	case "every":
+		return count%thresholdAsInt64 == 0
+	case "after":
+		return count > thresholdAsInt64
+	default:
+		return false
+	}
 }
 
 func (s *penaltyService) GetPenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) (*dto.ReturnPenaltyDto, error) {

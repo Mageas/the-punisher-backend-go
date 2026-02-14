@@ -22,7 +22,7 @@ Acteurs et objets clés:
 - `PunishmentTypes`: catalogue des sanctions (ex: retenue).
 - `Bonuses`: événements positifs avec points et consommation optionnelle.
 - `Penalties`: événements négatifs.
-- `Rules`: logique automatique (is_active + mode + penalty_type_id + threshold -> punishment type).
+- `Rules`: logique automatique (is_active + mode + penalty_type_id + threshold + due_at_after_days -> punishment type).
 - `Punishments`: sanctions manuelles ou automatiques.
 
 ## 3. Architecture de Base de Données (Canonique)
@@ -81,6 +81,7 @@ erDiagram
         uuid resulting_punishment_type_id FK ""
         uuid penalty_type_id FK "ON DELETE CASCADE"
         int threshold ">= 1"
+        int due_at_after_days ">= 0"
         string mode "after|at|every"
         bool is_active "default true"
     }
@@ -196,6 +197,7 @@ Chaque règle porte un seul trigger simple:
 {
   "penalty_type_id": "uuid-oubli-materiel",
   "threshold": 3,
+  "due_at_after_days": 7,
   "mode": "every",
   "is_active": true
 }
@@ -204,6 +206,8 @@ Chaque règle porte un seul trigger simple:
 Règles d'évaluation:
 - `threshold` est atteint sur l'historique des `Penalties` du même élève et du même user.
 - la règle est évaluée uniquement si `is_active = true`.
+- `due_at_after_days = X`: la `Punishment` auto reçoit `due_at = now + X jours`.
+- `resolved_at` reste `NULL` à la création automatique.
 - `mode`:
   - `at`: déclenche une fois quand `count == threshold`
   - `every`: déclenche à chaque multiple (`count % threshold == 0`)
