@@ -13,6 +13,8 @@ sql:
         rename:
           bonuses: "Bonus"
           bonuse: "Bonus"
+          penalties: "Penalty"
+          penaltie: "Penalty"
         overrides:
           - db_type: "uuid"
             go_type: "github.com/google/uuid.UUID"
