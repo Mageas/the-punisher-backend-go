@@ -56,6 +56,9 @@ Pour bonus:
 
 Validation de cohérence:
 - `resulting_punishment_type_id` doit appartenir au même `user_id`.
+- `penalty_type_id` doit appartenir au même `user_id`.
+- `is_active` permet d'activer/désactiver une règle sans suppression.
+- la FK `rules.penalty_type_id` doit être en `ON DELETE CASCADE`.
 
 ### 3.4 Punishments
 
@@ -67,7 +70,7 @@ Validation de cohérence:
 - `ResolvePunishment` (`resolved_at = NOW()` conditionnel)
 
 Note:
-- `triggering_rule_id` est réservé pour l'intégration des `Rules` (FK à ajouter quand la table existera).
+- `triggering_rule_id` doit rester cohérent avec `rules.id` pour les créations automatiques.
 
 ## 4. Rule Engine - Implémentation recommandée
 
@@ -80,10 +83,11 @@ Note:
 ## 4.2 Étapes
 
 1. Charger les règles du user.
-2. Pour chaque règle, parser `conditions`.
-3. Évaluer récursivement `AND`/`OR`.
-4. Pour `penalty_count`, calculer le count `Penalties` pour (`student_id`, `user_id`) et filtrer par `penalty_type_ids` si présent.
-5. Si vrai, créer une `Punishment` avec `triggering_rule_id`.
+2. Filtrer les règles actives (`is_active = true`).
+3. Pour chaque règle active, lire `penalty_type_id`, `threshold`, `mode`.
+4. Calculer le count `Penalties` pour (`student_id`, `user_id`, `penalty_type_id`).
+5. Appliquer le mode (`at`, `every`, `after`) sur ce compteur.
+6. Si vrai, créer une `Punishment` avec `triggering_rule_id`.
 
 ## 4.3 Protection anti-doublon (fortement recommandé)
 
@@ -108,9 +112,12 @@ Exemple:
 
 ```go
 type UpdateRuleDto struct {
-    Name                      *string          `json:"name" validate:"omitempty,min=2,max=120"`
-    ResultingPunishmentTypeID *string          `json:"resulting_punishment_type_id" validate:"omitempty,uuid"`
-    Conditions                *json.RawMessage `json:"conditions" validate:"omitempty"`
+    Name                      *string `json:"name" validate:"omitempty,min=2,max=120"`
+    ResultingPunishmentTypeID *string `json:"resulting_punishment_type_id" validate:"omitempty,uuid"`
+    PenaltyTypeID             *string `json:"penalty_type_id" validate:"omitempty,uuid"`
+    Threshold                 *int    `json:"threshold" validate:"omitempty,min=1"`
+    Mode                      *string `json:"mode" validate:"omitempty,oneof=after at every"`
+    IsActive                  *bool   `json:"is_active" validate:"omitempty"`
 }
 ```
 
@@ -150,14 +157,15 @@ Catalogue minimal:
 - `ErrPunishmentNotFound`
 - `ErrBonusAlreadyUsed`
 - `ErrPunishmentAlreadyResolved`
-- `ErrRuleConditionInvalid`
+- `ErrRuleTriggerInvalid`
 
 ## 9. Tests recommandés (même si non présents)
 
 1. Unit services:
 - règles de mapping erreurs,
 - transitions d'état (`used_at`, `resolved_at`),
-- évaluation de conditions complexes.
+- évaluation des modes (`at|every|after`),
+- vérification du filtre `is_active`.
 
 2. Integration handlers:
 - validation payload,
@@ -168,7 +176,8 @@ Catalogue minimal:
 3. End-to-end métier:
 - créer pénalités successives,
 - vérifier création auto de punitions,
-- vérifier lien `triggering_rule_id`.
+- vérifier lien `triggering_rule_id`,
+- vérifier suppression cascade des rules lors de la suppression d'un `penalty_type`.
 
 ## 10. Definition of Done
 

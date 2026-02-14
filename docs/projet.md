@@ -22,7 +22,7 @@ Acteurs et objets clés:
 - `PunishmentTypes`: catalogue des sanctions (ex: retenue).
 - `Bonuses`: événements positifs avec points et consommation optionnelle.
 - `Penalties`: événements négatifs.
-- `Rules`: logique automatique (conditions JSON -> punishment type).
+- `Rules`: logique automatique (is_active + mode + penalty_type_id + threshold -> punishment type).
 - `Punishments`: sanctions manuelles ou automatiques.
 
 ## 3. Architecture de Base de Données (Canonique)
@@ -79,7 +79,10 @@ erDiagram
         uuid user_id FK ""
         string name  ""
         uuid resulting_punishment_type_id FK ""
-        jsonb conditions  "Logique complexe (AND/OR)"
+        uuid penalty_type_id FK "ON DELETE CASCADE"
+        int threshold ">= 1"
+        string mode "after|at|every"
+        bool is_active "default true"
     }
 
     Bonuses {
@@ -143,6 +146,7 @@ erDiagram
 
     Rules||--o{Punishments:"triggers"
     PunishmentTypes||--o{Rules:"results_in"
+    PenaltyTypes||--o{Rules:"filters_on (delete cascade)"
 ```
 
 ## 4. Règles Métier
@@ -176,43 +180,41 @@ erDiagram
 - aucun effacement périodique implicite.
 - l'enseignant pilote explicitement l'archivage/nettoyage.
 
-## 5. Contrat JSON des Rules
+8. Activation des règles:
+- une règle n'est évaluée que si `is_active = true`.
+- `is_active = false` désactive la règle sans la supprimer.
 
-`rules.conditions` stocke un arbre logique composable.
+9. Suppression de type de pénalité:
+- si un `PenaltyType` est supprimé, les `Rules` liées sont supprimées automatiquement (cascade).
+- ce comportement est priorisé plutôt qu'une désactivation implicite.
 
-Exemple:
+## 5. Contrat des Rules
+
+Chaque règle porte un seul trigger simple:
 
 ```json
 {
-  "operator": "OR",
-  "triggers": [
-    {
-      "type": "penalty_count",
-      "penalty_type_id": "uuid-oubli-materiel",
-      "threshold": 3
-    },
-    {
-      "operator": "AND",
-      "triggers": [
-        { "type": "penalty_count", "penalty_type_id": "uuid-bavardage", "threshold": 2 },
-        { "type": "penalty_count", "penalty_type_id": "uuid-insolence", "threshold": 1 }
-      ]
-    }
-  ]
+  "penalty_type_id": "uuid-oubli-materiel",
+  "threshold": 3,
+  "mode": "every",
+  "is_active": true
 }
 ```
 
 Règles d'évaluation:
-- `operator` supporté: `AND`, `OR`.
-- `trigger` de base: `penalty_count`.
 - `threshold` est atteint sur l'historique des `Penalties` du même élève et du même user.
+- la règle est évaluée uniquement si `is_active = true`.
+- `mode`:
+  - `at`: déclenche une fois quand `count == threshold`
+  - `every`: déclenche à chaque multiple (`count % threshold == 0`)
+  - `after`: déclenche à chaque nouvel événement si `count > threshold`
 
 ## 6. Flux Métier de Référence
 
 Flux automatique standard:
 1. Création d'une pénalité (`Penalties`).
 2. Évaluation des `Rules` actives du user.
-3. Si condition vraie: création d'une `Punishment` avec `triggering_rule_id`.
+3. Si trigger vrai: création d'une `Punishment` avec `triggering_rule_id`.
 4. Suivi et résolution de la punition via `resolved_at`.
 
 Flux bonus:
