@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -26,58 +25,52 @@ type PenaltyService interface {
 
 type penaltyService struct {
 	repo repository.Querier
-	db   *pgxpool.Pool
 }
 
-func NewPenaltyService(repo repository.Querier, db *pgxpool.Pool) PenaltyService {
-	return &penaltyService{repo: repo, db: db}
+func NewPenaltyService(repo repository.Querier) PenaltyService {
+	return &penaltyService{repo: repo}
 }
 
 func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyDto, error) {
-	tx, err := s.db.Begin(ctx)
+	penalty, err := s.createPenaltyWithRepo(ctx, s.repo, userID, studentID, penaltyTypeID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback(ctx)
-	}()
-
-	txRepo := repository.New(tx)
-
-	if _, err := txRepo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, api.ErrStudentNotFound
-		}
-		return nil, fmt.Errorf("failed to get student: %w", err)
-	}
-
-	if _, err := txRepo.GetPenaltyTypeByUser(ctx, repository.GetPenaltyTypeByUserParams{ID: penaltyTypeID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, api.ErrPenaltyTypeNotFound
-		}
-		return nil, fmt.Errorf("failed to get penalty type: %w", err)
-	}
-
-	penalty, err := txRepo.CreatePenalty(ctx, repository.CreatePenaltyParams{
-		UserID:        userID,
-		StudentID:     studentID,
-		PenaltyTypeID: penaltyTypeID,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create penalty: %w", err)
-	}
-
-	if err := s.evaluateRulesForPenalty(ctx, txRepo, userID, studentID, penaltyTypeID); err != nil {
 		return nil, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	slog.Info("penalty created", "penalty_id", penalty.ID, "user_id", userID, "student_id", studentID, "penalty_type_id", penaltyTypeID)
 
 	return dto.PenaltyFromRepository(&penalty), nil
+}
+
+func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (repository.Penalty, error) {
+	if _, err := repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return repository.Penalty{}, api.ErrStudentNotFound
+		}
+		return repository.Penalty{}, fmt.Errorf("failed to get student: %w", err)
+	}
+
+	if _, err := repo.GetPenaltyTypeByUser(ctx, repository.GetPenaltyTypeByUserParams{ID: penaltyTypeID, UserID: userID}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return repository.Penalty{}, api.ErrPenaltyTypeNotFound
+		}
+		return repository.Penalty{}, fmt.Errorf("failed to get penalty type: %w", err)
+	}
+
+	penalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
+		UserID:        userID,
+		StudentID:     studentID,
+		PenaltyTypeID: penaltyTypeID,
+	})
+	if err != nil {
+		return repository.Penalty{}, fmt.Errorf("failed to create penalty: %w", err)
+	}
+
+	if err := s.evaluateRulesForPenalty(ctx, repo, userID, studentID, penaltyTypeID); err != nil {
+		return repository.Penalty{}, err
+	}
+
+	return penalty, nil
 }
 
 func (s *penaltyService) evaluateRulesForPenalty(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) error {
