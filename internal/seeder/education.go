@@ -34,6 +34,10 @@ func EducationSeed(ctx context.Context, repo repository.Querier) error {
 		return err
 	}
 
+	if _, err := ensurePunishmentTypes(ctx, repo, admin.ID); err != nil {
+		return err
+	}
+
 	for i := 1; i <= defaultClassCount; i++ {
 		classroom, err := createClassroom(ctx, repo, admin.ID, i)
 		if err != nil {
