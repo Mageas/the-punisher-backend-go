@@ -132,7 +132,7 @@ Sémantique:
 - `due_at_after_days`: nombre de jours appliqué pour calculer `punishments.due_at` (`now + X jours`) en création automatique.
 - `mode`:
   - `at`: déclenche une fois quand `count == threshold`
-  - `every`: déclenche à chaque multiple (`count % threshold == 0`)
+  - `every`: déclenche à chaque multiple strictement positif (`count > 0 && count % threshold == 0`)
   - `after`: déclenche à chaque nouvel événement si `count > threshold`
 - `is_active`: active/désactive la règle sans suppression.
 
@@ -145,7 +145,8 @@ Validation minimale à imposer:
 
 Intégrité référentielle:
 - la relation `rules.penalty_type_id -> penalty_types.id` doit être en `ON DELETE CASCADE`.
-- suppression d'un `penalty_type` => suppression automatique des règles associées.
+- la relation `rules.resulting_punishment_type_id -> punishment_types.id` doit être en `ON DELETE CASCADE`.
+- suppression d'un `penalty_type` ou d'un `punishment_type` => suppression automatique des règles associées.
 
 ## 7. SQLC conventions
 

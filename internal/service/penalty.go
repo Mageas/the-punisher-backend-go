@@ -137,7 +137,7 @@ func shouldTriggerRule(mode string, threshold int32, count int64) bool {
 	case "at":
 		return count == thresholdAsInt64
 	case "every":
-		return count%thresholdAsInt64 == 0
+		return count > 0 && count%thresholdAsInt64 == 0
 	case "after":
 		return count > thresholdAsInt64
 	default:
