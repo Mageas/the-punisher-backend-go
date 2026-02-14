@@ -78,7 +78,7 @@ erDiagram
         uuid id PK ""
         uuid user_id FK ""
         string name  ""
-        uuid resulting_punishment_type_id FK ""
+        uuid resulting_punishment_type_id FK "ON DELETE CASCADE"
         uuid penalty_type_id FK "ON DELETE CASCADE"
         int threshold ">= 1"
         int due_at_after_days ">= 0"
@@ -146,7 +146,7 @@ erDiagram
     PunishmentTypes||--o{Punishments:"defines"
 
     Rules||--o{Punishments:"triggers"
-    PunishmentTypes||--o{Rules:"results_in"
+    PunishmentTypes||--o{Rules:"results_in (delete cascade)"
     PenaltyTypes||--o{Rules:"filters_on (delete cascade)"
 ```
 
@@ -185,8 +185,9 @@ erDiagram
 - une règle n'est évaluée que si `is_active = true`.
 - `is_active = false` désactive la règle sans la supprimer.
 
-9. Suppression de type de pénalité:
+9. Suppression de types utilisés par les rules:
 - si un `PenaltyType` est supprimé, les `Rules` liées sont supprimées automatiquement (cascade).
+- si un `PunishmentType` est supprimé, les `Rules` liées sont aussi supprimées automatiquement (cascade).
 - ce comportement est priorisé plutôt qu'une désactivation implicite.
 
 ## 5. Contrat des Rules
@@ -210,7 +211,7 @@ Règles d'évaluation:
 - `resolved_at` reste `NULL` à la création automatique.
 - `mode`:
   - `at`: déclenche une fois quand `count == threshold`
-  - `every`: déclenche à chaque multiple (`count % threshold == 0`)
+  - `every`: déclenche à chaque multiple strictement positif (`count > 0 && count % threshold == 0`)
   - `after`: déclenche à chaque nouvel événement si `count > threshold`
 
 ## 6. Flux Métier de Référence
