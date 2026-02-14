@@ -120,6 +120,17 @@ func (q *Queries) CountClassroomsByUser(ctx context.Context, userID uuid.UUID) (
 	return count, err
 }
 
+const countPenaltyTypesByUser = `-- name: CountPenaltyTypesByUser :one
+SELECT COUNT(*) FROM penalty_types WHERE user_id = $1
+`
+
+func (q *Queries) CountPenaltyTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPenaltyTypesByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countStudentsByClassroom = `-- name: CountStudentsByClassroom :one
 SELECT COUNT(*)
 FROM student_classrooms sc
@@ -249,6 +260,35 @@ func (q *Queries) CreateClassroom(ctx context.Context, arg CreateClassroomParams
 		&i.Name,
 		&i.Year,
 		&i.MainTeacher,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPenaltyType = `-- name: CreatePenaltyType :one
+
+INSERT INTO penalty_types (
+    user_id, name
+) VALUES (
+    $1, $2
+)
+RETURNING id, user_id, name, created_at, updated_at
+`
+
+type CreatePenaltyTypeParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Name   string    `json:"name"`
+}
+
+// ==================== PenaltyType ====================
+func (q *Queries) CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error) {
+	row := q.db.QueryRow(ctx, createPenaltyType, arg.UserID, arg.Name)
+	var i PenaltyType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -427,6 +467,24 @@ func (q *Queries) DeleteClassroomByUser(ctx context.Context, arg DeleteClassroom
 	return result.RowsAffected(), nil
 }
 
+const deletePenaltyTypeByUser = `-- name: DeletePenaltyTypeByUser :execrows
+DELETE FROM penalty_types
+WHERE id = $1 AND user_id = $2
+`
+
+type DeletePenaltyTypeByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeletePenaltyTypeByUser(ctx context.Context, arg DeletePenaltyTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePenaltyTypeByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
 DELETE FROM refresh_tokens
 WHERE token = $1
@@ -525,6 +583,30 @@ func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUser
 		&i.Name,
 		&i.Year,
 		&i.MainTeacher,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getPenaltyTypeByUser = `-- name: GetPenaltyTypeByUser :one
+SELECT id, user_id, name, created_at, updated_at
+FROM penalty_types
+WHERE id = $1 AND user_id = $2 LIMIT 1
+`
+
+type GetPenaltyTypeByUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeByUserParams) (PenaltyType, error) {
+	row := q.db.QueryRow(ctx, getPenaltyTypeByUser, arg.ID, arg.UserID)
+	var i PenaltyType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -833,6 +915,46 @@ func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsBy
 	return items, nil
 }
 
+const listPenaltyTypesByUser = `-- name: ListPenaltyTypesByUser :many
+SELECT id, user_id, name, created_at, updated_at
+FROM penalty_types
+WHERE user_id = $1
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListPenaltyTypesByUserParams struct {
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+func (q *Queries) ListPenaltyTypesByUser(ctx context.Context, arg ListPenaltyTypesByUserParams) ([]PenaltyType, error) {
+	rows, err := q.db.Query(ctx, listPenaltyTypesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PenaltyType
+	for rows.Next() {
+		var i PenaltyType
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRefreshTokensByUserId = `-- name: ListRefreshTokensByUserId :many
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
@@ -1072,6 +1194,34 @@ func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroom
 		&i.Name,
 		&i.Year,
 		&i.MainTeacher,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const updatePenaltyTypeByUser = `-- name: UpdatePenaltyTypeByUser :one
+UPDATE penalty_types
+SET
+    name = COALESCE($1, name),
+    updated_at = NOW()
+WHERE id = $2 AND user_id = $3
+RETURNING id, user_id, name, created_at, updated_at
+`
+
+type UpdatePenaltyTypeByUserParams struct {
+	Name   pgtype.Text `json:"name"`
+	ID     uuid.UUID   `json:"id"`
+	UserID uuid.UUID   `json:"user_id"`
+}
+
+func (q *Queries) UpdatePenaltyTypeByUser(ctx context.Context, arg UpdatePenaltyTypeByUserParams) (PenaltyType, error) {
+	row := q.db.QueryRow(ctx, updatePenaltyTypeByUser, arg.Name, arg.ID, arg.UserID)
+	var i PenaltyType
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
