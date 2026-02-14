@@ -49,7 +49,7 @@ func (app *application) mount() http.Handler {
 	bonusService := service.NewBonusService(repo)
 	bonusHandler := handler.NewBonusHandler(bonusService)
 
-	penaltyService := service.NewPenaltyService(repo, app.db)
+	penaltyService := service.NewPenaltyService(repo)
 	penaltyHandler := handler.NewPenaltyHandler(penaltyService)
 
 	punishmentService := service.NewPunishmentService(repo)
