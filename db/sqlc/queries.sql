@@ -378,3 +378,58 @@ LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 -- name: DeletePenaltyByUser :execrows
 DELETE FROM penalties
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- ==================== Punishment ====================
+
+-- name: CreatePunishment :one
+INSERT INTO punishments (
+    user_id, student_id, punishment_type_id, due_at
+) VALUES (
+    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(due_at)
+)
+RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
+
+-- name: GetPunishmentByUser :one
+SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+FROM punishments
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+
+-- name: CountPunishmentsByUser :one
+SELECT COUNT(*)
+FROM punishments
+WHERE user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean);
+
+-- name: ListPunishmentsByUser :many
+SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+FROM punishments
+WHERE user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: CountPunishmentsByStudent :one
+SELECT COUNT(*)
+FROM punishments
+WHERE student_id = sqlc.arg(student_id)
+  AND user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean);
+
+-- name: ListPunishmentsByStudent :many
+SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+FROM punishments
+WHERE student_id = sqlc.arg(student_id)
+  AND user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: ResolvePunishment :one
+UPDATE punishments
+SET resolved_at = NOW()
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND resolved_at IS NULL
+RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
+
+-- name: DeletePunishmentByUser :execrows
+DELETE FROM punishments
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);

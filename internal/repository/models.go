@@ -55,6 +55,17 @@ type PenaltyType struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Punishment struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	PunishmentTypeID uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt        time.Time          `json:"created_at"`
+	DueAt            time.Time          `json:"due_at"`
+	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+}
+
 type PunishmentType struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`
