@@ -82,7 +82,7 @@ Note:
 1. Charger les règles du user.
 2. Pour chaque règle, parser `conditions`.
 3. Évaluer récursivement `AND`/`OR`.
-4. Pour `penalty_count`, calculer le count `Penalties` pour (`student_id`, `penalty_type_id`, `user_id`).
+4. Pour `penalty_count`, calculer le count `Penalties` pour (`student_id`, `user_id`) et filtrer par `penalty_type_ids` si présent.
 5. Si vrai, créer une `Punishment` avec `triggering_rule_id`.
 
 ## 4.3 Protection anti-doublon (fortement recommandé)

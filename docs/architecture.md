@@ -124,21 +124,34 @@ Noeud logique:
 }
 ```
 
-Feuille:
+Feuille (seule règle supportée pour l'instant):
 
 ```json
 {
   "type": "penalty_count",
-  "penalty_type_id": "uuid",
-  "threshold": 3
+  "penalty_type_ids": ["uuid", "uuid"],
+  "threshold": 3,
+  "mode": "at|every|after"
 }
 ```
+
+Sémantique:
+- `type` permet d'ouvrir à d'autres triggers plus tard. Pour l'instant, seul `penalty_count` existe.
+- `penalty_type_ids` est optionnel:
+  - absent => tous les types de pénalités
+  - présent => filtre "IN" (type A ou B)
+- `threshold` = X
+- `mode`:
+  - `at`: déclenche une fois quand `count == X`
+  - `every`: déclenche à chaque multiple (`count % X == 0`)
+  - `after`: déclenche à chaque nouvel événement si `count > X`
 
 Validation minimale à imposer:
 - `operator` obligatoire sur noeuds.
 - `triggers` non vide.
 - `threshold >= 1`.
-- `penalty_type_id` appartient au même user.
+- `mode` ∈ {`at`, `every`, `after`}.
+- `penalty_type_ids` appartient au même user (si fourni).
 
 Point d'attention:
 - lors de l'implémentation des Rules, veiller à supprimer les "enfants" contenus dans `conditions` qui ne sont plus référencés (ex: update/suppression de règles). Si `conditions` est stocké en JSONB, remplacer le document entier pour éviter des résidus.

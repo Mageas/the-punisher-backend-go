@@ -161,8 +161,94 @@ Body:
     "triggers": [
       {
         "type": "penalty_count",
-        "penalty_type_id": "uuid-oubli-materiel",
-        "threshold": 3
+        "penalty_type_ids": ["uuid-oubli-materiel"],
+        "threshold": 3,
+        "mode": "every"
+      }
+    ]
+  }
+}
+```
+
+Autres exemples:
+
+```json
+{
+  "name": "5 pénalités toutes catégories => mot aux parents",
+  "resulting_punishment_type_id": "uuid",
+  "conditions": {
+    "operator": "OR",
+    "triggers": [
+      {
+        "type": "penalty_count",
+        "threshold": 5,
+        "mode": "every"
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "name": "3 retards OU 2 bavardages => retenue",
+  "resulting_punishment_type_id": "uuid",
+  "conditions": {
+    "operator": "OR",
+    "triggers": [
+      {
+        "type": "penalty_count",
+        "penalty_type_ids": ["uuid-retard"],
+        "threshold": 3,
+        "mode": "every"
+      },
+      {
+        "type": "penalty_count",
+        "penalty_type_ids": ["uuid-bavardage"],
+        "threshold": 2,
+        "mode": "every"
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "name": "3 retards ET 1 oubli matériel => retenue",
+  "resulting_punishment_type_id": "uuid",
+  "conditions": {
+    "operator": "AND",
+    "triggers": [
+      {
+        "type": "penalty_count",
+        "penalty_type_ids": ["uuid-retard"],
+        "threshold": 3,
+        "mode": "every"
+      },
+      {
+        "type": "penalty_count",
+        "penalty_type_ids": ["uuid-oubli-materiel"],
+        "threshold": 1,
+        "mode": "at"
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "name": "Après 2 bavardages, chaque nouveau bavardage => mot aux parents",
+  "resulting_punishment_type_id": "uuid",
+  "conditions": {
+    "operator": "OR",
+    "triggers": [
+      {
+        "type": "penalty_count",
+        "penalty_type_ids": ["uuid-bavardage"],
+        "threshold": 2,
+        "mode": "after"
       }
     ]
   }
