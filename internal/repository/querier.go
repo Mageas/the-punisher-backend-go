@@ -18,6 +18,7 @@ type Querier interface {
 	CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error)
 	CountClassroomsByStudent(ctx context.Context, arg CountClassroomsByStudentParams) (int64, error)
 	CountClassroomsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountPenaltyTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error)
 	CountStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	// ==================== Bonus ====================
@@ -26,6 +27,8 @@ type Querier interface {
 	CreateBonusType(ctx context.Context, arg CreateBonusTypeParams) (BonusType, error)
 	// ==================== Classroom ====================
 	CreateClassroom(ctx context.Context, arg CreateClassroomParams) (Classroom, error)
+	// ==================== PenaltyType ====================
+	CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error)
 	// ==================== RefreshToken ====================
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	// ==================== Student ====================
@@ -35,11 +38,13 @@ type Querier interface {
 	DeleteBonusByUser(ctx context.Context, arg DeleteBonusByUserParams) (int64, error)
 	DeleteBonusTypeByUser(ctx context.Context, arg DeleteBonusTypeByUserParams) (int64, error)
 	DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error)
+	DeletePenaltyTypeByUser(ctx context.Context, arg DeletePenaltyTypeByUserParams) (int64, error)
 	DeleteRefreshToken(ctx context.Context, token string) error
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
 	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonus, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
 	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error)
+	GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeByUserParams) (PenaltyType, error)
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error)
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
@@ -48,6 +53,7 @@ type Querier interface {
 	ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error)
 	ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error)
 	ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error)
+	ListPenaltyTypesByUser(ctx context.Context, arg ListPenaltyTypesByUserParams) ([]PenaltyType, error)
 	ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
 	ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]Student, error)
 	ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]Student, error)
@@ -55,6 +61,7 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, token string) (RevokeRefreshTokenRow, error)
 	UpdateBonusTypeByUser(ctx context.Context, arg UpdateBonusTypeByUserParams) (BonusType, error)
 	UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error)
+	UpdatePenaltyTypeByUser(ctx context.Context, arg UpdatePenaltyTypeByUserParams) (PenaltyType, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error)
 	UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, error)
 	UserEmailExists(ctx context.Context, email string) (bool, error)

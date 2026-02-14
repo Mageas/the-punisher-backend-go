@@ -75,6 +75,9 @@ func (app *application) mount() http.Handler {
 	bonusTypeService := service.NewBonusTypeService(repo)
 	bonusTypeHandler := handler.NewBonusTypeHandler(bonusTypeService)
 
+	penaltyTypeService := service.NewPenaltyTypeService(repo)
+	penaltyTypeHandler := handler.NewPenaltyTypeHandler(penaltyTypeService)
+
 	r.Route("/v1/bonus-types", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
 		r.Post("/", bonusTypeHandler.CreateBonusType)
@@ -82,6 +85,15 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", bonusTypeHandler.GetBonusType)
 		r.Put("/{id}", bonusTypeHandler.UpdateBonusType)
 		r.Delete("/{id}", bonusTypeHandler.DeleteBonusType)
+	})
+
+	r.Route("/v1/penalty-types", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Post("/", penaltyTypeHandler.CreatePenaltyType)
+		r.Get("/", penaltyTypeHandler.ListPenaltyTypes)
+		r.Get("/{id}", penaltyTypeHandler.GetPenaltyType)
+		r.Put("/{id}", penaltyTypeHandler.UpdatePenaltyType)
+		r.Delete("/{id}", penaltyTypeHandler.DeletePenaltyType)
 	})
 
 	r.Route("/v1/bonuses", func(r chi.Router) {

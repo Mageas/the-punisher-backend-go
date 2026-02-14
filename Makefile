@@ -23,3 +23,13 @@ migrate-up:
 .PHONY: migrate-down
 migrate-down:
 	@migrate -path $(MIGRATIONS_DIR) -database $(APP_DATABASE_URL) down
+
+.PHONY: seed
+seed:
+	go run ./cmd/seed
+
+.PHONY: reset-seed
+reset-seed:
+	@migrate -path $(MIGRATIONS_DIR) -database $(APP_DATABASE_URL) down -all
+	@migrate -path $(MIGRATIONS_DIR) -database $(APP_DATABASE_URL) up
+	go run ./cmd/seed
