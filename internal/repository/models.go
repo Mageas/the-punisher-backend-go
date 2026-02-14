@@ -39,6 +39,14 @@ type Classroom struct {
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
+type Penalty struct {
+	ID            uuid.UUID `json:"id"`
+	UserID        uuid.UUID `json:"user_id"`
+	StudentID     uuid.UUID `json:"student_id"`
+	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
 type PenaltyType struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`

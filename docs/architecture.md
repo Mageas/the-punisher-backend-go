@@ -140,6 +140,9 @@ Validation minimale à imposer:
 - `threshold >= 1`.
 - `penalty_type_id` appartient au même user.
 
+Point d'attention:
+- lors de l'implémentation des Rules, veiller à supprimer les "enfants" contenus dans `conditions` qui ne sont plus référencés (ex: update/suppression de règles). Si `conditions` est stocké en JSONB, remplacer le document entier pour éviter des résidus.
+
 ## 7. SQLC conventions
 
 Dans `db/sqlc/queries.sql`:

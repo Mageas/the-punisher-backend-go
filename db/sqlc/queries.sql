@@ -300,3 +300,44 @@ RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at;
 -- name: DeleteBonusByUser :execrows
 DELETE FROM bonuses
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- ==================== Penalty ====================
+
+-- name: CreatePenalty :one
+INSERT INTO penalties (
+    user_id, student_id, penalty_type_id
+) VALUES (
+    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(penalty_type_id)
+)
+RETURNING id, user_id, student_id, penalty_type_id, created_at;
+
+-- name: GetPenaltyByUser :one
+SELECT id, user_id, student_id, penalty_type_id, created_at
+FROM penalties
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+
+-- name: CountPenaltiesByUser :one
+SELECT COUNT(*) FROM penalties WHERE user_id = sqlc.arg(user_id);
+
+-- name: ListPenaltiesByUser :many
+SELECT id, user_id, student_id, penalty_type_id, created_at
+FROM penalties
+WHERE user_id = sqlc.arg(user_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: CountPenaltiesByStudent :one
+SELECT COUNT(*)
+FROM penalties
+WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id);
+
+-- name: ListPenaltiesByStudent :many
+SELECT id, user_id, student_id, penalty_type_id, created_at
+FROM penalties
+WHERE student_id = sqlc.arg(student_id) AND user_id = sqlc.arg(user_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: DeletePenaltyByUser :execrows
+DELETE FROM penalties
+WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);

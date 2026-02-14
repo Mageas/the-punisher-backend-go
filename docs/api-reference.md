@@ -142,6 +142,7 @@ Effet métier:
 
 ### GET `/penalties?page=1`
 ### GET `/penalties/{id}`
+### DELETE `/penalties/{id}`
 
 ## 9. Rules
 
