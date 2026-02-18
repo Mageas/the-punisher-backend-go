@@ -64,6 +64,8 @@ type Querier interface {
 	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
 	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (GetClassroomByUserRow, error)
+	// ==================== Dashboard ====================
+	GetDashboardKpis(ctx context.Context, arg GetDashboardKpisParams) (GetDashboardKpisRow, error)
 	GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (GetPenaltyByUserRow, error)
 	GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeByUserParams) (PenaltyType, error)
 	GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (GetPunishmentByUserRow, error)
@@ -79,6 +81,9 @@ type Querier interface {
 	ListClassroomRefsByStudentIDs(ctx context.Context, arg ListClassroomRefsByStudentIDsParams) ([]ListClassroomRefsByStudentIDsRow, error)
 	ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]ListClassroomsByStudentRow, error)
 	ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]ListClassroomsByUserRow, error)
+	ListDashboardPendingPunishments(ctx context.Context, arg ListDashboardPendingPunishmentsParams) ([]ListDashboardPendingPunishmentsRow, error)
+	ListDashboardRecentBonuses(ctx context.Context, arg ListDashboardRecentBonusesParams) ([]ListDashboardRecentBonusesRow, error)
+	ListDashboardRecentPenalties(ctx context.Context, arg ListDashboardRecentPenaltiesParams) ([]ListDashboardRecentPenaltiesRow, error)
 	ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesByStudentParams) ([]ListPenaltiesByStudentRow, error)
 	ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUserParams) ([]ListPenaltiesByUserRow, error)
 	ListPenaltyTypesByUser(ctx context.Context, arg ListPenaltyTypesByUserParams) ([]PenaltyType, error)
