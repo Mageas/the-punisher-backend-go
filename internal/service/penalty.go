@@ -65,22 +65,22 @@ func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, st
 
 	slog.Info("penalty created", "penalty_id", penalty.ID, "user_id", userID, "student_id", studentID, "penalty_type_id", penaltyTypeID)
 
-	return dto.PenaltyFromRepository(&penalty), nil
+	return dto.PenaltyFromCreateRow(&penalty), nil
 }
 
-func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (repository.Penalty, error) {
+func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (repository.CreatePenaltyRow, error) {
 	if _, err := repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return repository.Penalty{}, api.ErrStudentNotFound
+			return repository.CreatePenaltyRow{}, api.ErrStudentNotFound
 		}
-		return repository.Penalty{}, fmt.Errorf("failed to get student: %w", err)
+		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to get student: %w", err)
 	}
 
 	if _, err := repo.GetPenaltyTypeByUser(ctx, repository.GetPenaltyTypeByUserParams{ID: penaltyTypeID, UserID: userID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return repository.Penalty{}, api.ErrPenaltyTypeNotFound
+			return repository.CreatePenaltyRow{}, api.ErrPenaltyTypeNotFound
 		}
-		return repository.Penalty{}, fmt.Errorf("failed to get penalty type: %w", err)
+		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to get penalty type: %w", err)
 	}
 
 	penalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
@@ -89,11 +89,11 @@ func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo reposit
 		PenaltyTypeID: penaltyTypeID,
 	})
 	if err != nil {
-		return repository.Penalty{}, fmt.Errorf("failed to create penalty: %w", err)
+		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to create penalty: %w", err)
 	}
 
 	if err := s.evaluateRulesForPenalty(ctx, repo, userID, studentID, penaltyTypeID); err != nil {
-		return repository.Penalty{}, err
+		return repository.CreatePenaltyRow{}, err
 	}
 
 	return penalty, nil
@@ -180,7 +180,7 @@ func (s *penaltyService) GetPenalty(ctx context.Context, userID uuid.UUID, penal
 		return nil, fmt.Errorf("failed to get penalty: %w", err)
 	}
 
-	return dto.PenaltyFromRepository(&penalty), nil
+	return dto.PenaltyFromGetRow(&penalty), nil
 }
 
 func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error) {
@@ -198,7 +198,7 @@ func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, li
 		return nil, 0, fmt.Errorf("failed to list penalties: %w", err)
 	}
 
-	return dto.PenaltyListFromRepository(penalties), totalCount, nil
+	return dto.PenaltyListFromListByUserRows(penalties), totalCount, nil
 }
 
 func (s *penaltyService) ListPenaltiesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error) {
@@ -227,7 +227,7 @@ func (s *penaltyService) ListPenaltiesByStudent(ctx context.Context, userID uuid
 		return nil, 0, fmt.Errorf("failed to list penalties by student: %w", err)
 	}
 
-	return dto.PenaltyListFromRepository(penalties), totalCount, nil
+	return dto.PenaltyListFromListByStudentRows(penalties), totalCount, nil
 }
 
 func (s *penaltyService) DeletePenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) error {

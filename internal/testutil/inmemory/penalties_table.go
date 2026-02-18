@@ -20,6 +20,82 @@ const (
 	OpDeletePenaltyByUser            = "DeletePenaltyByUser"
 )
 
+func (r *Repository) studentNamesLocked(studentID uuid.UUID) (string, string) {
+	if student, ok := r.students[studentID]; ok {
+		return student.FirstName, student.LastName
+	}
+
+	return "", ""
+}
+
+func (r *Repository) penaltyTypeNameForPenaltyLocked(penaltyTypeID uuid.UUID) string {
+	if penaltyType, ok := r.penaltyTypes[penaltyTypeID]; ok {
+		return penaltyType.Name
+	}
+
+	return ""
+}
+
+func (r *Repository) buildCreatePenaltyRowLocked(penalty repository.Penalty) repository.CreatePenaltyRow {
+	studentFirstName, studentLastName := r.studentNamesLocked(penalty.StudentID)
+
+	return repository.CreatePenaltyRow{
+		ID:               penalty.ID,
+		UserID:           penalty.UserID,
+		StudentID:        penalty.StudentID,
+		PenaltyTypeID:    penalty.PenaltyTypeID,
+		CreatedAt:        penalty.CreatedAt,
+		StudentFirstName: studentFirstName,
+		StudentLastName:  studentLastName,
+		PenaltyTypeName:  r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID),
+	}
+}
+
+func (r *Repository) buildGetPenaltyRowLocked(penalty repository.Penalty) repository.GetPenaltyByUserRow {
+	studentFirstName, studentLastName := r.studentNamesLocked(penalty.StudentID)
+
+	return repository.GetPenaltyByUserRow{
+		ID:               penalty.ID,
+		UserID:           penalty.UserID,
+		StudentID:        penalty.StudentID,
+		PenaltyTypeID:    penalty.PenaltyTypeID,
+		CreatedAt:        penalty.CreatedAt,
+		StudentFirstName: studentFirstName,
+		StudentLastName:  studentLastName,
+		PenaltyTypeName:  r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID),
+	}
+}
+
+func (r *Repository) buildListPenaltyByUserRowLocked(penalty repository.Penalty) repository.ListPenaltiesByUserRow {
+	studentFirstName, studentLastName := r.studentNamesLocked(penalty.StudentID)
+
+	return repository.ListPenaltiesByUserRow{
+		ID:               penalty.ID,
+		UserID:           penalty.UserID,
+		StudentID:        penalty.StudentID,
+		PenaltyTypeID:    penalty.PenaltyTypeID,
+		CreatedAt:        penalty.CreatedAt,
+		StudentFirstName: studentFirstName,
+		StudentLastName:  studentLastName,
+		PenaltyTypeName:  r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID),
+	}
+}
+
+func (r *Repository) buildListPenaltyByStudentRowLocked(penalty repository.Penalty) repository.ListPenaltiesByStudentRow {
+	studentFirstName, studentLastName := r.studentNamesLocked(penalty.StudentID)
+
+	return repository.ListPenaltiesByStudentRow{
+		ID:               penalty.ID,
+		UserID:           penalty.UserID,
+		StudentID:        penalty.StudentID,
+		PenaltyTypeID:    penalty.PenaltyTypeID,
+		CreatedAt:        penalty.CreatedAt,
+		StudentFirstName: studentFirstName,
+		StudentLastName:  studentLastName,
+		PenaltyTypeName:  r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID),
+	}
+}
+
 func (r *Repository) SeedPenalty(penalty repository.Penalty) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -34,12 +110,12 @@ func (r *Repository) SeedPenalty(penalty repository.Penalty) {
 	r.penalties[penalty.ID] = penalty
 }
 
-func (r *Repository) CreatePenalty(_ context.Context, arg repository.CreatePenaltyParams) (repository.Penalty, error) {
+func (r *Repository) CreatePenalty(_ context.Context, arg repository.CreatePenaltyParams) (repository.CreatePenaltyRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpCreatePenalty); err != nil {
-		return repository.Penalty{}, err
+		return repository.CreatePenaltyRow{}, err
 	}
 
 	penalty := repository.Penalty{
@@ -51,23 +127,23 @@ func (r *Repository) CreatePenalty(_ context.Context, arg repository.CreatePenal
 	}
 	r.penalties[penalty.ID] = penalty
 
-	return penalty, nil
+	return r.buildCreatePenaltyRowLocked(penalty), nil
 }
 
-func (r *Repository) GetPenaltyByUser(_ context.Context, arg repository.GetPenaltyByUserParams) (repository.Penalty, error) {
+func (r *Repository) GetPenaltyByUser(_ context.Context, arg repository.GetPenaltyByUserParams) (repository.GetPenaltyByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if err := r.errFor(OpGetPenaltyByUser); err != nil {
-		return repository.Penalty{}, err
+		return repository.GetPenaltyByUserRow{}, err
 	}
 
 	penalty, ok := r.penalties[arg.ID]
 	if !ok || penalty.UserID != arg.UserID {
-		return repository.Penalty{}, pgx.ErrNoRows
+		return repository.GetPenaltyByUserRow{}, pgx.ErrNoRows
 	}
 
-	return penalty, nil
+	return r.buildGetPenaltyRowLocked(penalty), nil
 }
 
 func (r *Repository) CountPenaltiesByUser(_ context.Context, userID uuid.UUID) (int64, error) {
@@ -88,7 +164,7 @@ func (r *Repository) CountPenaltiesByUser(_ context.Context, userID uuid.UUID) (
 	return count, nil
 }
 
-func (r *Repository) ListPenaltiesByUser(_ context.Context, arg repository.ListPenaltiesByUserParams) ([]repository.Penalty, error) {
+func (r *Repository) ListPenaltiesByUser(_ context.Context, arg repository.ListPenaltiesByUserParams) ([]repository.ListPenaltiesByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -104,7 +180,14 @@ func (r *Repository) ListPenaltiesByUser(_ context.Context, arg repository.ListP
 	}
 
 	sortPenaltiesByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListPenaltiesByUserRow, 0, len(paginated))
+	for _, penalty := range paginated {
+		rows = append(rows, r.buildListPenaltyByUserRowLocked(penalty))
+	}
+
+	return rows, nil
 }
 
 func (r *Repository) CountPenaltiesByStudent(_ context.Context, arg repository.CountPenaltiesByStudentParams) (int64, error) {
@@ -125,7 +208,7 @@ func (r *Repository) CountPenaltiesByStudent(_ context.Context, arg repository.C
 	return count, nil
 }
 
-func (r *Repository) ListPenaltiesByStudent(_ context.Context, arg repository.ListPenaltiesByStudentParams) ([]repository.Penalty, error) {
+func (r *Repository) ListPenaltiesByStudent(_ context.Context, arg repository.ListPenaltiesByStudentParams) ([]repository.ListPenaltiesByStudentRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -141,7 +224,14 @@ func (r *Repository) ListPenaltiesByStudent(_ context.Context, arg repository.Li
 	}
 
 	sortPenaltiesByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListPenaltiesByStudentRow, 0, len(paginated))
+	for _, penalty := range paginated {
+		rows = append(rows, r.buildListPenaltyByStudentRowLocked(penalty))
+	}
+
+	return rows, nil
 }
 
 func (r *Repository) CountPenaltiesByStudentAndType(_ context.Context, arg repository.CountPenaltiesByStudentAndTypeParams) (int64, error) {
