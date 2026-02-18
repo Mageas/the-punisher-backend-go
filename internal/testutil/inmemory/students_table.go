@@ -10,13 +10,107 @@ import (
 )
 
 const (
-	OpCreateStudent       = "CreateStudent"
-	OpGetStudentByUser    = "GetStudentByUser"
-	OpCountStudentsByUser = "CountStudentsByUser"
-	OpListStudentsByUser  = "ListStudentsByUser"
-	OpUpdateStudentByUser = "UpdateStudentByUser"
-	OpDeleteStudentByUser = "DeleteStudentByUser"
+	OpCreateStudent                 = "CreateStudent"
+	OpGetStudentByUser              = "GetStudentByUser"
+	OpCountStudentsByUser           = "CountStudentsByUser"
+	OpListStudentsByUser            = "ListStudentsByUser"
+	OpUpdateStudentByUser           = "UpdateStudentByUser"
+	OpDeleteStudentByUser           = "DeleteStudentByUser"
+	OpListClassroomRefsByStudentIDs = "ListClassroomRefsByStudentIDs"
 )
+
+func (r *Repository) studentAggregateFieldsLocked(student repository.Student) (float64, int64) {
+	var availableBonusPoints float64
+	for _, bonus := range r.bonuses {
+		if bonus.StudentID == student.ID && bonus.UserID == student.UserID && !bonus.UsedAt.Valid {
+			availableBonusPoints += bonus.Points
+		}
+	}
+
+	var penaltyCount int64
+	for _, penalty := range r.penalties {
+		if penalty.StudentID == student.ID && penalty.UserID == student.UserID {
+			penaltyCount++
+		}
+	}
+
+	return availableBonusPoints, penaltyCount
+}
+
+func (r *Repository) buildCreateStudentRowLocked(student repository.Student) repository.CreateStudentRow {
+	availableBonusPoints, penaltyCount := r.studentAggregateFieldsLocked(student)
+
+	return repository.CreateStudentRow{
+		ID:                   student.ID,
+		UserID:               student.UserID,
+		FirstName:            student.FirstName,
+		LastName:             student.LastName,
+		CreatedAt:            student.CreatedAt,
+		UpdatedAt:            student.UpdatedAt,
+		AvailableBonusPoints: availableBonusPoints,
+		PenaltyCount:         penaltyCount,
+	}
+}
+
+func (r *Repository) buildGetStudentRowLocked(student repository.Student) repository.GetStudentByUserRow {
+	availableBonusPoints, penaltyCount := r.studentAggregateFieldsLocked(student)
+
+	return repository.GetStudentByUserRow{
+		ID:                   student.ID,
+		UserID:               student.UserID,
+		FirstName:            student.FirstName,
+		LastName:             student.LastName,
+		CreatedAt:            student.CreatedAt,
+		UpdatedAt:            student.UpdatedAt,
+		AvailableBonusPoints: availableBonusPoints,
+		PenaltyCount:         penaltyCount,
+	}
+}
+
+func (r *Repository) buildListStudentByUserRowLocked(student repository.Student) repository.ListStudentsByUserRow {
+	availableBonusPoints, penaltyCount := r.studentAggregateFieldsLocked(student)
+
+	return repository.ListStudentsByUserRow{
+		ID:                   student.ID,
+		UserID:               student.UserID,
+		FirstName:            student.FirstName,
+		LastName:             student.LastName,
+		CreatedAt:            student.CreatedAt,
+		UpdatedAt:            student.UpdatedAt,
+		AvailableBonusPoints: availableBonusPoints,
+		PenaltyCount:         penaltyCount,
+	}
+}
+
+func (r *Repository) buildListStudentByClassroomRowLocked(student repository.Student) repository.ListStudentsByClassroomRow {
+	availableBonusPoints, penaltyCount := r.studentAggregateFieldsLocked(student)
+
+	return repository.ListStudentsByClassroomRow{
+		ID:                   student.ID,
+		UserID:               student.UserID,
+		FirstName:            student.FirstName,
+		LastName:             student.LastName,
+		CreatedAt:            student.CreatedAt,
+		UpdatedAt:            student.UpdatedAt,
+		AvailableBonusPoints: availableBonusPoints,
+		PenaltyCount:         penaltyCount,
+	}
+}
+
+func (r *Repository) buildUpdateStudentRowLocked(student repository.Student) repository.UpdateStudentByUserRow {
+	availableBonusPoints, penaltyCount := r.studentAggregateFieldsLocked(student)
+
+	return repository.UpdateStudentByUserRow{
+		ID:                   student.ID,
+		UserID:               student.UserID,
+		FirstName:            student.FirstName,
+		LastName:             student.LastName,
+		CreatedAt:            student.CreatedAt,
+		UpdatedAt:            student.UpdatedAt,
+		AvailableBonusPoints: availableBonusPoints,
+		PenaltyCount:         penaltyCount,
+	}
+}
 
 func (r *Repository) SeedStudent(student repository.Student) {
 	r.mu.Lock()
@@ -36,12 +130,12 @@ func (r *Repository) SeedStudent(student repository.Student) {
 	r.students[student.ID] = student
 }
 
-func (r *Repository) CreateStudent(_ context.Context, arg repository.CreateStudentParams) (repository.Student, error) {
+func (r *Repository) CreateStudent(_ context.Context, arg repository.CreateStudentParams) (repository.CreateStudentRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpCreateStudent); err != nil {
-		return repository.Student{}, err
+		return repository.CreateStudentRow{}, err
 	}
 
 	now := time.Now()
@@ -55,23 +149,23 @@ func (r *Repository) CreateStudent(_ context.Context, arg repository.CreateStude
 	}
 	r.students[student.ID] = student
 
-	return student, nil
+	return r.buildCreateStudentRowLocked(student), nil
 }
 
-func (r *Repository) GetStudentByUser(_ context.Context, arg repository.GetStudentByUserParams) (repository.Student, error) {
+func (r *Repository) GetStudentByUser(_ context.Context, arg repository.GetStudentByUserParams) (repository.GetStudentByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if err := r.errFor(OpGetStudentByUser); err != nil {
-		return repository.Student{}, err
+		return repository.GetStudentByUserRow{}, err
 	}
 
 	student, ok := r.students[arg.ID]
 	if !ok || student.UserID != arg.UserID {
-		return repository.Student{}, pgx.ErrNoRows
+		return repository.GetStudentByUserRow{}, pgx.ErrNoRows
 	}
 
-	return student, nil
+	return r.buildGetStudentRowLocked(student), nil
 }
 
 func (r *Repository) CountStudentsByUser(_ context.Context, userID uuid.UUID) (int64, error) {
@@ -92,7 +186,7 @@ func (r *Repository) CountStudentsByUser(_ context.Context, userID uuid.UUID) (i
 	return count, nil
 }
 
-func (r *Repository) ListStudentsByUser(_ context.Context, arg repository.ListStudentsByUserParams) ([]repository.Student, error) {
+func (r *Repository) ListStudentsByUser(_ context.Context, arg repository.ListStudentsByUserParams) ([]repository.ListStudentsByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -108,20 +202,27 @@ func (r *Repository) ListStudentsByUser(_ context.Context, arg repository.ListSt
 	}
 
 	sortStudentsByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListStudentsByUserRow, 0, len(paginated))
+	for _, student := range paginated {
+		rows = append(rows, r.buildListStudentByUserRowLocked(student))
+	}
+
+	return rows, nil
 }
 
-func (r *Repository) UpdateStudentByUser(_ context.Context, arg repository.UpdateStudentByUserParams) (repository.Student, error) {
+func (r *Repository) UpdateStudentByUser(_ context.Context, arg repository.UpdateStudentByUserParams) (repository.UpdateStudentByUserRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpUpdateStudentByUser); err != nil {
-		return repository.Student{}, err
+		return repository.UpdateStudentByUserRow{}, err
 	}
 
 	student, ok := r.students[arg.ID]
 	if !ok || student.UserID != arg.UserID {
-		return repository.Student{}, pgx.ErrNoRows
+		return repository.UpdateStudentByUserRow{}, pgx.ErrNoRows
 	}
 
 	if arg.FirstName.Valid {
@@ -134,7 +235,7 @@ func (r *Repository) UpdateStudentByUser(_ context.Context, arg repository.Updat
 	student.UpdatedAt = time.Now()
 	r.students[arg.ID] = student
 
-	return student, nil
+	return r.buildUpdateStudentRowLocked(student), nil
 }
 
 func (r *Repository) DeleteStudentByUser(_ context.Context, arg repository.DeleteStudentByUserParams) (int64, error) {
@@ -160,4 +261,43 @@ func (r *Repository) DeleteStudentByUser(_ context.Context, arg repository.Delet
 	}
 
 	return 1, nil
+}
+
+func (r *Repository) ListClassroomRefsByStudentIDs(_ context.Context, arg repository.ListClassroomRefsByStudentIDsParams) ([]repository.ListClassroomRefsByStudentIDsRow, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if err := r.errFor(OpListClassroomRefsByStudentIDs); err != nil {
+		return nil, err
+	}
+
+	studentIDs := make(map[uuid.UUID]struct{}, len(arg.StudentIds))
+	for _, studentID := range arg.StudentIds {
+		studentIDs[studentID] = struct{}{}
+	}
+
+	items := make([]repository.ListClassroomRefsByStudentIDsRow, 0)
+	for _, relation := range r.studentClassrooms {
+		if _, ok := studentIDs[relation.StudentID]; !ok {
+			continue
+		}
+
+		student, studentExists := r.students[relation.StudentID]
+		if !studentExists || student.UserID != arg.UserID {
+			continue
+		}
+
+		classroom, classroomExists := r.classrooms[relation.ClassroomID]
+		if !classroomExists {
+			continue
+		}
+
+		items = append(items, repository.ListClassroomRefsByStudentIDsRow{
+			StudentID:     relation.StudentID,
+			ClassroomID:   classroom.ID,
+			ClassroomName: classroom.Name,
+		})
+	}
+
+	return items, nil
 }

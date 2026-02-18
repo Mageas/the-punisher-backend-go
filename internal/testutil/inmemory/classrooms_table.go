@@ -246,7 +246,7 @@ func (r *Repository) CountStudentsByClassroom(_ context.Context, arg repository.
 	return count, nil
 }
 
-func (r *Repository) ListStudentsByClassroom(_ context.Context, arg repository.ListStudentsByClassroomParams) ([]repository.Student, error) {
+func (r *Repository) ListStudentsByClassroom(_ context.Context, arg repository.ListStudentsByClassroomParams) ([]repository.ListStudentsByClassroomRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -256,7 +256,7 @@ func (r *Repository) ListStudentsByClassroom(_ context.Context, arg repository.L
 
 	classroom, classroomExists := r.classrooms[arg.ClassroomID]
 	if !classroomExists || classroom.UserID != arg.UserID {
-		return []repository.Student{}, nil
+		return []repository.ListStudentsByClassroomRow{}, nil
 	}
 
 	items := make([]repository.Student, 0)
@@ -274,7 +274,14 @@ func (r *Repository) ListStudentsByClassroom(_ context.Context, arg repository.L
 	}
 
 	sortStudentsByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListStudentsByClassroomRow, 0, len(paginated))
+	for _, student := range paginated {
+		rows = append(rows, r.buildListStudentByClassroomRowLocked(student))
+	}
+
+	return rows, nil
 }
 
 func (r *Repository) CountClassroomsByStudent(_ context.Context, arg repository.CountClassroomsByStudentParams) (int64, error) {
