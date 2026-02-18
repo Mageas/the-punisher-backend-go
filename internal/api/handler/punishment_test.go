@@ -22,12 +22,16 @@ import (
 )
 
 type punishmentResponse struct {
-	ID               uuid.UUID  `json:"id"`
-	StudentID        uuid.UUID  `json:"student_id"`
-	PunishmentTypeID uuid.UUID  `json:"punishment_type_id"`
-	TriggeringRuleID *uuid.UUID `json:"triggering_rule_id"`
-	DueAt            time.Time  `json:"due_at"`
-	ResolvedAt       *time.Time `json:"resolved_at"`
+	ID                 uuid.UUID  `json:"id"`
+	StudentID          uuid.UUID  `json:"student_id"`
+	StudentFirstName   string     `json:"student_first_name"`
+	StudentLastName    string     `json:"student_last_name"`
+	PunishmentTypeID   uuid.UUID  `json:"punishment_type_id"`
+	PunishmentTypeName string     `json:"punishment_type_name"`
+	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
+	TriggeringRuleName *string    `json:"triggering_rule_name"`
+	DueAt              time.Time  `json:"due_at"`
+	ResolvedAt         *time.Time `json:"resolved_at"`
 }
 
 type paginatedPunishmentResponse struct {
@@ -76,8 +80,14 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	if created.TriggeringRuleID != nil {
 		t.Fatalf("expected no triggering rule for manual creation, got %+v", created.TriggeringRuleID)
 	}
+	if created.TriggeringRuleName != nil {
+		t.Fatalf("expected no triggering rule name for manual creation, got %+v", created.TriggeringRuleName)
+	}
 	if created.ResolvedAt != nil {
 		t.Fatalf("expected unresolved punishment, got %+v", created.ResolvedAt)
+	}
+	if created.StudentFirstName != "Jean" || created.StudentLastName != "Dupont" || created.PunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched create payload, got %+v", created)
 	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/?state=pending", userID, cfg)
@@ -92,6 +102,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
 	}
+	if listResp.Data[0].StudentFirstName != "Jean" || listResp.Data[0].StudentLastName != "Dupont" || listResp.Data[0].PunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched list payload, got %+v", listResp.Data[0])
+	}
 
 	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/"+created.ID.String(), userID, cfg)
 	getRR := httptest.NewRecorder()
@@ -105,6 +118,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	if getResp.ID != created.ID {
 		t.Fatalf("expected punishment id %s, got %s", created.ID, getResp.ID)
 	}
+	if getResp.StudentFirstName != "Jean" || getResp.StudentLastName != "Dupont" || getResp.PunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched get payload, got %+v", getResp)
+	}
 
 	resolveReq := handlertest.NewAuthorizedRequest(t, http.MethodPost, "/v1/punishments/"+created.ID.String()+"/resolve", userID, cfg)
 	resolveRR := httptest.NewRecorder()
@@ -117,6 +133,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	resolved := httpx.DecodeJSONResponse[punishmentResponse](t, resolveRR)
 	if resolved.ResolvedAt == nil {
 		t.Fatal("expected resolved_at to be set")
+	}
+	if resolved.StudentFirstName != "Jean" || resolved.StudentLastName != "Dupont" || resolved.PunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched resolve payload, got %+v", resolved)
 	}
 
 	listResolvedReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/?state=resolved", userID, cfg)
@@ -143,6 +162,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	listByStudentResp := httpx.DecodeJSONResponse[paginatedPunishmentResponse](t, listByStudentRR)
 	if listByStudentResp.TotalCount != 1 || len(listByStudentResp.Data) != 1 {
 		t.Fatalf("unexpected by-student list response: %+v", listByStudentResp)
+	}
+	if listByStudentResp.Data[0].StudentFirstName != "Jean" || listByStudentResp.Data[0].StudentLastName != "Dupont" || listByStudentResp.Data[0].PunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched by-student payload, got %+v", listByStudentResp.Data[0])
 	}
 
 	deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/punishments/"+created.ID.String(), userID, cfg)
