@@ -73,8 +73,8 @@ type Querier interface {
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
 	GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (GetRuleByUserRow, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (GetStudentByUserRow, error)
-	// ==================== StudentProfile ====================
-	GetStudentProfileKpis(ctx context.Context, arg GetStudentProfileKpisParams) (GetStudentProfileKpisRow, error)
+	// ==================== StudentKpisHistory ====================
+	GetStudentKpis(ctx context.Context, arg GetStudentKpisParams) (GetStudentKpisRow, error)
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
 	ListActiveRulesByUserAndPenaltyType(ctx context.Context, arg ListActiveRulesByUserAndPenaltyTypeParams) ([]Rule, error)
 	ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error)
@@ -94,10 +94,7 @@ type Querier interface {
 	ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]ListPunishmentsByUserRow, error)
 	ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
 	ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]ListRulesByUserRow, error)
-	ListStudentProfileAvailableBonuses(ctx context.Context, arg ListStudentProfileAvailableBonusesParams) ([]ListStudentProfileAvailableBonusesRow, error)
-	ListStudentProfileClassrooms(ctx context.Context, arg ListStudentProfileClassroomsParams) ([]ListStudentProfileClassroomsRow, error)
-	ListStudentProfileHistory(ctx context.Context, arg ListStudentProfileHistoryParams) ([]ListStudentProfileHistoryRow, error)
-	ListStudentProfilePendingPunishments(ctx context.Context, arg ListStudentProfilePendingPunishmentsParams) ([]ListStudentProfilePendingPunishmentsRow, error)
+	ListStudentHistory(ctx context.Context, arg ListStudentHistoryParams) ([]ListStudentHistoryRow, error)
 	ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]ListStudentsByClassroomRow, error)
 	ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]ListStudentsByUserRow, error)
 	ListStudentsPreviewByClassroomIDs(ctx context.Context, arg ListStudentsPreviewByClassroomIDsParams) ([]ListStudentsPreviewByClassroomIDsRow, error)
