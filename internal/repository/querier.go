@@ -29,7 +29,7 @@ type Querier interface {
 	CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error)
 	CountStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	// ==================== Bonus ====================
-	CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonus, error)
+	CreateBonus(ctx context.Context, arg CreateBonusParams) (CreateBonusRow, error)
 	// ==================== BonusType ====================
 	CreateBonusType(ctx context.Context, arg CreateBonusTypeParams) (BonusType, error)
 	// ==================== Classroom ====================
@@ -61,7 +61,7 @@ type Querier interface {
 	DeleteRefreshToken(ctx context.Context, token string) error
 	DeleteRuleByUser(ctx context.Context, arg DeleteRuleByUserParams) (int64, error)
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
-	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonus, error)
+	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
 	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error)
 	GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (GetPenaltyByUserRow, error)
@@ -74,8 +74,8 @@ type Querier interface {
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
 	ListActiveRulesByUserAndPenaltyType(ctx context.Context, arg ListActiveRulesByUserAndPenaltyTypeParams) ([]Rule, error)
 	ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error)
-	ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonus, error)
-	ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error)
+	ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]ListBonusesByStudentRow, error)
+	ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]ListBonusesByUserRow, error)
 	ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error)
 	ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error)
 	ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesByStudentParams) ([]ListPenaltiesByStudentRow, error)
@@ -97,7 +97,7 @@ type Querier interface {
 	UpdatePunishmentTypeByUser(ctx context.Context, arg UpdatePunishmentTypeByUserParams) (PunishmentType, error)
 	UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (UpdateRuleByUserRow, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error)
-	UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, error)
+	UseBonus(ctx context.Context, arg UseBonusParams) (UseBonusRow, error)
 	UserEmailExists(ctx context.Context, email string) (bool, error)
 }
 

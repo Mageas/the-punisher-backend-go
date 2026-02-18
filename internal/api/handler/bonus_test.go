@@ -22,11 +22,14 @@ import (
 )
 
 type bonusResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	StudentID   uuid.UUID  `json:"student_id"`
-	BonusTypeID uuid.UUID  `json:"bonus_type_id"`
-	Points      float64    `json:"points"`
-	UsedAt      *time.Time `json:"used_at"`
+	ID               uuid.UUID  `json:"id"`
+	StudentID        uuid.UUID  `json:"student_id"`
+	StudentFirstName string     `json:"student_first_name"`
+	StudentLastName  string     `json:"student_last_name"`
+	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
+	BonusTypeName    string     `json:"bonus_type_name"`
+	Points           float64    `json:"points"`
+	UsedAt           *time.Time `json:"used_at"`
 }
 
 type paginatedBonusResponse struct {
@@ -77,6 +80,9 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 	if created.UsedAt != nil {
 		t.Fatalf("expected unused bonus, got used_at=%v", created.UsedAt)
 	}
+	if created.StudentFirstName != "Jean" || created.StudentLastName != "Dupont" || created.BonusTypeName != "Participation" {
+		t.Fatalf("expected enriched create payload, got %+v", created)
+	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/bonuses/", userID, cfg)
 	listRR := httptest.NewRecorder()
@@ -89,6 +95,9 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 	listResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, listRR)
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
+	}
+	if listResp.Data[0].StudentFirstName != "Jean" || listResp.Data[0].StudentLastName != "Dupont" || listResp.Data[0].BonusTypeName != "Participation" {
+		t.Fatalf("expected enriched list payload, got %+v", listResp.Data[0])
 	}
 
 	listUnusedReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/bonuses/?state=unused", userID, cfg)
@@ -116,6 +125,9 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 	if used.UsedAt == nil {
 		t.Fatal("expected used_at to be set")
 	}
+	if used.StudentFirstName != "Jean" || used.StudentLastName != "Dupont" || used.BonusTypeName != "Participation" {
+		t.Fatalf("expected enriched use payload, got %+v", used)
+	}
 
 	listUsedReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/bonuses/?state=used", userID, cfg)
 	listUsedRR := httptest.NewRecorder()
@@ -142,6 +154,9 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 	if getResp.ID != created.ID {
 		t.Fatalf("expected bonus id %s, got %s", created.ID, getResp.ID)
 	}
+	if getResp.StudentFirstName != "Jean" || getResp.StudentLastName != "Dupont" || getResp.BonusTypeName != "Participation" {
+		t.Fatalf("expected enriched get payload, got %+v", getResp)
+	}
 
 	listByStudentReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/bonuses?state=used", userID, cfg)
 	listByStudentRR := httptest.NewRecorder()
@@ -154,6 +169,9 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 	listByStudentResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, listByStudentRR)
 	if listByStudentResp.TotalCount != 1 || len(listByStudentResp.Data) != 1 {
 		t.Fatalf("unexpected list by student response: %+v", listByStudentResp)
+	}
+	if listByStudentResp.Data[0].StudentFirstName != "Jean" || listByStudentResp.Data[0].StudentLastName != "Dupont" || listByStudentResp.Data[0].BonusTypeName != "Participation" {
+		t.Fatalf("expected enriched list-by-student payload, got %+v", listByStudentResp.Data[0])
 	}
 
 	deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/bonuses/"+created.ID.String(), userID, cfg)

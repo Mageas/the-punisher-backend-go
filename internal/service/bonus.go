@@ -58,7 +58,7 @@ func (s *bonusService) CreateBonus(ctx context.Context, userID uuid.UUID, studen
 
 	slog.Info("bonus created", "bonus_id", bonus.ID, "user_id", userID, "student_id", studentID, "bonus_type_id", bonusTypeID)
 
-	return dto.BonusFromRepository(&bonus), nil
+	return dto.BonusFromCreateRow(&bonus), nil
 }
 
 func (s *bonusService) GetBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error) {
@@ -70,7 +70,7 @@ func (s *bonusService) GetBonus(ctx context.Context, userID uuid.UUID, bonusID u
 		return nil, fmt.Errorf("failed to get bonus: %w", err)
 	}
 
-	return dto.BonusFromRepository(&bonus), nil
+	return dto.BonusFromGetRow(&bonus), nil
 }
 
 func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
@@ -97,7 +97,7 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *
 		return nil, 0, fmt.Errorf("failed to list bonuses: %w", err)
 	}
 
-	return dto.BonusListFromRepository(bonuses), totalCount, nil
+	return dto.BonusListFromListByUserRows(bonuses), totalCount, nil
 }
 
 func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
@@ -133,7 +133,7 @@ func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUI
 		return nil, 0, fmt.Errorf("failed to list bonuses by student: %w", err)
 	}
 
-	return dto.BonusListFromRepository(bonuses), totalCount, nil
+	return dto.BonusListFromListByStudentRows(bonuses), totalCount, nil
 }
 
 func (s *bonusService) UseBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error) {
@@ -153,7 +153,7 @@ func (s *bonusService) UseBonus(ctx context.Context, userID uuid.UUID, bonusID u
 
 	slog.Info("bonus used", "bonus_id", bonus.ID, "user_id", userID)
 
-	return dto.BonusFromRepository(&bonus), nil
+	return dto.BonusFromUseRow(&bonus), nil
 }
 
 func (s *bonusService) DeleteBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) error {

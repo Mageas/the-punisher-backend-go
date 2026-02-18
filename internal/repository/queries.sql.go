@@ -280,7 +280,11 @@ INSERT INTO bonuses (
 ) VALUES (
     $1, $2, $3, $4
 )
-RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at
+RETURNING
+    id, user_id, student_id, bonus_type_id, points, created_at, used_at,
+    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonus_type_id) AS bonus_type_name
 `
 
 type CreateBonusParams struct {
@@ -290,15 +294,28 @@ type CreateBonusParams struct {
 	Points      float64   `json:"points"`
 }
 
+type CreateBonusRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
+	Points           float64            `json:"points"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	StudentFirstName string             `json:"student_first_name"`
+	StudentLastName  string             `json:"student_last_name"`
+	BonusTypeName    string             `json:"bonus_type_name"`
+}
+
 // ==================== Bonus ====================
-func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonus, error) {
+func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (CreateBonusRow, error) {
 	row := q.db.QueryRow(ctx, createBonus,
 		arg.UserID,
 		arg.StudentID,
 		arg.BonusTypeID,
 		arg.Points,
 	)
-	var i Bonus
+	var i CreateBonusRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -307,6 +324,9 @@ func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (Bonus
 		&i.Points,
 		&i.CreatedAt,
 		&i.UsedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.BonusTypeName,
 	)
 	return i, err
 }
@@ -924,9 +944,15 @@ func (q *Queries) DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUs
 }
 
 const getBonusByUser = `-- name: GetBonusByUser :one
-SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
-FROM bonuses
-WHERE id = $1 AND user_id = $2 LIMIT 1
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.id = $1 AND b.user_id = $2 LIMIT 1
 `
 
 type GetBonusByUserParams struct {
@@ -934,9 +960,22 @@ type GetBonusByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonus, error) {
+type GetBonusByUserRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
+	Points           float64            `json:"points"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	StudentFirstName string             `json:"student_first_name"`
+	StudentLastName  string             `json:"student_last_name"`
+	BonusTypeName    string             `json:"bonus_type_name"`
+}
+
+func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error) {
 	row := q.db.QueryRow(ctx, getBonusByUser, arg.ID, arg.UserID)
-	var i Bonus
+	var i GetBonusByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -945,6 +984,9 @@ func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) 
 		&i.Points,
 		&i.CreatedAt,
 		&i.UsedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.BonusTypeName,
 	)
 	return i, err
 }
@@ -1327,12 +1369,18 @@ func (q *Queries) ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesBy
 }
 
 const listBonusesByStudent = `-- name: ListBonusesByStudent :many
-SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
-FROM bonuses
-WHERE student_id = $1
-  AND user_id = $2
-  AND ($3::boolean IS NULL OR (used_at IS NOT NULL) = $3::boolean)
-ORDER BY created_at DESC
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.student_id = $1
+  AND b.user_id = $2
+  AND ($3::boolean IS NULL OR (b.used_at IS NOT NULL) = $3::boolean)
+ORDER BY b.created_at DESC
 LIMIT $5 OFFSET $4
 `
 
@@ -1344,7 +1392,20 @@ type ListBonusesByStudentParams struct {
 	QueryLimit  int32       `json:"query_limit"`
 }
 
-func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]Bonus, error) {
+type ListBonusesByStudentRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
+	Points           float64            `json:"points"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	StudentFirstName string             `json:"student_first_name"`
+	StudentLastName  string             `json:"student_last_name"`
+	BonusTypeName    string             `json:"bonus_type_name"`
+}
+
+func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]ListBonusesByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listBonusesByStudent,
 		arg.StudentID,
 		arg.UserID,
@@ -1356,9 +1417,9 @@ func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStu
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Bonus
+	var items []ListBonusesByStudentRow
 	for rows.Next() {
-		var i Bonus
+		var i ListBonusesByStudentRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1367,6 +1428,9 @@ func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStu
 			&i.Points,
 			&i.CreatedAt,
 			&i.UsedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.BonusTypeName,
 		); err != nil {
 			return nil, err
 		}
@@ -1379,11 +1443,17 @@ func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStu
 }
 
 const listBonusesByUser = `-- name: ListBonusesByUser :many
-SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
-FROM bonuses
-WHERE user_id = $1
-  AND ($2::boolean IS NULL OR (used_at IS NOT NULL) = $2::boolean)
-ORDER BY created_at DESC
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.user_id = $1
+  AND ($2::boolean IS NULL OR (b.used_at IS NOT NULL) = $2::boolean)
+ORDER BY b.created_at DESC
 LIMIT $4 OFFSET $3
 `
 
@@ -1394,7 +1464,20 @@ type ListBonusesByUserParams struct {
 	QueryLimit  int32       `json:"query_limit"`
 }
 
-func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error) {
+type ListBonusesByUserRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
+	Points           float64            `json:"points"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	StudentFirstName string             `json:"student_first_name"`
+	StudentLastName  string             `json:"student_last_name"`
+	BonusTypeName    string             `json:"bonus_type_name"`
+}
+
+func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]ListBonusesByUserRow, error) {
 	rows, err := q.db.Query(ctx, listBonusesByUser,
 		arg.UserID,
 		arg.Used,
@@ -1405,9 +1488,9 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Bonus
+	var items []ListBonusesByUserRow
 	for rows.Next() {
-		var i Bonus
+		var i ListBonusesByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1416,6 +1499,9 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 			&i.Points,
 			&i.CreatedAt,
 			&i.UsedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.BonusTypeName,
 		); err != nil {
 			return nil, err
 		}
@@ -2342,8 +2428,12 @@ func (q *Queries) UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUs
 const useBonus = `-- name: UseBonus :one
 UPDATE bonuses
 SET used_at = NOW()
-WHERE id = $1 AND user_id = $2 AND used_at IS NULL
-RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at
+WHERE bonuses.id = $1 AND bonuses.user_id = $2 AND bonuses.used_at IS NULL
+RETURNING
+    bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.used_at,
+    (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = bonuses.student_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id) AS bonus_type_name
 `
 
 type UseBonusParams struct {
@@ -2351,9 +2441,22 @@ type UseBonusParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, error) {
+type UseBonusRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
+	Points           float64            `json:"points"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	StudentFirstName string             `json:"student_first_name"`
+	StudentLastName  string             `json:"student_last_name"`
+	BonusTypeName    string             `json:"bonus_type_name"`
+}
+
+func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (UseBonusRow, error) {
 	row := q.db.QueryRow(ctx, useBonus, arg.ID, arg.UserID)
-	var i Bonus
+	var i UseBonusRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -2362,6 +2465,9 @@ func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, erro
 		&i.Points,
 		&i.CreatedAt,
 		&i.UsedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.BonusTypeName,
 	)
 	return i, err
 }
