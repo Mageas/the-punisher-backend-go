@@ -756,7 +756,21 @@ INSERT INTO students (
 ) VALUES (
     $1, $2, $3
 )
-RETURNING id, user_id, first_name, last_name, created_at, updated_at
+RETURNING
+    id, user_id, first_name, last_name, created_at, updated_at,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = students.id
+          AND b.user_id = students.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = students.id
+          AND p.user_id = students.user_id
+    ), 0)::bigint AS penalty_count
 `
 
 type CreateStudentParams struct {
@@ -765,10 +779,21 @@ type CreateStudentParams struct {
 	LastName  string    `json:"last_name"`
 }
 
+type CreateStudentRow struct {
+	ID                   uuid.UUID `json:"id"`
+	UserID               uuid.UUID `json:"user_id"`
+	FirstName            string    `json:"first_name"`
+	LastName             string    `json:"last_name"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	AvailableBonusPoints float64   `json:"available_bonus_points"`
+	PenaltyCount         int64     `json:"penalty_count"`
+}
+
 // ==================== Student ====================
-func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error) {
+func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (CreateStudentRow, error) {
 	row := q.db.QueryRow(ctx, createStudent, arg.UserID, arg.FirstName, arg.LastName)
-	var i Student
+	var i CreateStudentRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -776,6 +801,8 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (S
 		&i.LastName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvailableBonusPoints,
+		&i.PenaltyCount,
 	)
 	return i, err
 }
@@ -1323,9 +1350,23 @@ func (q *Queries) GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (G
 }
 
 const getStudentByUser = `-- name: GetStudentByUser :one
-SELECT id, user_id, first_name, last_name, created_at, updated_at
-FROM students
-WHERE id = $1 AND user_id = $2 LIMIT 1
+SELECT
+    s.id, s.user_id, s.first_name, s.last_name, s.created_at, s.updated_at,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = s.id
+          AND b.user_id = s.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = s.id
+          AND p.user_id = s.user_id
+    ), 0)::bigint AS penalty_count
+FROM students s
+WHERE s.id = $1 AND s.user_id = $2 LIMIT 1
 `
 
 type GetStudentByUserParams struct {
@@ -1333,9 +1374,20 @@ type GetStudentByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error) {
+type GetStudentByUserRow struct {
+	ID                   uuid.UUID `json:"id"`
+	UserID               uuid.UUID `json:"user_id"`
+	FirstName            string    `json:"first_name"`
+	LastName             string    `json:"last_name"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	AvailableBonusPoints float64   `json:"available_bonus_points"`
+	PenaltyCount         int64     `json:"penalty_count"`
+}
+
+func (q *Queries) GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (GetStudentByUserRow, error) {
 	row := q.db.QueryRow(ctx, getStudentByUser, arg.ID, arg.UserID)
-	var i Student
+	var i GetStudentByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -1343,6 +1395,8 @@ func (q *Queries) GetStudentByUser(ctx context.Context, arg GetStudentByUserPara
 		&i.LastName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvailableBonusPoints,
+		&i.PenaltyCount,
 	)
 	return i, err
 }
@@ -1585,6 +1639,50 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 			&i.StudentLastName,
 			&i.BonusTypeName,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClassroomRefsByStudentIDs = `-- name: ListClassroomRefsByStudentIDs :many
+SELECT
+    sc.student_id,
+    c.id AS classroom_id,
+    c.name AS classroom_name
+FROM student_classrooms sc
+JOIN classrooms c ON c.id = sc.classroom_id
+JOIN students s ON s.id = sc.student_id
+WHERE s.user_id = $1
+  AND sc.student_id = ANY($2::uuid[])
+ORDER BY c.created_at DESC
+`
+
+type ListClassroomRefsByStudentIDsParams struct {
+	UserID     uuid.UUID   `json:"user_id"`
+	StudentIds []uuid.UUID `json:"student_ids"`
+}
+
+type ListClassroomRefsByStudentIDsRow struct {
+	StudentID     uuid.UUID `json:"student_id"`
+	ClassroomID   uuid.UUID `json:"classroom_id"`
+	ClassroomName string    `json:"classroom_name"`
+}
+
+func (q *Queries) ListClassroomRefsByStudentIDs(ctx context.Context, arg ListClassroomRefsByStudentIDsParams) ([]ListClassroomRefsByStudentIDsRow, error) {
+	rows, err := q.db.Query(ctx, listClassroomRefsByStudentIDs, arg.UserID, arg.StudentIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClassroomRefsByStudentIDsRow
+	for rows.Next() {
+		var i ListClassroomRefsByStudentIDsRow
+		if err := rows.Scan(&i.StudentID, &i.ClassroomID, &i.ClassroomName); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2156,7 +2254,21 @@ func (q *Queries) ListRulesByUser(ctx context.Context, arg ListRulesByUserParams
 }
 
 const listStudentsByClassroom = `-- name: ListStudentsByClassroom :many
-SELECT s.id, s.user_id, s.first_name, s.last_name, s.created_at, s.updated_at
+SELECT
+    s.id, s.user_id, s.first_name, s.last_name, s.created_at, s.updated_at,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = s.id
+          AND b.user_id = s.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = s.id
+          AND p.user_id = s.user_id
+    ), 0)::bigint AS penalty_count
 FROM students s
 JOIN student_classrooms sc ON sc.student_id = s.id
 JOIN classrooms c ON c.id = sc.classroom_id
@@ -2172,7 +2284,18 @@ type ListStudentsByClassroomParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]Student, error) {
+type ListStudentsByClassroomRow struct {
+	ID                   uuid.UUID `json:"id"`
+	UserID               uuid.UUID `json:"user_id"`
+	FirstName            string    `json:"first_name"`
+	LastName             string    `json:"last_name"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	AvailableBonusPoints float64   `json:"available_bonus_points"`
+	PenaltyCount         int64     `json:"penalty_count"`
+}
+
+func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]ListStudentsByClassroomRow, error) {
 	rows, err := q.db.Query(ctx, listStudentsByClassroom,
 		arg.ClassroomID,
 		arg.UserID,
@@ -2183,9 +2306,9 @@ func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsB
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Student
+	var items []ListStudentsByClassroomRow
 	for rows.Next() {
-		var i Student
+		var i ListStudentsByClassroomRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -2193,6 +2316,8 @@ func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsB
 			&i.LastName,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AvailableBonusPoints,
+			&i.PenaltyCount,
 		); err != nil {
 			return nil, err
 		}
@@ -2205,10 +2330,24 @@ func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsB
 }
 
 const listStudentsByUser = `-- name: ListStudentsByUser :many
-SELECT id, user_id, first_name, last_name, created_at, updated_at
-FROM students
-WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT
+    s.id, s.user_id, s.first_name, s.last_name, s.created_at, s.updated_at,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = s.id
+          AND b.user_id = s.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = s.id
+          AND p.user_id = s.user_id
+    ), 0)::bigint AS penalty_count
+FROM students s
+WHERE s.user_id = $1
+ORDER BY s.created_at DESC
 LIMIT $3 OFFSET $2
 `
 
@@ -2218,15 +2357,26 @@ type ListStudentsByUserParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]Student, error) {
+type ListStudentsByUserRow struct {
+	ID                   uuid.UUID `json:"id"`
+	UserID               uuid.UUID `json:"user_id"`
+	FirstName            string    `json:"first_name"`
+	LastName             string    `json:"last_name"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	AvailableBonusPoints float64   `json:"available_bonus_points"`
+	PenaltyCount         int64     `json:"penalty_count"`
+}
+
+func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]ListStudentsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listStudentsByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Student
+	var items []ListStudentsByUserRow
 	for rows.Next() {
-		var i Student
+		var i ListStudentsByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -2234,6 +2384,8 @@ func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUser
 			&i.LastName,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AvailableBonusPoints,
+			&i.PenaltyCount,
 		); err != nil {
 			return nil, err
 		}
@@ -2562,8 +2714,22 @@ SET
     first_name = COALESCE($1, first_name),
     last_name = COALESCE($2, last_name),
     updated_at = NOW()
-WHERE id = $3 AND user_id = $4
-RETURNING id, user_id, first_name, last_name, created_at, updated_at
+WHERE students.id = $3 AND students.user_id = $4
+RETURNING
+    students.id, students.user_id, students.first_name, students.last_name, students.created_at, students.updated_at,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = students.id
+          AND b.user_id = students.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = students.id
+          AND p.user_id = students.user_id
+    ), 0)::bigint AS penalty_count
 `
 
 type UpdateStudentByUserParams struct {
@@ -2573,14 +2739,25 @@ type UpdateStudentByUserParams struct {
 	UserID    uuid.UUID   `json:"user_id"`
 }
 
-func (q *Queries) UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error) {
+type UpdateStudentByUserRow struct {
+	ID                   uuid.UUID `json:"id"`
+	UserID               uuid.UUID `json:"user_id"`
+	FirstName            string    `json:"first_name"`
+	LastName             string    `json:"last_name"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	AvailableBonusPoints float64   `json:"available_bonus_points"`
+	PenaltyCount         int64     `json:"penalty_count"`
+}
+
+func (q *Queries) UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (UpdateStudentByUserRow, error) {
 	row := q.db.QueryRow(ctx, updateStudentByUser,
 		arg.FirstName,
 		arg.LastName,
 		arg.ID,
 		arg.UserID,
 	)
-	var i Student
+	var i UpdateStudentByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -2588,6 +2765,8 @@ func (q *Queries) UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUs
 		&i.LastName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvailableBonusPoints,
+		&i.PenaltyCount,
 	)
 	return i, err
 }

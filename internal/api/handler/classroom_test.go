@@ -144,6 +144,12 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	if listStudentsResp.Data[0].ID != studentID {
 		t.Fatalf("expected student id %s, got %s", studentID, listStudentsResp.Data[0].ID)
 	}
+	if len(listStudentsResp.Data[0].Classrooms) != 1 || listStudentsResp.Data[0].Classrooms[0].ID != created.ID {
+		t.Fatalf("expected student classroom badges to include current classroom, got %+v", listStudentsResp.Data[0].Classrooms)
+	}
+	if listStudentsResp.Data[0].AvailableBonusPoints != 0 || listStudentsResp.Data[0].PenaltyCount != 0 {
+		t.Fatalf("expected zero student aggregates, got %+v", listStudentsResp.Data[0])
+	}
 
 	listClassroomsByStudentReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/classrooms", userID, cfg)
 	listClassroomsByStudentRR := httptest.NewRecorder()

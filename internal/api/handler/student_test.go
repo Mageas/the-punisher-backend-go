@@ -22,9 +22,17 @@ import (
 )
 
 type studentResponse struct {
-	ID        uuid.UUID `json:"id"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
+	ID                   uuid.UUID                  `json:"id"`
+	FirstName            string                     `json:"first_name"`
+	LastName             string                     `json:"last_name"`
+	Classrooms           []studentClassroomResponse `json:"classrooms"`
+	AvailableBonusPoints float64                    `json:"available_bonus_points"`
+	PenaltyCount         int64                      `json:"penalty_count"`
+}
+
+type studentClassroomResponse struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 }
 
 type paginatedStudentResponse struct {
@@ -71,6 +79,12 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 	if created.FirstName != "Jean" || created.LastName != "Dupont" {
 		t.Fatalf("unexpected student payload: %+v", created)
 	}
+	if len(created.Classrooms) != 0 {
+		t.Fatalf("expected no classrooms on create, got %+v", created.Classrooms)
+	}
+	if created.AvailableBonusPoints != 0 || created.PenaltyCount != 0 {
+		t.Fatalf("expected zero aggregates on create, got bonus=%v penalties=%d", created.AvailableBonusPoints, created.PenaltyCount)
+	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/", userID, cfg)
 	listRR := httptest.NewRecorder()
@@ -90,6 +104,9 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 	if listResp.Data[0].ID != created.ID {
 		t.Fatalf("expected listed id %s, got %s", created.ID, listResp.Data[0].ID)
 	}
+	if listResp.Data[0].AvailableBonusPoints != 0 || listResp.Data[0].PenaltyCount != 0 {
+		t.Fatalf("expected zero aggregates in list, got %+v", listResp.Data[0])
+	}
 
 	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+created.ID.String(), userID, cfg)
 	getRR := httptest.NewRecorder()
@@ -102,6 +119,9 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 	getResp := httpx.DecodeJSONResponse[studentResponse](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected student id %s, got %s", created.ID, getResp.ID)
+	}
+	if getResp.AvailableBonusPoints != 0 || getResp.PenaltyCount != 0 {
+		t.Fatalf("expected zero aggregates in get, got %+v", getResp)
 	}
 
 	updateReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, "/v1/students/"+created.ID.String(), map[string]any{
@@ -117,6 +137,9 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 	updated := httpx.DecodeJSONResponse[studentResponse](t, updateRR)
 	if updated.FirstName != "Jeanne" || updated.LastName != "Dupont" {
 		t.Fatalf("expected updated student, got %+v", updated)
+	}
+	if updated.AvailableBonusPoints != 0 || updated.PenaltyCount != 0 {
+		t.Fatalf("expected zero aggregates in update, got %+v", updated)
 	}
 
 	updateEmptyReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, "/v1/students/"+created.ID.String(), map[string]any{}, userID, cfg)

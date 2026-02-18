@@ -42,7 +42,12 @@ func (s *studentService) CreateStudent(ctx context.Context, userID uuid.UUID, re
 
 	slog.Info("student created", "student_id", student.ID, "user_id", userID)
 
-	return dto.StudentFromRepository(&student), nil
+	response := dto.StudentFromCreateRow(&student)
+	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
+		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
+	}
+
+	return response, nil
 }
 
 func (s *studentService) GetStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.ReturnStudentDto, error) {
@@ -57,7 +62,12 @@ func (s *studentService) GetStudent(ctx context.Context, userID uuid.UUID, stude
 		return nil, fmt.Errorf("failed to get student: %w", err)
 	}
 
-	return dto.StudentFromRepository(&student), nil
+	response := dto.StudentFromGetRow(&student)
+	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
+		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
+	}
+
+	return response, nil
 }
 
 func (s *studentService) ListStudents(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error) {
@@ -75,7 +85,12 @@ func (s *studentService) ListStudents(ctx context.Context, userID uuid.UUID, lim
 		return nil, 0, fmt.Errorf("failed to list students: %w", err)
 	}
 
-	return dto.StudentListFromRepository(students), totalCount, nil
+	response := dto.StudentListFromListByUserRows(students)
+	if err := attachClassroomsToStudents(ctx, s.repo, userID, response); err != nil {
+		return nil, 0, fmt.Errorf("failed to list student classrooms: %w", err)
+	}
+
+	return response, totalCount, nil
 }
 
 func (s *studentService) UpdateStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, req dto.UpdateStudentDto) (*dto.ReturnStudentDto, error) {
@@ -99,7 +114,12 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID uuid.UUID, st
 		return nil, fmt.Errorf("failed to update student: %w", err)
 	}
 
-	return dto.StudentFromRepository(&student), nil
+	response := dto.StudentFromUpdateRow(&student)
+	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
+		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
+	}
+
+	return response, nil
 }
 
 func (s *studentService) DeleteStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error {
