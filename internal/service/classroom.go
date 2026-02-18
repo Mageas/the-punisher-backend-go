@@ -209,7 +209,12 @@ func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID u
 		return nil, 0, fmt.Errorf("failed to list students by classroom: %w", err)
 	}
 
-	return dto.StudentListFromRepository(students), totalCount, nil
+	response := dto.StudentListFromListByClassroomRows(students)
+	if err := attachClassroomsToStudents(ctx, s.repo, userID, response); err != nil {
+		return nil, 0, fmt.Errorf("failed to list student classrooms: %w", err)
+	}
+
+	return response, totalCount, nil
 }
 
 func (s *classroomService) ListClassroomsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error) {
