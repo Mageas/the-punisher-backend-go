@@ -22,12 +22,12 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Recoverer)
 
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"https://*", "http://*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
+		AllowedOrigins:   app.config.CORS.AllowedOrigins,
+		AllowedMethods:   app.config.CORS.AllowedMethods,
+		AllowedHeaders:   app.config.CORS.AllowedHeaders,
+		ExposedHeaders:   app.config.CORS.ExposedHeaders,
+		AllowCredentials: app.config.CORS.AllowCredentials,
+		MaxAge:           app.config.CORS.MaxAge, // Maximum value not ignored by any of major browsers
 	}))
 
 	r.Use(middleware.Timeout(60 * time.Second))

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -14,8 +15,18 @@ type Config struct {
 	Env           string
 	Version       string
 	AllowRegister bool
+	CORS          CORSConfig
 	DB            DBConfig
 	JWT           JWTConfig
+}
+
+type CORSConfig struct {
+	AllowedOrigins   []string
+	AllowedMethods   []string
+	AllowedHeaders   []string
+	ExposedHeaders   []string
+	AllowCredentials bool
+	MaxAge           int
 }
 
 type DBConfig struct {
@@ -34,11 +45,19 @@ type JWTConfig struct {
 func Load() *Config {
 	godotenv.Load()
 
-	return &Config{
+	cfg := &Config{
 		Addr:          GetEnv("APP_ADDRESS", ":8080"),
 		Env:           GetEnv("APP_ENV", "development"),
 		Version:       GetEnv("APP_VERSION", "1.0.0"),
 		AllowRegister: GetEnvBool("APP_ALLOW_REGISTER", true),
+		CORS: CORSConfig{
+			AllowedOrigins:   GetEnvCSV("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173"}),
+			AllowedMethods:   GetEnvCSV("CORS_ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
+			AllowedHeaders:   GetEnvCSV("CORS_ALLOWED_HEADERS", []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"}),
+			ExposedHeaders:   GetEnvCSV("CORS_EXPOSED_HEADERS", []string{"Link"}),
+			AllowCredentials: GetEnvBool("CORS_ALLOW_CREDENTIALS", true),
+			MaxAge:           GetEnvInt("CORS_MAX_AGE", 300),
+		},
 		DB: DBConfig{
 			DSN: GetEnv("APP_DATABASE_URL", ""),
 		},
@@ -51,6 +70,9 @@ func Load() *Config {
 			Audience:          GetEnvOrFatal("JWT_AUDIENCE"),
 		},
 	}
+
+	validateCORSConfig(cfg.CORS)
+	return cfg
 }
 
 func GetEnv(key, fallback string) string {
@@ -78,10 +100,59 @@ func GetEnvDuration(key string, fallback int) time.Duration {
 	return time.Duration(fallback)
 }
 
+func GetEnvInt(key string, fallback int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		if parsedValue, err := strconv.Atoi(value); err == nil {
+			return parsedValue
+		}
+	}
+	return fallback
+}
+
+func GetEnvCSV(key string, fallback []string) []string {
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+
+	parts := strings.Split(value, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+
+	if len(values) == 0 {
+		return fallback
+	}
+
+	return values
+}
+
 func GetEnvOrFatal(key string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
 	}
 	log.Fatalf("Environment variable %s is not set", key)
 	return ""
+}
+
+func validateCORSConfig(cors CORSConfig) {
+	if len(cors.AllowedOrigins) == 0 {
+		log.Fatal("CORS_ALLOWED_ORIGINS must contain at least one origin")
+	}
+
+	if cors.MaxAge < 0 {
+		log.Fatal("CORS_MAX_AGE must be >= 0")
+	}
+
+	if cors.AllowCredentials {
+		for _, origin := range cors.AllowedOrigins {
+			if strings.Contains(origin, "*") {
+				log.Fatalf("invalid CORS config: wildcard origin %q cannot be used when CORS_ALLOW_CREDENTIALS=true", origin)
+			}
+		}
+	}
 }

@@ -61,6 +61,18 @@ go run ./cmd/api
 
 API par défaut: `http://localhost:8080`
 
+## Configuration CORS
+
+Variables disponibles (dans `.env`) :
+- `CORS_ALLOWED_ORIGINS` (CSV), ex: `http://localhost:3000,http://localhost:5173`
+- `CORS_ALLOWED_METHODS` (CSV), ex: `GET,POST,PUT,DELETE,OPTIONS`
+- `CORS_ALLOWED_HEADERS` (CSV), ex: `Accept,Authorization,Content-Type,X-CSRF-Token`
+- `CORS_EXPOSED_HEADERS` (CSV), ex: `Link`
+- `CORS_ALLOW_CREDENTIALS` (`true|false`)
+- `CORS_MAX_AGE` (secondes)
+
+Note sécurité : si `CORS_ALLOW_CREDENTIALS=true`, les origins contenant `*` sont refusées au démarrage.
+
 ## Build
 
 ```bash
