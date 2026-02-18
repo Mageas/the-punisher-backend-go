@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -60,6 +61,33 @@ func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	web.WriteJSON(w, http.StatusOK, student, nil)
+}
+
+func (h *StudentHandler) GetStudentProfile(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+		return
+	}
+
+	historyPage := 1
+	if rawPage := r.URL.Query().Get("history_page"); rawPage != "" {
+		if parsed, parseErr := strconv.Atoi(rawPage); parseErr == nil && parsed > 0 {
+			historyPage = parsed
+		}
+	}
+	historyLimit := int32(web.DefaultItemPerPage)
+	historyOffset := int32((historyPage - 1) * web.DefaultItemPerPage)
+
+	profile, err := h.service.GetStudentProfile(r.Context(), userID, studentID, historyLimit, historyOffset)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, profile, nil)
 }
 
 func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {

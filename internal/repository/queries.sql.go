@@ -1554,6 +1554,63 @@ func (q *Queries) GetStudentByUser(ctx context.Context, arg GetStudentByUserPara
 	return i, err
 }
 
+const getStudentProfileKpis = `-- name: GetStudentProfileKpis :one
+
+SELECT
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = $1
+          AND b.user_id = $2
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM bonuses b
+        WHERE b.student_id = $1
+          AND b.user_id = $2
+          AND b.used_at IS NULL
+    ), 0)::bigint AS active_bonus_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
+    ), 0)::bigint AS total_penalty_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
+          AND p.resolved_at IS NULL
+    ), 0)::bigint AS pending_punishment_count
+`
+
+type GetStudentProfileKpisParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+type GetStudentProfileKpisRow struct {
+	AvailableBonusPoints   float64 `json:"available_bonus_points"`
+	ActiveBonusCount       int64   `json:"active_bonus_count"`
+	TotalPenaltyCount      int64   `json:"total_penalty_count"`
+	PendingPunishmentCount int64   `json:"pending_punishment_count"`
+}
+
+// ==================== StudentProfile ====================
+func (q *Queries) GetStudentProfileKpis(ctx context.Context, arg GetStudentProfileKpisParams) (GetStudentProfileKpisRow, error) {
+	row := q.db.QueryRow(ctx, getStudentProfileKpis, arg.StudentID, arg.UserID)
+	var i GetStudentProfileKpisRow
+	err := row.Scan(
+		&i.AvailableBonusPoints,
+		&i.ActiveBonusCount,
+		&i.TotalPenaltyCount,
+		&i.PendingPunishmentCount,
+	)
+	return i, err
+}
+
 const getUserCredentialsByEmailForAuth = `-- name: GetUserCredentialsByEmailForAuth :one
 SELECT id, email, password_hash FROM users WHERE email = LOWER($1) LIMIT 1
 `
@@ -2713,6 +2770,312 @@ func (q *Queries) ListRulesByUser(ctx context.Context, arg ListRulesByUserParams
 			&i.DueAtAfterDays,
 			&i.PenaltyTypeName,
 			&i.ResultingPunishmentTypeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentProfileAvailableBonuses = `-- name: ListStudentProfileAvailableBonuses :many
+SELECT
+    b.id, b.bonus_type_id, b.points, b.created_at,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.student_id = $1
+  AND b.user_id = $2
+  AND b.used_at IS NULL
+ORDER BY b.created_at DESC
+`
+
+type ListStudentProfileAvailableBonusesParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+type ListStudentProfileAvailableBonusesRow struct {
+	ID            uuid.UUID `json:"id"`
+	BonusTypeID   uuid.UUID `json:"bonus_type_id"`
+	Points        float64   `json:"points"`
+	CreatedAt     time.Time `json:"created_at"`
+	BonusTypeName string    `json:"bonus_type_name"`
+}
+
+func (q *Queries) ListStudentProfileAvailableBonuses(ctx context.Context, arg ListStudentProfileAvailableBonusesParams) ([]ListStudentProfileAvailableBonusesRow, error) {
+	rows, err := q.db.Query(ctx, listStudentProfileAvailableBonuses, arg.StudentID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentProfileAvailableBonusesRow
+	for rows.Next() {
+		var i ListStudentProfileAvailableBonusesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BonusTypeID,
+			&i.Points,
+			&i.CreatedAt,
+			&i.BonusTypeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentProfileClassrooms = `-- name: ListStudentProfileClassrooms :many
+SELECT
+    c.id,
+    c.name
+FROM student_classrooms sc
+JOIN classrooms c ON c.id = sc.classroom_id
+JOIN students s ON s.id = sc.student_id
+WHERE sc.student_id = $1
+  AND s.user_id = $2
+ORDER BY c.created_at DESC
+`
+
+type ListStudentProfileClassroomsParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+type ListStudentProfileClassroomsRow struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+func (q *Queries) ListStudentProfileClassrooms(ctx context.Context, arg ListStudentProfileClassroomsParams) ([]ListStudentProfileClassroomsRow, error) {
+	rows, err := q.db.Query(ctx, listStudentProfileClassrooms, arg.StudentID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentProfileClassroomsRow
+	for rows.Next() {
+		var i ListStudentProfileClassroomsRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentProfileHistory = `-- name: ListStudentProfileHistory :many
+SELECT
+    history.type,
+    history.id,
+    history.created_at,
+    history.penalty_type_id,
+    history.penalty_type_name,
+    history.bonus_type_id,
+    history.bonus_type_name,
+    history.points,
+    history.used_at,
+    history.punishment_type_id,
+    history.punishment_type_name,
+    history.triggering_rule_id,
+    history.triggering_rule_name,
+    history.due_at,
+    history.resolved_at
+FROM (
+    SELECT
+        'punishment'::text AS type,
+        p.id,
+        p.created_at,
+        NULL::uuid AS penalty_type_id,
+        NULL::text AS penalty_type_name,
+        NULL::uuid AS bonus_type_id,
+        NULL::text AS bonus_type_name,
+        NULL::double precision AS points,
+        NULL::timestamptz AS used_at,
+        CASE WHEN TRUE THEN p.punishment_type_id ELSE NULL::uuid END AS punishment_type_id,
+        CASE WHEN TRUE THEN pt.name ELSE NULL::text END AS punishment_type_name,
+        p.triggering_rule_id,
+        r.name AS triggering_rule_name,
+        CASE WHEN TRUE THEN p.due_at ELSE NULL::timestamptz END AS due_at,
+        p.resolved_at
+    FROM punishments p
+    JOIN punishment_types pt ON pt.id = p.punishment_type_id
+    LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+    WHERE p.student_id = $1
+      AND p.user_id = $2
+
+    UNION ALL
+
+    SELECT
+        'penalty'::text AS type,
+        p.id,
+        p.created_at,
+        p.penalty_type_id,
+        pt.name AS penalty_type_name,
+        NULL::uuid AS bonus_type_id,
+        NULL::text AS bonus_type_name,
+        NULL::double precision AS points,
+        NULL::timestamptz AS used_at,
+        '00000000-0000-0000-0000-000000000000'::uuid AS punishment_type_id,
+        ''::text AS punishment_type_name,
+        NULL::uuid AS triggering_rule_id,
+        NULL::text AS triggering_rule_name,
+        '1970-01-01T00:00:00Z'::timestamptz AS due_at,
+        NULL::timestamptz AS resolved_at
+    FROM penalties p
+    JOIN penalty_types pt ON pt.id = p.penalty_type_id
+    WHERE p.student_id = $1
+      AND p.user_id = $2
+
+    UNION ALL
+
+    SELECT
+        'bonus'::text AS type,
+        b.id,
+        b.created_at,
+        NULL::uuid AS penalty_type_id,
+        NULL::text AS penalty_type_name,
+        b.bonus_type_id,
+        bt.name AS bonus_type_name,
+        b.points,
+        b.used_at,
+        '00000000-0000-0000-0000-000000000000'::uuid AS punishment_type_id,
+        ''::text AS punishment_type_name,
+        NULL::uuid AS triggering_rule_id,
+        NULL::text AS triggering_rule_name,
+        '1970-01-01T00:00:00Z'::timestamptz AS due_at,
+        NULL::timestamptz AS resolved_at
+    FROM bonuses b
+    JOIN bonus_types bt ON bt.id = b.bonus_type_id
+    WHERE b.student_id = $1
+      AND b.user_id = $2
+) history
+ORDER BY history.created_at DESC, history.id DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListStudentProfileHistoryParams struct {
+	StudentID   uuid.UUID `json:"student_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
+}
+
+type ListStudentProfileHistoryRow struct {
+	Type               string             `json:"type"`
+	ID                 uuid.UUID          `json:"id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	PenaltyTypeID      pgtype.UUID        `json:"penalty_type_id"`
+	PenaltyTypeName    pgtype.Text        `json:"penalty_type_name"`
+	BonusTypeID        pgtype.UUID        `json:"bonus_type_id"`
+	BonusTypeName      pgtype.Text        `json:"bonus_type_name"`
+	Points             pgtype.Float8      `json:"points"`
+	UsedAt             pgtype.Timestamptz `json:"used_at"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+}
+
+func (q *Queries) ListStudentProfileHistory(ctx context.Context, arg ListStudentProfileHistoryParams) ([]ListStudentProfileHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listStudentProfileHistory,
+		arg.StudentID,
+		arg.UserID,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentProfileHistoryRow
+	for rows.Next() {
+		var i ListStudentProfileHistoryRow
+		if err := rows.Scan(
+			&i.Type,
+			&i.ID,
+			&i.CreatedAt,
+			&i.PenaltyTypeID,
+			&i.PenaltyTypeName,
+			&i.BonusTypeID,
+			&i.BonusTypeName,
+			&i.Points,
+			&i.UsedAt,
+			&i.PunishmentTypeID,
+			&i.PunishmentTypeName,
+			&i.TriggeringRuleID,
+			&i.TriggeringRuleName,
+			&i.DueAt,
+			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStudentProfilePendingPunishments = `-- name: ListStudentProfilePendingPunishments :many
+SELECT
+    p.id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.student_id = $1
+  AND p.user_id = $2
+  AND p.resolved_at IS NULL
+ORDER BY p.created_at DESC
+`
+
+type ListStudentProfilePendingPunishmentsParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+type ListStudentProfilePendingPunishmentsRow struct {
+	ID                 uuid.UUID   `json:"id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID `json:"triggering_rule_id"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text `json:"triggering_rule_name"`
+}
+
+func (q *Queries) ListStudentProfilePendingPunishments(ctx context.Context, arg ListStudentProfilePendingPunishmentsParams) ([]ListStudentProfilePendingPunishmentsRow, error) {
+	rows, err := q.db.Query(ctx, listStudentProfilePendingPunishments, arg.StudentID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentProfilePendingPunishmentsRow
+	for rows.Next() {
+		var i ListStudentProfilePendingPunishmentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PunishmentTypeID,
+			&i.TriggeringRuleID,
+			&i.CreatedAt,
+			&i.DueAt,
+			&i.PunishmentTypeName,
+			&i.TriggeringRuleName,
 		); err != nil {
 			return nil, err
 		}
