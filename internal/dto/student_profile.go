@@ -8,6 +8,8 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
+var studentProfileHistoryTimeSentinel = time.Unix(0, 0).UTC()
+
 type StudentProfileStudentDto struct {
 	ID        uuid.UUID `json:"id"`
 	FirstName string    `json:"first_name"`
@@ -164,13 +166,13 @@ func studentProfileHistoryFromRows(rows []repository.ListStudentProfileHistoryRo
 
 		switch row.Type {
 		case "penalty":
-			item.PenaltyTypeID = studentProfileUUIDPtr(row.PenaltyTypeID)
-			item.PenaltyTypeName = studentProfileTextPtr(row.PenaltyTypeName)
+			item.PenaltyTypeID = studentProfileUUIDPtrFromSentinel(row.PenaltyTypeID)
+			item.PenaltyTypeName = studentProfileTextPtrFromString(row.PenaltyTypeName)
 		case "bonus":
-			item.BonusTypeID = studentProfileUUIDPtr(row.BonusTypeID)
-			item.BonusTypeName = studentProfileTextPtr(row.BonusTypeName)
-			item.Points = studentProfileFloatPtr(row.Points)
-			item.UsedAt = studentProfileTimePtr(row.UsedAt)
+			item.BonusTypeID = studentProfileUUIDPtrFromSentinel(row.BonusTypeID)
+			item.BonusTypeName = studentProfileTextPtrFromString(row.BonusTypeName)
+			item.Points = studentProfileFloatPtrFromFloat(row.Points)
+			item.UsedAt = studentProfileTimePtrFromSentinel(row.UsedAt)
 		case "punishment":
 			punishmentTypeID := row.PunishmentTypeID
 			punishmentTypeName := row.PunishmentTypeName
@@ -178,9 +180,9 @@ func studentProfileHistoryFromRows(rows []repository.ListStudentProfileHistoryRo
 			item.PunishmentTypeID = &punishmentTypeID
 			item.PunishmentTypeName = &punishmentTypeName
 			item.TriggeringRuleID = studentProfileUUIDPtr(row.TriggeringRuleID)
-			item.TriggeringRuleName = studentProfileTextPtr(row.TriggeringRuleName)
+			item.TriggeringRuleName = studentProfileTextPtrFromString(row.TriggeringRuleName)
 			item.DueAt = &dueAt
-			item.ResolvedAt = studentProfileTimePtr(row.ResolvedAt)
+			item.ResolvedAt = studentProfileTimePtrFromSentinelPg(row.ResolvedAt)
 		}
 
 		history = append(history, item)
@@ -195,6 +197,10 @@ func studentProfileUUIDPtr(value pgtype.UUID) *uuid.UUID {
 	}
 
 	id := uuid.UUID(value.Bytes)
+	if id == uuid.Nil {
+		return nil
+	}
+
 	return &id
 }
 
@@ -207,8 +213,35 @@ func studentProfileTextPtr(value pgtype.Text) *string {
 	return &text
 }
 
-func studentProfileTimePtr(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
+func studentProfileUUIDPtrFromSentinel(value uuid.UUID) *uuid.UUID {
+	if value == uuid.Nil {
+		return nil
+	}
+
+	id := value
+	return &id
+}
+
+func studentProfileTextPtrFromString(value string) *string {
+	if value == "" {
+		return nil
+	}
+
+	text := value
+	return &text
+}
+
+func studentProfileTimePtrFromSentinel(value time.Time) *time.Time {
+	if value.Equal(studentProfileHistoryTimeSentinel) {
+		return nil
+	}
+
+	timeValue := value
+	return &timeValue
+}
+
+func studentProfileTimePtrFromSentinelPg(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid || value.Time.Equal(studentProfileHistoryTimeSentinel) {
 		return nil
 	}
 
@@ -216,11 +249,7 @@ func studentProfileTimePtr(value pgtype.Timestamptz) *time.Time {
 	return &timeValue
 }
 
-func studentProfileFloatPtr(value pgtype.Float8) *float64 {
-	if !value.Valid {
-		return nil
-	}
-
-	floatValue := value.Float64
+func studentProfileFloatPtrFromFloat(value float64) *float64 {
+	floatValue := value
 	return &floatValue
 }

@@ -176,19 +176,26 @@ func (r *Repository) ListStudentProfileHistory(_ context.Context, arg repository
 			Type:               "punishment",
 			ID:                 punishment.ID,
 			CreatedAt:          punishment.CreatedAt,
-			PenaltyTypeID:      pgtype.UUID{},
-			PenaltyTypeName:    pgtype.Text{},
-			BonusTypeID:        pgtype.UUID{},
-			BonusTypeName:      pgtype.Text{},
-			Points:             pgtype.Float8{},
-			UsedAt:             pgtype.Timestamptz{},
+			PenaltyTypeID:      uuid.Nil,
+			PenaltyTypeName:    "",
+			BonusTypeID:        uuid.Nil,
+			BonusTypeName:      "",
+			Points:             0,
+			UsedAt:             studentProfileHistoryFallbackDueAt,
 			PunishmentTypeID:   punishment.PunishmentTypeID,
 			PunishmentTypeName: r.punishmentTypeNameLocked(punishment.PunishmentTypeID),
-			TriggeringRuleID:   punishment.TriggeringRuleID,
-			TriggeringRuleName: triggeringRuleNameAsText(triggeringRuleName),
+			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
+			TriggeringRuleName: "",
 			DueAt:              punishment.DueAt,
-			ResolvedAt:         punishment.ResolvedAt,
+			ResolvedAt:         pgtype.Timestamptz{Time: studentProfileHistoryFallbackDueAt, Valid: true},
 		})
+		if punishment.TriggeringRuleID.Valid {
+			items[len(items)-1].TriggeringRuleID = punishment.TriggeringRuleID
+			items[len(items)-1].TriggeringRuleName = triggeringRuleName
+		}
+		if punishment.ResolvedAt.Valid {
+			items[len(items)-1].ResolvedAt = punishment.ResolvedAt
+		}
 	}
 
 	for _, penalty := range r.penalties {
@@ -200,18 +207,18 @@ func (r *Repository) ListStudentProfileHistory(_ context.Context, arg repository
 			Type:               "penalty",
 			ID:                 penalty.ID,
 			CreatedAt:          penalty.CreatedAt,
-			PenaltyTypeID:      pgtype.UUID{Bytes: penalty.PenaltyTypeID, Valid: true},
-			PenaltyTypeName:    pgtype.Text{String: r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID), Valid: true},
-			BonusTypeID:        pgtype.UUID{},
-			BonusTypeName:      pgtype.Text{},
-			Points:             pgtype.Float8{},
-			UsedAt:             pgtype.Timestamptz{},
+			PenaltyTypeID:      penalty.PenaltyTypeID,
+			PenaltyTypeName:    r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID),
+			BonusTypeID:        uuid.Nil,
+			BonusTypeName:      "",
+			Points:             0,
+			UsedAt:             studentProfileHistoryFallbackDueAt,
 			PunishmentTypeID:   uuid.Nil,
 			PunishmentTypeName: "",
-			TriggeringRuleID:   pgtype.UUID{},
-			TriggeringRuleName: pgtype.Text{},
+			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
+			TriggeringRuleName: "",
 			DueAt:              studentProfileHistoryFallbackDueAt,
-			ResolvedAt:         pgtype.Timestamptz{},
+			ResolvedAt:         pgtype.Timestamptz{Time: studentProfileHistoryFallbackDueAt, Valid: true},
 		})
 	}
 
@@ -224,19 +231,22 @@ func (r *Repository) ListStudentProfileHistory(_ context.Context, arg repository
 			Type:               "bonus",
 			ID:                 bonus.ID,
 			CreatedAt:          bonus.CreatedAt,
-			PenaltyTypeID:      pgtype.UUID{},
-			PenaltyTypeName:    pgtype.Text{},
-			BonusTypeID:        pgtype.UUID{Bytes: bonus.BonusTypeID, Valid: true},
-			BonusTypeName:      pgtype.Text{String: r.bonusTypeNameForBonusLocked(bonus.BonusTypeID), Valid: true},
-			Points:             pgtype.Float8{Float64: bonus.Points, Valid: true},
-			UsedAt:             bonus.UsedAt,
+			PenaltyTypeID:      uuid.Nil,
+			PenaltyTypeName:    "",
+			BonusTypeID:        bonus.BonusTypeID,
+			BonusTypeName:      r.bonusTypeNameForBonusLocked(bonus.BonusTypeID),
+			Points:             bonus.Points,
+			UsedAt:             studentProfileHistoryFallbackDueAt,
 			PunishmentTypeID:   uuid.Nil,
 			PunishmentTypeName: "",
-			TriggeringRuleID:   pgtype.UUID{},
-			TriggeringRuleName: pgtype.Text{},
+			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
+			TriggeringRuleName: "",
 			DueAt:              studentProfileHistoryFallbackDueAt,
-			ResolvedAt:         pgtype.Timestamptz{},
+			ResolvedAt:         pgtype.Timestamptz{Time: studentProfileHistoryFallbackDueAt, Valid: true},
 		})
+		if bonus.UsedAt.Valid {
+			items[len(items)-1].UsedAt = bonus.UsedAt.Time
+		}
 	}
 
 	sort.Slice(items, func(i, j int) bool {
