@@ -56,3 +56,14 @@ func ParseEnumQueryParamToBool(r *http.Request, name string, trueValue string, f
 	isTrue := strings.EqualFold(value, trueValue)
 	return &isTrue, nil, nil
 }
+
+// ParseSearchQueryParam returns a normalized search value (single-spaced, trimmed) or nil if empty.
+func ParseSearchQueryParam(r *http.Request, name string) *string {
+	raw := r.URL.Query().Get(name)
+	normalized := strings.Join(strings.Fields(raw), " ")
+	if normalized == "" {
+		return nil
+	}
+
+	return &normalized
+}

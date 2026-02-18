@@ -18,7 +18,7 @@ import (
 type PunishmentService interface {
 	CreatePunishment(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, punishmentTypeID uuid.UUID, dueAt time.Time) (*dto.ReturnPunishmentDto, error)
 	GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
-	ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
+	ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, search *string, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
 	ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
 	ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
 	DeletePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) error
@@ -74,15 +74,20 @@ func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID,
 	return dto.PunishmentFromGetRow(&punishment), nil
 }
 
-func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
+func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, search *string, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
 	resolvedParam := pgtype.Bool{}
 	if resolved != nil {
 		resolvedParam = pgtype.Bool{Bool: *resolved, Valid: true}
+	}
+	searchParam := pgtype.Text{}
+	if search != nil {
+		searchParam = pgtype.Text{String: *search, Valid: true}
 	}
 
 	totalCount, err := s.repo.CountPunishmentsByUser(ctx, repository.CountPunishmentsByUserParams{
 		UserID:   userID,
 		Resolved: resolvedParam,
+		Search:   searchParam,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count punishments: %w", err)
@@ -91,6 +96,7 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 	punishments, err := s.repo.ListPunishmentsByUser(ctx, repository.ListPunishmentsByUserParams{
 		UserID:      userID,
 		Resolved:    resolvedParam,
+		Search:      searchParam,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})

@@ -253,9 +253,13 @@ func (r *Repository) CountPunishmentsByUser(_ context.Context, arg repository.Co
 		if punishment.UserID != arg.UserID {
 			continue
 		}
+		student, studentExists := r.students[punishment.StudentID]
+		if !studentExists || student.UserID != punishment.UserID {
+			continue
+		}
 
 		isResolved := punishment.ResolvedAt.Valid
-		if matchesOptionalBool(arg.Resolved, isResolved) {
+		if matchesOptionalBool(arg.Resolved, isResolved) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			count++
 		}
 	}
@@ -276,9 +280,13 @@ func (r *Repository) ListPunishmentsByUser(_ context.Context, arg repository.Lis
 		if punishment.UserID != arg.UserID {
 			continue
 		}
+		student, studentExists := r.students[punishment.StudentID]
+		if !studentExists || student.UserID != punishment.UserID {
+			continue
+		}
 
 		isResolved := punishment.ResolvedAt.Valid
-		if matchesOptionalBool(arg.Resolved, isResolved) {
+		if matchesOptionalBool(arg.Resolved, isResolved) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			items = append(items, punishment)
 		}
 	}

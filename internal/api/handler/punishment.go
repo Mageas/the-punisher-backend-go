@@ -67,6 +67,7 @@ func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Reque
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
+	search := web.ParseSearchQueryParam(r, "search")
 
 	resolved, details, err := web.ParseEnumQueryParamToBool(r, "state", "resolved", "pending")
 	if err != nil {
@@ -74,7 +75,7 @@ func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	punishments, totalCount, err := h.service.ListPunishments(r.Context(), userID, resolved, limit, offset)
+	punishments, totalCount, err := h.service.ListPunishments(r.Context(), userID, resolved, search, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

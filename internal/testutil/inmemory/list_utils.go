@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -86,4 +87,18 @@ func matchesOptionalBool(filter pgtype.Bool, value bool) bool {
 	}
 
 	return filter.Bool == value
+}
+
+func matchesOptionalStudentSearch(filter pgtype.Text, firstName, lastName string) bool {
+	if !filter.Valid {
+		return true
+	}
+
+	normalizedSearch := strings.ToLower(strings.Join(strings.Fields(filter.String), " "))
+	if normalizedSearch == "" {
+		return true
+	}
+
+	fullName := strings.ToLower(strings.Join(strings.Fields(firstName+" "+lastName), " "))
+	return strings.Contains(fullName, normalizedSearch)
 }

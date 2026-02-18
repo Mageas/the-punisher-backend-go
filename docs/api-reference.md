@@ -332,6 +332,7 @@ Réponse :
 
 Query params :
 - `page` optionnel
+- `search` optionnel : recherche sur `prénom + nom` de l'élève
 
 Réponse :
 - `200` -> `PaginatedResponse<ReturnStudentDto>`
@@ -551,6 +552,7 @@ Réponse :
 Query params :
 - `page` optionnel
 - `state` optionnel : `used|unused`
+- `search` optionnel : recherche sur `prénom + nom` de l'élève
 
 Réponse :
 - `200` -> `PaginatedResponse<ReturnBonusDto>`
@@ -634,6 +636,7 @@ Réponse :
 Query params :
 - `page` optionnel
 - `state` optionnel : `pending|resolved`
+- `search` optionnel : recherche sur `prénom + nom` de l'élève
 
 Réponse :
 - `200` -> `PaginatedResponse<ReturnPunishmentDto>`
