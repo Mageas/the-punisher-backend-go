@@ -527,9 +527,9 @@ WHERE p.user_id = sqlc.arg(user_id)
 ORDER BY p.created_at DESC
 LIMIT sqlc.arg(query_limit);
 
--- ==================== StudentProfile ====================
+-- ==================== StudentKpisHistory ====================
 
--- name: GetStudentProfileKpis :one
+-- name: GetStudentKpis :one
 SELECT
     COALESCE((
         SELECT SUM(b.points)
@@ -559,42 +559,7 @@ SELECT
           AND p.resolved_at IS NULL
     ), 0)::bigint AS pending_punishment_count;
 
--- name: ListStudentProfileClassrooms :many
-SELECT
-    c.id,
-    c.name
-FROM student_classrooms sc
-JOIN classrooms c ON c.id = sc.classroom_id
-JOIN students s ON s.id = sc.student_id
-WHERE sc.student_id = sqlc.arg(student_id)
-  AND s.user_id = sqlc.arg(user_id)
-ORDER BY c.created_at DESC;
-
--- name: ListStudentProfilePendingPunishments :many
-SELECT
-    p.id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at,
-    pt.name AS punishment_type_name,
-    r.name AS triggering_rule_name
-FROM punishments p
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
-LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
-WHERE p.student_id = sqlc.arg(student_id)
-  AND p.user_id = sqlc.arg(user_id)
-  AND p.resolved_at IS NULL
-ORDER BY p.created_at DESC;
-
--- name: ListStudentProfileAvailableBonuses :many
-SELECT
-    b.id, b.bonus_type_id, b.points, b.created_at,
-    bt.name AS bonus_type_name
-FROM bonuses b
-JOIN bonus_types bt ON bt.id = b.bonus_type_id
-WHERE b.student_id = sqlc.arg(student_id)
-  AND b.user_id = sqlc.arg(user_id)
-  AND b.used_at IS NULL
-ORDER BY b.created_at DESC;
-
--- name: ListStudentProfileHistory :many
+-- name: ListStudentHistory :many
 SELECT
     history.type,
     history.id,

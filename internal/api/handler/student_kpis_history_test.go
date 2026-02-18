@@ -214,7 +214,7 @@ func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
 		studentID := uuid.New()
 		repo.SeedStudent(inmemoryStudent(studentID, userID, "Jean", "Dupont"))
 
-		repo.SetError(inmemory.OpGetStudentProfileKpis, errors.New("database unavailable"))
+		repo.SetError(inmemory.OpGetStudentKpis, errors.New("database unavailable"))
 		reqKpis := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/kpis", userID, cfg)
 		rrKpis := httptest.NewRecorder()
 		router.ServeHTTP(rrKpis, reqKpis)
@@ -228,8 +228,8 @@ func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
 			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), respKpis.Error)
 		}
 
-		repo.ClearError(inmemory.OpGetStudentProfileKpis)
-		repo.SetError(inmemory.OpListStudentProfileHistory, errors.New("database unavailable"))
+		repo.ClearError(inmemory.OpGetStudentKpis)
+		repo.SetError(inmemory.OpListStudentHistory, errors.New("database unavailable"))
 		reqHistory := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history", userID, cfg)
 		rrHistory := httptest.NewRecorder()
 		router.ServeHTTP(rrHistory, reqHistory)

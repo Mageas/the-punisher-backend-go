@@ -12,28 +12,28 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
-func (s *studentService) GetStudentKpis(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.StudentProfileKpisDto, error) {
+func (s *studentService) GetStudentKpis(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.StudentKpisDto, error) {
 	if err := s.ensureStudentExists(ctx, userID, studentID); err != nil {
 		return nil, err
 	}
 
-	kpis, err := s.repo.GetStudentProfileKpis(ctx, repository.GetStudentProfileKpisParams{
+	kpis, err := s.repo.GetStudentKpis(ctx, repository.GetStudentKpisParams{
 		StudentID: studentID,
 		UserID:    userID,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get student profile kpis: %w", err)
+		return nil, fmt.Errorf("failed to get student kpis: %w", err)
 	}
 
-	return dto.StudentProfileKpisFromRow(&kpis), nil
+	return dto.StudentKpisFromRow(&kpis), nil
 }
 
-func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentProfileHistoryItemDto, error) {
+func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentHistoryItemDto, error) {
 	if err := s.ensureStudentExists(ctx, userID, studentID); err != nil {
 		return nil, err
 	}
 
-	history, err := s.repo.ListStudentProfileHistory(ctx, repository.ListStudentProfileHistoryParams{
+	history, err := s.repo.ListStudentHistory(ctx, repository.ListStudentHistoryParams{
 		StudentID:   studentID,
 		UserID:      userID,
 		QueryLimit:  limit,
@@ -43,7 +43,7 @@ func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUI
 		return nil, fmt.Errorf("failed to list student history: %w", err)
 	}
 
-	return dto.StudentProfileHistoryFromRows(history), nil
+	return dto.StudentHistoryFromRows(history), nil
 }
 
 func (s *studentService) ensureStudentExists(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error {
