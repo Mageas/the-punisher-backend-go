@@ -28,45 +28,135 @@ type UpdateRuleDto struct {
 }
 
 type ReturnRuleDto struct {
-	ID                        uuid.UUID `json:"id"`
-	Name                      string    `json:"name"`
-	ResultingPunishmentTypeID uuid.UUID `json:"resulting_punishment_type_id"`
-	PenaltyTypeID             uuid.UUID `json:"penalty_type_id"`
-	Threshold                 int32     `json:"threshold"`
-	DueAtAfterDays            int32     `json:"due_at_after_days"`
-	Mode                      string    `json:"mode"`
-	IsActive                  bool      `json:"is_active"`
-	CreatedAt                 time.Time `json:"created_at"`
-	UpdatedAt                 time.Time `json:"updated_at"`
+	ID                          uuid.UUID `json:"id"`
+	Name                        string    `json:"name"`
+	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
+	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
+	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
+	PenaltyTypeName             string    `json:"penalty_type_name"`
+	Threshold                   int32     `json:"threshold"`
+	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	Mode                        string    `json:"mode"`
+	IsActive                    bool      `json:"is_active"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
 }
 
-func RuleFromRepository(rule *repository.Rule) *ReturnRuleDto {
+func buildReturnRuleDto(
+	id uuid.UUID,
+	name string,
+	resultingPunishmentTypeID uuid.UUID,
+	resultingPunishmentTypeName string,
+	penaltyTypeID uuid.UUID,
+	penaltyTypeName string,
+	threshold int32,
+	dueAtAfterDays int32,
+	mode string,
+	isActive bool,
+	createdAt time.Time,
+	updatedAt time.Time,
+) *ReturnRuleDto {
+	return &ReturnRuleDto{
+		ID:                          id,
+		Name:                        name,
+		ResultingPunishmentTypeID:   resultingPunishmentTypeID,
+		ResultingPunishmentTypeName: resultingPunishmentTypeName,
+		PenaltyTypeID:               penaltyTypeID,
+		PenaltyTypeName:             penaltyTypeName,
+		Threshold:                   threshold,
+		DueAtAfterDays:              dueAtAfterDays,
+		Mode:                        mode,
+		IsActive:                    isActive,
+		CreatedAt:                   createdAt,
+		UpdatedAt:                   updatedAt,
+	}
+}
+
+func RuleFromCreateRow(rule *repository.CreateRuleRow) *ReturnRuleDto {
 	if rule == nil {
 		return nil
 	}
 
-	return &ReturnRuleDto{
-		ID:                        rule.ID,
-		Name:                      rule.Name,
-		ResultingPunishmentTypeID: rule.ResultingPunishmentTypeID,
-		PenaltyTypeID:             rule.PenaltyTypeID,
-		Threshold:                 rule.Threshold,
-		DueAtAfterDays:            rule.DueAtAfterDays,
-		Mode:                      rule.Mode,
-		IsActive:                  rule.IsActive,
-		CreatedAt:                 rule.CreatedAt,
-		UpdatedAt:                 rule.UpdatedAt,
-	}
+	return buildReturnRuleDto(
+		rule.ID,
+		rule.Name,
+		rule.ResultingPunishmentTypeID,
+		rule.ResultingPunishmentTypeName,
+		rule.PenaltyTypeID,
+		rule.PenaltyTypeName,
+		rule.Threshold,
+		rule.DueAtAfterDays,
+		rule.Mode,
+		rule.IsActive,
+		rule.CreatedAt,
+		rule.UpdatedAt,
+	)
 }
 
-func RuleListFromRepository(rules []repository.Rule) []*ReturnRuleDto {
+func RuleFromGetRow(rule *repository.GetRuleByUserRow) *ReturnRuleDto {
+	if rule == nil {
+		return nil
+	}
+
+	return buildReturnRuleDto(
+		rule.ID,
+		rule.Name,
+		rule.ResultingPunishmentTypeID,
+		rule.ResultingPunishmentTypeName,
+		rule.PenaltyTypeID,
+		rule.PenaltyTypeName,
+		rule.Threshold,
+		rule.DueAtAfterDays,
+		rule.Mode,
+		rule.IsActive,
+		rule.CreatedAt,
+		rule.UpdatedAt,
+	)
+}
+
+func RuleListFromRepository(rules []repository.ListRulesByUserRow) []*ReturnRuleDto {
 	dtos := make([]*ReturnRuleDto, 0, len(rules))
 
 	for _, rule := range rules {
-		if dto := RuleFromRepository(&rule); dto != nil {
+		dto := buildReturnRuleDto(
+			rule.ID,
+			rule.Name,
+			rule.ResultingPunishmentTypeID,
+			rule.ResultingPunishmentTypeName,
+			rule.PenaltyTypeID,
+			rule.PenaltyTypeName,
+			rule.Threshold,
+			rule.DueAtAfterDays,
+			rule.Mode,
+			rule.IsActive,
+			rule.CreatedAt,
+			rule.UpdatedAt,
+		)
+		if dto != nil {
 			dtos = append(dtos, dto)
 		}
 	}
 
 	return dtos
+}
+
+func RuleFromUpdateRow(rule *repository.UpdateRuleByUserRow) *ReturnRuleDto {
+	if rule == nil {
+		return nil
+	}
+
+	return buildReturnRuleDto(
+		rule.ID,
+		rule.Name,
+		rule.ResultingPunishmentTypeID,
+		rule.ResultingPunishmentTypeName,
+		rule.PenaltyTypeID,
+		rule.PenaltyTypeName,
+		rule.Threshold,
+		rule.DueAtAfterDays,
+		rule.Mode,
+		rule.IsActive,
+		rule.CreatedAt,
+		rule.UpdatedAt,
+	)
 }

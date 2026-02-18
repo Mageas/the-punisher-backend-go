@@ -21,14 +21,16 @@ import (
 )
 
 type ruleResponse struct {
-	ID                        uuid.UUID `json:"id"`
-	Name                      string    `json:"name"`
-	ResultingPunishmentTypeID uuid.UUID `json:"resulting_punishment_type_id"`
-	PenaltyTypeID             uuid.UUID `json:"penalty_type_id"`
-	Threshold                 int32     `json:"threshold"`
-	DueAtAfterDays            int32     `json:"due_at_after_days"`
-	Mode                      string    `json:"mode"`
-	IsActive                  bool      `json:"is_active"`
+	ID                          uuid.UUID `json:"id"`
+	Name                        string    `json:"name"`
+	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
+	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
+	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
+	PenaltyTypeName             string    `json:"penalty_type_name"`
+	Threshold                   int32     `json:"threshold"`
+	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	Mode                        string    `json:"mode"`
+	IsActive                    bool      `json:"is_active"`
 }
 
 type paginatedRuleResponse struct {
@@ -79,6 +81,12 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 	if created.Mode != "at" || !created.IsActive {
 		t.Fatalf("unexpected rule payload: %+v", created)
 	}
+	if created.PenaltyTypeName != "Retard" {
+		t.Fatalf("expected penalty_type_name %q, got %q", "Retard", created.PenaltyTypeName)
+	}
+	if created.ResultingPunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected resulting_punishment_type_name %q, got %q", "Heure de colle", created.ResultingPunishmentTypeName)
+	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/rules/", userID, cfg)
 	listRR := httptest.NewRecorder()
@@ -95,6 +103,9 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 	if listResp.Data[0].ID != created.ID {
 		t.Fatalf("expected listed id %s, got %s", created.ID, listResp.Data[0].ID)
 	}
+	if listResp.Data[0].PenaltyTypeName != "Retard" || listResp.Data[0].ResultingPunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched list payload, got %+v", listResp.Data[0])
+	}
 
 	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/rules/"+created.ID.String(), userID, cfg)
 	getRR := httptest.NewRecorder()
@@ -107,6 +118,9 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 	getResp := httpx.DecodeJSONResponse[ruleResponse](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected rule id %s, got %s", created.ID, getResp.ID)
+	}
+	if getResp.PenaltyTypeName != "Retard" || getResp.ResultingPunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched get payload, got %+v", getResp)
 	}
 
 	updateReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, "/v1/rules/"+created.ID.String(), map[string]any{
@@ -124,6 +138,9 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 	updated := httpx.DecodeJSONResponse[ruleResponse](t, updateRR)
 	if updated.Threshold != 4 || updated.Mode != "every" || updated.IsActive {
 		t.Fatalf("unexpected updated payload: %+v", updated)
+	}
+	if updated.PenaltyTypeName != "Retard" || updated.ResultingPunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected enriched update payload, got %+v", updated)
 	}
 
 	deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/rules/"+created.ID.String(), userID, cfg)
