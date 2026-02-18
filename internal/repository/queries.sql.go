@@ -367,7 +367,30 @@ INSERT INTO classrooms (
 ) VALUES (
     $1, $2, $3, $4
 )
-RETURNING id, user_id, name, year, main_teacher, created_at, updated_at
+RETURNING
+    id, user_id, name, year, main_teacher, created_at, updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = classrooms.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND b.user_id = classrooms.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND p.user_id = classrooms.user_id
+    ), 0)::bigint AS total_penalty_count
 `
 
 type CreateClassroomParams struct {
@@ -377,15 +400,28 @@ type CreateClassroomParams struct {
 	MainTeacher pgtype.Text `json:"main_teacher"`
 }
 
+type CreateClassroomRow struct {
+	ID                uuid.UUID   `json:"id"`
+	UserID            uuid.UUID   `json:"user_id"`
+	Name              string      `json:"name"`
+	Year              pgtype.Text `json:"year"`
+	MainTeacher       pgtype.Text `json:"main_teacher"`
+	CreatedAt         time.Time   `json:"created_at"`
+	UpdatedAt         time.Time   `json:"updated_at"`
+	StudentCount      int64       `json:"student_count"`
+	TotalBonusPoints  float64     `json:"total_bonus_points"`
+	TotalPenaltyCount int64       `json:"total_penalty_count"`
+}
+
 // ==================== Classroom ====================
-func (q *Queries) CreateClassroom(ctx context.Context, arg CreateClassroomParams) (Classroom, error) {
+func (q *Queries) CreateClassroom(ctx context.Context, arg CreateClassroomParams) (CreateClassroomRow, error) {
 	row := q.db.QueryRow(ctx, createClassroom,
 		arg.UserID,
 		arg.Name,
 		arg.Year,
 		arg.MainTeacher,
 	)
-	var i Classroom
+	var i CreateClassroomRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -394,6 +430,9 @@ func (q *Queries) CreateClassroom(ctx context.Context, arg CreateClassroomParams
 		&i.MainTeacher,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentCount,
+		&i.TotalBonusPoints,
+		&i.TotalPenaltyCount,
 	)
 	return i, err
 }
@@ -1098,9 +1137,32 @@ func (q *Queries) GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUser
 }
 
 const getClassroomByUser = `-- name: GetClassroomByUser :one
-SELECT id, user_id, name, year, main_teacher, created_at, updated_at
-FROM classrooms
-WHERE id = $1 AND user_id = $2 LIMIT 1
+SELECT
+    c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = c.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND b.user_id = c.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND p.user_id = c.user_id
+    ), 0)::bigint AS total_penalty_count
+FROM classrooms c
+WHERE c.id = $1 AND c.user_id = $2 LIMIT 1
 `
 
 type GetClassroomByUserParams struct {
@@ -1108,9 +1170,22 @@ type GetClassroomByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error) {
+type GetClassroomByUserRow struct {
+	ID                uuid.UUID   `json:"id"`
+	UserID            uuid.UUID   `json:"user_id"`
+	Name              string      `json:"name"`
+	Year              pgtype.Text `json:"year"`
+	MainTeacher       pgtype.Text `json:"main_teacher"`
+	CreatedAt         time.Time   `json:"created_at"`
+	UpdatedAt         time.Time   `json:"updated_at"`
+	StudentCount      int64       `json:"student_count"`
+	TotalBonusPoints  float64     `json:"total_bonus_points"`
+	TotalPenaltyCount int64       `json:"total_penalty_count"`
+}
+
+func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (GetClassroomByUserRow, error) {
 	row := q.db.QueryRow(ctx, getClassroomByUser, arg.ID, arg.UserID)
-	var i Classroom
+	var i GetClassroomByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -1119,6 +1194,9 @@ func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUser
 		&i.MainTeacher,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentCount,
+		&i.TotalBonusPoints,
+		&i.TotalPenaltyCount,
 	)
 	return i, err
 }
@@ -1694,7 +1772,30 @@ func (q *Queries) ListClassroomRefsByStudentIDs(ctx context.Context, arg ListCla
 }
 
 const listClassroomsByStudent = `-- name: ListClassroomsByStudent :many
-SELECT c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at
+SELECT
+    c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc2
+        WHERE sc2.classroom_id = c.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc2
+        JOIN students s2 ON s2.id = sc2.student_id
+        JOIN bonuses b ON b.student_id = s2.id
+        WHERE sc2.classroom_id = c.id
+          AND b.user_id = c.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc2
+        JOIN students s2 ON s2.id = sc2.student_id
+        JOIN penalties p ON p.student_id = s2.id
+        WHERE sc2.classroom_id = c.id
+          AND p.user_id = c.user_id
+    ), 0)::bigint AS total_penalty_count
 FROM classrooms c
 JOIN student_classrooms sc ON sc.classroom_id = c.id
 JOIN students s ON s.id = sc.student_id
@@ -1710,7 +1811,20 @@ type ListClassroomsByStudentParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error) {
+type ListClassroomsByStudentRow struct {
+	ID                uuid.UUID   `json:"id"`
+	UserID            uuid.UUID   `json:"user_id"`
+	Name              string      `json:"name"`
+	Year              pgtype.Text `json:"year"`
+	MainTeacher       pgtype.Text `json:"main_teacher"`
+	CreatedAt         time.Time   `json:"created_at"`
+	UpdatedAt         time.Time   `json:"updated_at"`
+	StudentCount      int64       `json:"student_count"`
+	TotalBonusPoints  float64     `json:"total_bonus_points"`
+	TotalPenaltyCount int64       `json:"total_penalty_count"`
+}
+
+func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]ListClassroomsByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listClassroomsByStudent,
 		arg.StudentID,
 		arg.UserID,
@@ -1721,9 +1835,9 @@ func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroom
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Classroom
+	var items []ListClassroomsByStudentRow
 	for rows.Next() {
-		var i Classroom
+		var i ListClassroomsByStudentRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1732,6 +1846,9 @@ func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroom
 			&i.MainTeacher,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StudentCount,
+			&i.TotalBonusPoints,
+			&i.TotalPenaltyCount,
 		); err != nil {
 			return nil, err
 		}
@@ -1744,10 +1861,33 @@ func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroom
 }
 
 const listClassroomsByUser = `-- name: ListClassroomsByUser :many
-SELECT id, user_id, name, year, main_teacher, created_at, updated_at
-FROM classrooms
-WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT
+    c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = c.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND b.user_id = c.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND p.user_id = c.user_id
+    ), 0)::bigint AS total_penalty_count
+FROM classrooms c
+WHERE c.user_id = $1
+ORDER BY c.created_at DESC
 LIMIT $3 OFFSET $2
 `
 
@@ -1757,15 +1897,28 @@ type ListClassroomsByUserParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error) {
+type ListClassroomsByUserRow struct {
+	ID                uuid.UUID   `json:"id"`
+	UserID            uuid.UUID   `json:"user_id"`
+	Name              string      `json:"name"`
+	Year              pgtype.Text `json:"year"`
+	MainTeacher       pgtype.Text `json:"main_teacher"`
+	CreatedAt         time.Time   `json:"created_at"`
+	UpdatedAt         time.Time   `json:"updated_at"`
+	StudentCount      int64       `json:"student_count"`
+	TotalBonusPoints  float64     `json:"total_bonus_points"`
+	TotalPenaltyCount int64       `json:"total_penalty_count"`
+}
+
+func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]ListClassroomsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listClassroomsByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Classroom
+	var items []ListClassroomsByUserRow
 	for rows.Next() {
-		var i Classroom
+		var i ListClassroomsByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1774,6 +1927,9 @@ func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsBy
 			&i.MainTeacher,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StudentCount,
+			&i.TotalBonusPoints,
+			&i.TotalPenaltyCount,
 		); err != nil {
 			return nil, err
 		}
@@ -2397,6 +2553,67 @@ func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUser
 	return items, nil
 }
 
+const listStudentsPreviewByClassroomIDs = `-- name: ListStudentsPreviewByClassroomIDs :many
+SELECT
+    c.id AS classroom_id,
+    preview.student_id,
+    preview.first_name,
+    preview.last_name
+FROM classrooms c
+JOIN LATERAL (
+    SELECT
+        s.id AS student_id,
+        s.first_name,
+        s.last_name
+    FROM student_classrooms sc
+    JOIN students s ON s.id = sc.student_id
+    WHERE sc.classroom_id = c.id
+    ORDER BY s.created_at DESC
+    LIMIT $1
+) preview ON TRUE
+WHERE c.user_id = $2
+  AND c.id = ANY($3::uuid[])
+ORDER BY c.id
+`
+
+type ListStudentsPreviewByClassroomIDsParams struct {
+	PreviewLimit int32       `json:"preview_limit"`
+	UserID       uuid.UUID   `json:"user_id"`
+	ClassroomIds []uuid.UUID `json:"classroom_ids"`
+}
+
+type ListStudentsPreviewByClassroomIDsRow struct {
+	ClassroomID uuid.UUID `json:"classroom_id"`
+	StudentID   uuid.UUID `json:"student_id"`
+	FirstName   string    `json:"first_name"`
+	LastName    string    `json:"last_name"`
+}
+
+func (q *Queries) ListStudentsPreviewByClassroomIDs(ctx context.Context, arg ListStudentsPreviewByClassroomIDsParams) ([]ListStudentsPreviewByClassroomIDsRow, error) {
+	rows, err := q.db.Query(ctx, listStudentsPreviewByClassroomIDs, arg.PreviewLimit, arg.UserID, arg.ClassroomIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentsPreviewByClassroomIDsRow
+	for rows.Next() {
+		var i ListStudentsPreviewByClassroomIDsRow
+		if err := rows.Scan(
+			&i.ClassroomID,
+			&i.StudentID,
+			&i.FirstName,
+			&i.LastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeStudentFromClassroom = `-- name: RemoveStudentFromClassroom :execrows
 DELETE FROM student_classrooms
 WHERE student_id = $1
@@ -2542,8 +2759,31 @@ SET
     year = COALESCE($2, year),
     main_teacher = COALESCE($3, main_teacher),
     updated_at = NOW()
-WHERE id = $4 AND user_id = $5
-RETURNING id, user_id, name, year, main_teacher, created_at, updated_at
+WHERE classrooms.id = $4 AND classrooms.user_id = $5
+RETURNING
+    classrooms.id, classrooms.user_id, classrooms.name, classrooms.year, classrooms.main_teacher, classrooms.created_at, classrooms.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = classrooms.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND b.user_id = classrooms.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND p.user_id = classrooms.user_id
+    ), 0)::bigint AS total_penalty_count
 `
 
 type UpdateClassroomByUserParams struct {
@@ -2554,7 +2794,20 @@ type UpdateClassroomByUserParams struct {
 	UserID      uuid.UUID   `json:"user_id"`
 }
 
-func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error) {
+type UpdateClassroomByUserRow struct {
+	ID                uuid.UUID   `json:"id"`
+	UserID            uuid.UUID   `json:"user_id"`
+	Name              string      `json:"name"`
+	Year              pgtype.Text `json:"year"`
+	MainTeacher       pgtype.Text `json:"main_teacher"`
+	CreatedAt         time.Time   `json:"created_at"`
+	UpdatedAt         time.Time   `json:"updated_at"`
+	StudentCount      int64       `json:"student_count"`
+	TotalBonusPoints  float64     `json:"total_bonus_points"`
+	TotalPenaltyCount int64       `json:"total_penalty_count"`
+}
+
+func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (UpdateClassroomByUserRow, error) {
 	row := q.db.QueryRow(ctx, updateClassroomByUser,
 		arg.Name,
 		arg.Year,
@@ -2562,7 +2815,7 @@ func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroom
 		arg.ID,
 		arg.UserID,
 	)
-	var i Classroom
+	var i UpdateClassroomByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -2571,6 +2824,9 @@ func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroom
 		&i.MainTeacher,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.StudentCount,
+		&i.TotalBonusPoints,
+		&i.TotalPenaltyCount,
 	)
 	return i, err
 }

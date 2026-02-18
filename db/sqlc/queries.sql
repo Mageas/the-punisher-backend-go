@@ -149,21 +149,90 @@ INSERT INTO classrooms (
 ) VALUES (
     sqlc.arg(user_id), sqlc.arg(name), sqlc.narg(year), sqlc.narg(main_teacher)
 )
-RETURNING id, user_id, name, year, main_teacher, created_at, updated_at;
+RETURNING
+    id, user_id, name, year, main_teacher, created_at, updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = classrooms.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND b.user_id = classrooms.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND p.user_id = classrooms.user_id
+    ), 0)::bigint AS total_penalty_count;
 
 -- name: GetClassroomByUser :one
-SELECT id, user_id, name, year, main_teacher, created_at, updated_at
-FROM classrooms
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+SELECT
+    c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = c.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND b.user_id = c.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND p.user_id = c.user_id
+    ), 0)::bigint AS total_penalty_count
+FROM classrooms c
+WHERE c.id = sqlc.arg(id) AND c.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountClassroomsByUser :one
 SELECT COUNT(*) FROM classrooms WHERE user_id = sqlc.arg(user_id);
 
 -- name: ListClassroomsByUser :many
-SELECT id, user_id, name, year, main_teacher, created_at, updated_at
-FROM classrooms
-WHERE user_id = sqlc.arg(user_id)
-ORDER BY created_at DESC
+SELECT
+    c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = c.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND b.user_id = c.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = c.id
+          AND p.user_id = c.user_id
+    ), 0)::bigint AS total_penalty_count
+FROM classrooms c
+WHERE c.user_id = sqlc.arg(user_id)
+ORDER BY c.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: UpdateClassroomByUser :one
@@ -173,8 +242,31 @@ SET
     year = COALESCE(sqlc.narg(year), year),
     main_teacher = COALESCE(sqlc.narg(main_teacher), main_teacher),
     updated_at = NOW()
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id)
-RETURNING id, user_id, name, year, main_teacher, created_at, updated_at;
+WHERE classrooms.id = sqlc.arg(id) AND classrooms.user_id = sqlc.arg(user_id)
+RETURNING
+    classrooms.id, classrooms.user_id, classrooms.name, classrooms.year, classrooms.main_teacher, classrooms.created_at, classrooms.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        WHERE sc.classroom_id = classrooms.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN bonuses b ON b.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND b.user_id = classrooms.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc
+        JOIN students s ON s.id = sc.student_id
+        JOIN penalties p ON p.student_id = s.id
+        WHERE sc.classroom_id = classrooms.id
+          AND p.user_id = classrooms.user_id
+    ), 0)::bigint AS total_penalty_count;
 
 -- name: DeleteClassroomByUser :execrows
 DELETE FROM classrooms
@@ -247,13 +339,58 @@ JOIN students s ON s.id = sc.student_id
 WHERE sc.student_id = sqlc.arg(student_id) AND s.user_id = sqlc.arg(user_id);
 
 -- name: ListClassroomsByStudent :many
-SELECT c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at
+SELECT
+    c.id, c.user_id, c.name, c.year, c.main_teacher, c.created_at, c.updated_at,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc2
+        WHERE sc2.classroom_id = c.id
+    ), 0)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM student_classrooms sc2
+        JOIN students s2 ON s2.id = sc2.student_id
+        JOIN bonuses b ON b.student_id = s2.id
+        WHERE sc2.classroom_id = c.id
+          AND b.user_id = c.user_id
+          AND b.used_at IS NULL
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM student_classrooms sc2
+        JOIN students s2 ON s2.id = sc2.student_id
+        JOIN penalties p ON p.student_id = s2.id
+        WHERE sc2.classroom_id = c.id
+          AND p.user_id = c.user_id
+    ), 0)::bigint AS total_penalty_count
 FROM classrooms c
 JOIN student_classrooms sc ON sc.classroom_id = c.id
 JOIN students s ON s.id = sc.student_id
 WHERE sc.student_id = sqlc.arg(student_id) AND s.user_id = sqlc.arg(user_id)
 ORDER BY c.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: ListStudentsPreviewByClassroomIDs :many
+SELECT
+    c.id AS classroom_id,
+    preview.student_id,
+    preview.first_name,
+    preview.last_name
+FROM classrooms c
+JOIN LATERAL (
+    SELECT
+        s.id AS student_id,
+        s.first_name,
+        s.last_name
+    FROM student_classrooms sc
+    JOIN students s ON s.id = sc.student_id
+    WHERE sc.classroom_id = c.id
+    ORDER BY s.created_at DESC
+    LIMIT sqlc.arg(preview_limit)
+) preview ON TRUE
+WHERE c.user_id = sqlc.arg(user_id)
+  AND c.id = ANY(sqlc.arg(classroom_ids)::uuid[])
+ORDER BY c.id;
 -- ==================== BonusType ====================
 
 -- name: CreateBonusType :one
