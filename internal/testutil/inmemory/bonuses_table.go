@@ -179,9 +179,13 @@ func (r *Repository) CountBonusesByUser(_ context.Context, arg repository.CountB
 		if bonus.UserID != arg.UserID {
 			continue
 		}
+		student, studentExists := r.students[bonus.StudentID]
+		if !studentExists || student.UserID != bonus.UserID {
+			continue
+		}
 
 		isUsed := bonus.UsedAt.Valid
-		if matchesOptionalBool(arg.Used, isUsed) {
+		if matchesOptionalBool(arg.Used, isUsed) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			count++
 		}
 	}
@@ -202,9 +206,13 @@ func (r *Repository) ListBonusesByUser(_ context.Context, arg repository.ListBon
 		if bonus.UserID != arg.UserID {
 			continue
 		}
+		student, studentExists := r.students[bonus.StudentID]
+		if !studentExists || student.UserID != bonus.UserID {
+			continue
+		}
 
 		isUsed := bonus.UsedAt.Valid
-		if matchesOptionalBool(arg.Used, isUsed) {
+		if matchesOptionalBool(arg.Used, isUsed) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			items = append(items, bonus)
 		}
 	}

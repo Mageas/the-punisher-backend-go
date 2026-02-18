@@ -91,7 +91,13 @@ FROM students s
 WHERE s.id = sqlc.arg(id) AND s.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountStudentsByUser :one
-SELECT COUNT(*) FROM students WHERE user_id = sqlc.arg(user_id);
+SELECT COUNT(*)
+FROM students s
+WHERE s.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  );
 
 -- name: ListStudentsByUser :many
 SELECT
@@ -111,6 +117,10 @@ SELECT
     ), 0)::bigint AS penalty_count
 FROM students s
 WHERE s.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  )
 ORDER BY s.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
@@ -786,9 +796,14 @@ WHERE b.id = sqlc.arg(id) AND b.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountBonusesByUser :one
 SELECT COUNT(*)
-FROM bonuses
-WHERE user_id = sqlc.arg(user_id)
-  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean);
+FROM bonuses b
+JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
+WHERE b.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  );
 
 -- name: ListBonusesByUser :many
 SELECT
@@ -801,6 +816,10 @@ JOIN students s ON s.id = b.student_id
 JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  )
 ORDER BY b.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
@@ -1034,9 +1053,14 @@ WHERE p.id = sqlc.arg(id) AND p.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountPunishmentsByUser :one
 SELECT COUNT(*)
-FROM punishments
-WHERE user_id = sqlc.arg(user_id)
-  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean);
+FROM punishments p
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+WHERE p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  );
 
 -- name: ListPunishmentsByUser :many
 SELECT
@@ -1051,6 +1075,10 @@ JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  )
 ORDER BY p.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 

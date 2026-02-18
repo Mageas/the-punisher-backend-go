@@ -168,7 +168,7 @@ func (r *Repository) GetStudentByUser(_ context.Context, arg repository.GetStude
 	return r.buildGetStudentRowLocked(student), nil
 }
 
-func (r *Repository) CountStudentsByUser(_ context.Context, userID uuid.UUID) (int64, error) {
+func (r *Repository) CountStudentsByUser(_ context.Context, arg repository.CountStudentsByUserParams) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -178,7 +178,11 @@ func (r *Repository) CountStudentsByUser(_ context.Context, userID uuid.UUID) (i
 
 	var count int64
 	for _, student := range r.students {
-		if student.UserID == userID {
+		if student.UserID != arg.UserID {
+			continue
+		}
+
+		if matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			count++
 		}
 	}
@@ -196,7 +200,11 @@ func (r *Repository) ListStudentsByUser(_ context.Context, arg repository.ListSt
 
 	items := make([]repository.Student, 0)
 	for _, student := range r.students {
-		if student.UserID == arg.UserID {
+		if student.UserID != arg.UserID {
+			continue
+		}
+
+		if matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			items = append(items, student)
 		}
 	}
