@@ -75,6 +75,7 @@ type Querier interface {
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (GetStudentByUserRow, error)
 	// ==================== StudentKpisHistory ====================
 	GetStudentKpis(ctx context.Context, arg GetStudentKpisParams) (GetStudentKpisRow, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
 	ListActiveRulesByUserAndPenaltyType(ctx context.Context, arg ListActiveRulesByUserAndPenaltyTypeParams) ([]Rule, error)
 	ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error)

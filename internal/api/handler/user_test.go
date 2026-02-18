@@ -7,13 +7,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/hash"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
+	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
 	"github.com/mageas/the-punisher-backend/internal/testutil/httpx"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 	shared "github.com/mageas/the-punisher-backend/internal/testutil/shared"
@@ -306,9 +310,122 @@ func TestUserHandlerCreateUserBusinessAndInternalErrors(t *testing.T) {
 	})
 }
 
+func TestUserHandlerGetMe(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := shared.TestJWTConfig()
+		router := newUserRouter(repo, cfg, true)
+		userID := uuid.New()
+
+		repo.SeedUser(repository.User{
+			ID:        userID,
+			Email:     "teacher@example.com",
+			FirstName: "Jean",
+			LastName:  "Dupont",
+		})
+
+		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me/", userID, cfg)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[dto.ReturnUserDto](t, rr)
+		if resp.ID != userID {
+			t.Fatalf("expected user id %s, got %s", userID, resp.ID)
+		}
+		if resp.Email != "teacher@example.com" || resp.FirstName != "Jean" || resp.LastName != "Dupont" {
+			t.Fatalf("unexpected /user/me payload: %+v", resp)
+		}
+	})
+
+	t.Run("unauthorized_without_token", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := shared.TestJWTConfig()
+		router := newUserRouter(repo, cfg, true)
+
+		req := httptest.NewRequest(http.MethodGet, "/v1/user/me/", nil)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rr.Code)
+		}
+	})
+
+	t.Run("returns_unauthorized_when_user_not_found", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := shared.TestJWTConfig()
+		router := newUserRouter(repo, cfg, true)
+		userID := uuid.New()
+
+		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me/", userID, cfg)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusUnauthorized {
+			t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrUnauthorized.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrUnauthorized.Error(), resp.Error)
+		}
+	})
+
+	t.Run("internal_error", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := shared.TestJWTConfig()
+		router := newUserRouter(repo, cfg, true)
+		userID := uuid.New()
+
+		repo.SeedUser(repository.User{
+			ID:        userID,
+			Email:     "teacher@example.com",
+			FirstName: "Jean",
+			LastName:  "Dupont",
+		})
+		repo.SetGetUserByIDError(errors.New("database unavailable"))
+
+		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me/", userID, cfg)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrInternalError.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
+		}
+	})
+}
+
 func newUserHandler(repo *inmemory.Repository, allowRegister bool) *handler.UserHandler {
 	return handler.NewUserHandler(
 		service.NewUserService(repo),
 		config.Config{AllowRegister: allowRegister},
 	)
+}
+
+func newUserRouter(repo *inmemory.Repository, jwtCfg config.JWTConfig, allowRegister bool) http.Handler {
+	userHandler := handler.NewUserHandler(
+		service.NewUserService(repo),
+		config.Config{AllowRegister: allowRegister},
+	)
+
+	r := chi.NewRouter()
+	r.Route("/v1/auth", func(r chi.Router) {
+		r.Post("/register", userHandler.CreateUser)
+	})
+
+	r.Route("/v1/user/me", func(r chi.Router) {
+		r.Use(platformauth.AuthMiddleware(jwtCfg.AccessSecret))
+		r.Get("/", userHandler.GetMe)
+	})
+
+	return r
 }

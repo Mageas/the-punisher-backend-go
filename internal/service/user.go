@@ -2,9 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/hash"
@@ -13,6 +16,7 @@ import (
 
 type UserService interface {
 	CreateUser(ctx context.Context, req dto.RequestUserDto) (*dto.ReturnUserDto, error)
+	GetCurrentUser(ctx context.Context, userID uuid.UUID) (*dto.ReturnUserDto, error)
 }
 
 type userService struct {
@@ -50,4 +54,16 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 	slog.Info("user created", "user_id", user.ID, "email", user.Email)
 
 	return dto.UserFromRepository(&user), nil
+}
+
+func (s *userService) GetCurrentUser(ctx context.Context, userID uuid.UUID) (*dto.ReturnUserDto, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrUnauthorized
+		}
+		return nil, fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	return dto.UserFromGetByIDRow(&user), nil
 }

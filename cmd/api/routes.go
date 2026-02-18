@@ -50,6 +50,11 @@ func (app *application) mount() http.Handler {
 		r.Post("/refresh", authHandler.Refresh)
 	})
 
+	r.Route("/v1/user", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Get("/me", userHandler.GetMe)
+	})
+
 	studentService := service.NewStudentService(repo)
 	studentHandler := handler.NewStudentHandler(studentService)
 
