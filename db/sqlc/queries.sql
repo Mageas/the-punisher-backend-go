@@ -504,12 +504,24 @@ WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 -- ==================== Punishment ====================
 
 -- name: CreatePunishment :one
-INSERT INTO punishments (
-    user_id, student_id, punishment_type_id, due_at
-) VALUES (
-    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(due_at)
+WITH created_punishment AS (
+    INSERT INTO punishments (
+        user_id, student_id, punishment_type_id, due_at
+    ) VALUES (
+        sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(due_at)
+    )
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
 )
-RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM created_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;
 
 -- name: CreatePunishmentFromRule :one
 INSERT INTO punishments (
@@ -517,12 +529,25 @@ INSERT INTO punishments (
 ) VALUES (
     sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(triggering_rule_id), sqlc.arg(due_at)
 )
-RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
+RETURNING
+    id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at,
+    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
+    (SELECT name FROM punishment_types WHERE punishment_types.id = punishment_type_id) AS punishment_type_name,
+    COALESCE((SELECT name FROM rules WHERE rules.id = triggering_rule_id), ''::text) AS triggering_rule_name;
 
 -- name: GetPunishmentByUser :one
-SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
-FROM punishments
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.id = sqlc.arg(id) AND p.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountPunishmentsByUser :one
 SELECT COUNT(*)
@@ -531,11 +556,19 @@ WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean);
 
 -- name: ListPunishmentsByUser :many
-SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
-FROM punishments
-WHERE user_id = sqlc.arg(user_id)
-  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
-ORDER BY created_at DESC
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+ORDER BY p.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountPunishmentsByStudent :one
@@ -546,19 +579,39 @@ WHERE student_id = sqlc.arg(student_id)
   AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean);
 
 -- name: ListPunishmentsByStudent :many
-SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
-FROM punishments
-WHERE student_id = sqlc.arg(student_id)
-  AND user_id = sqlc.arg(user_id)
-  AND (sqlc.narg(resolved)::boolean IS NULL OR (resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
-ORDER BY created_at DESC
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.student_id = sqlc.arg(student_id)
+  AND p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+ORDER BY p.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: ResolvePunishment :one
-UPDATE punishments
-SET resolved_at = NOW()
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND resolved_at IS NULL
-RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at;
+WITH resolved_punishment AS (
+    UPDATE punishments
+    SET resolved_at = NOW()
+    WHERE punishments.id = sqlc.arg(id) AND punishments.user_id = sqlc.arg(user_id) AND punishments.resolved_at IS NULL
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.created_at, punishments.due_at, punishments.resolved_at
+)
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM resolved_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;
 
 -- name: DeletePunishmentByUser :execrows
 DELETE FROM punishments

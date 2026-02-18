@@ -415,6 +415,18 @@ func TestPenaltyHandlerCreateTriggersPunishmentFromRule(t *testing.T) {
 	if *createdPunishment.TriggeringRuleID != ruleID {
 		t.Fatalf("expected triggering_rule_id=%s, got %s", ruleID, *createdPunishment.TriggeringRuleID)
 	}
+	if createdPunishment.TriggeringRuleName == nil {
+		t.Fatal("expected triggering_rule_name to be set")
+	}
+	if *createdPunishment.TriggeringRuleName != "2 retards => colle" {
+		t.Fatalf("expected triggering_rule_name=%q, got %q", "2 retards => colle", *createdPunishment.TriggeringRuleName)
+	}
+	if createdPunishment.StudentFirstName != "Jean" || createdPunishment.StudentLastName != "Dupont" {
+		t.Fatalf("expected enriched student names, got %+v", createdPunishment)
+	}
+	if createdPunishment.PunishmentTypeName != "Heure de colle" {
+		t.Fatalf("expected punishment_type_name=%q, got %q", "Heure de colle", createdPunishment.PunishmentTypeName)
+	}
 
 	expectedDueAt := time.Now().UTC().Add(3 * 24 * time.Hour)
 	delta := createdPunishment.DueAt.Sub(expectedDueAt)
