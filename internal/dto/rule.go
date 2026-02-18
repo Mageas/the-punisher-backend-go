@@ -114,7 +114,7 @@ func RuleFromGetRow(rule *repository.GetRuleByUserRow) *ReturnRuleDto {
 	)
 }
 
-func RuleListFromRepository(rules []repository.ListRulesByUserRow) []*ReturnRuleDto {
+func RuleListFromListByUserRows(rules []repository.ListRulesByUserRow) []*ReturnRuleDto {
 	dtos := make([]*ReturnRuleDto, 0, len(rules))
 
 	for _, rule := range rules {

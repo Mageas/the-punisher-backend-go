@@ -117,7 +117,7 @@ func (s *ruleService) ListRules(ctx context.Context, userID uuid.UUID, limit, of
 		return nil, 0, fmt.Errorf("failed to list rules: %w", err)
 	}
 
-	return dto.RuleListFromRepository(rules), totalCount, nil
+	return dto.RuleListFromListByUserRows(rules), totalCount, nil
 }
 
 func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, req dto.UpdateRuleDto) (*dto.ReturnRuleDto, error) {
