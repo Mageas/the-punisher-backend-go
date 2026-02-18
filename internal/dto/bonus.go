@@ -15,44 +15,144 @@ type RequestBonusDto struct {
 }
 
 type ReturnBonusDto struct {
-	ID          uuid.UUID  `json:"id"`
-	StudentID   uuid.UUID  `json:"student_id"`
-	BonusTypeID uuid.UUID  `json:"bonus_type_id"`
-	Points      float64    `json:"points"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UsedAt      *time.Time `json:"used_at"`
+	ID               uuid.UUID  `json:"id"`
+	StudentID        uuid.UUID  `json:"student_id"`
+	StudentFirstName string     `json:"student_first_name"`
+	StudentLastName  string     `json:"student_last_name"`
+	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
+	BonusTypeName    string     `json:"bonus_type_name"`
+	Points           float64    `json:"points"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UsedAt           *time.Time `json:"used_at"`
 }
 
-func BonusFromRepository(b *repository.Bonus) *ReturnBonusDto {
-	if b == nil {
-		return nil
-	}
-
+func buildReturnBonusDto(
+	id uuid.UUID,
+	studentID uuid.UUID,
+	studentFirstName string,
+	studentLastName string,
+	bonusTypeID uuid.UUID,
+	bonusTypeName string,
+	points float64,
+	createdAt time.Time,
+	usedAt pgtype.Timestamptz,
+) *ReturnBonusDto {
 	dto := &ReturnBonusDto{
-		ID:          b.ID,
-		StudentID:   b.StudentID,
-		BonusTypeID: b.BonusTypeID,
-		Points:      b.Points,
-		CreatedAt:   b.CreatedAt,
+		ID:               id,
+		StudentID:        studentID,
+		StudentFirstName: studentFirstName,
+		StudentLastName:  studentLastName,
+		BonusTypeID:      bonusTypeID,
+		BonusTypeName:    bonusTypeName,
+		Points:           points,
+		CreatedAt:        createdAt,
 	}
 
-	if usedAt := bonusUsedAt(b.UsedAt); usedAt != nil {
-		dto.UsedAt = usedAt
+	if convertedUsedAt := bonusUsedAt(usedAt); convertedUsedAt != nil {
+		dto.UsedAt = convertedUsedAt
 	}
 
 	return dto
 }
 
-func BonusListFromRepository(bonuses []repository.Bonus) []*ReturnBonusDto {
+func BonusFromCreateRow(b *repository.CreateBonusRow) *ReturnBonusDto {
+	if b == nil {
+		return nil
+	}
+
+	return buildReturnBonusDto(
+		b.ID,
+		b.StudentID,
+		b.StudentFirstName,
+		b.StudentLastName,
+		b.BonusTypeID,
+		b.BonusTypeName,
+		b.Points,
+		b.CreatedAt,
+		b.UsedAt,
+	)
+}
+
+func BonusFromGetRow(b *repository.GetBonusByUserRow) *ReturnBonusDto {
+	if b == nil {
+		return nil
+	}
+
+	return buildReturnBonusDto(
+		b.ID,
+		b.StudentID,
+		b.StudentFirstName,
+		b.StudentLastName,
+		b.BonusTypeID,
+		b.BonusTypeName,
+		b.Points,
+		b.CreatedAt,
+		b.UsedAt,
+	)
+}
+
+func BonusListFromListByUserRows(bonuses []repository.ListBonusesByUserRow) []*ReturnBonusDto {
 	dtos := make([]*ReturnBonusDto, 0, len(bonuses))
 
 	for _, bonus := range bonuses {
-		if dto := BonusFromRepository(&bonus); dto != nil {
+		dto := buildReturnBonusDto(
+			bonus.ID,
+			bonus.StudentID,
+			bonus.StudentFirstName,
+			bonus.StudentLastName,
+			bonus.BonusTypeID,
+			bonus.BonusTypeName,
+			bonus.Points,
+			bonus.CreatedAt,
+			bonus.UsedAt,
+		)
+		if dto != nil {
 			dtos = append(dtos, dto)
 		}
 	}
 
 	return dtos
+}
+
+func BonusListFromListByStudentRows(bonuses []repository.ListBonusesByStudentRow) []*ReturnBonusDto {
+	dtos := make([]*ReturnBonusDto, 0, len(bonuses))
+
+	for _, bonus := range bonuses {
+		dto := buildReturnBonusDto(
+			bonus.ID,
+			bonus.StudentID,
+			bonus.StudentFirstName,
+			bonus.StudentLastName,
+			bonus.BonusTypeID,
+			bonus.BonusTypeName,
+			bonus.Points,
+			bonus.CreatedAt,
+			bonus.UsedAt,
+		)
+		if dto != nil {
+			dtos = append(dtos, dto)
+		}
+	}
+
+	return dtos
+}
+
+func BonusFromUseRow(b *repository.UseBonusRow) *ReturnBonusDto {
+	if b == nil {
+		return nil
+	}
+
+	return buildReturnBonusDto(
+		b.ID,
+		b.StudentID,
+		b.StudentFirstName,
+		b.StudentLastName,
+		b.BonusTypeID,
+		b.BonusTypeName,
+		b.Points,
+		b.CreatedAt,
+		b.UsedAt,
+	)
 }
 
 func bonusUsedAt(value pgtype.Timestamptz) *time.Time {

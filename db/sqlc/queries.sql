@@ -291,12 +291,22 @@ INSERT INTO bonuses (
 ) VALUES (
     sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(bonus_type_id), sqlc.arg(points)
 )
-RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at;
+RETURNING
+    id, user_id, student_id, bonus_type_id, points, created_at, used_at,
+    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonus_type_id) AS bonus_type_name;
 
 -- name: GetBonusByUser :one
-SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
-FROM bonuses
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.id = sqlc.arg(id) AND b.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountBonusesByUser :one
 SELECT COUNT(*)
@@ -305,11 +315,17 @@ WHERE user_id = sqlc.arg(user_id)
   AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean);
 
 -- name: ListBonusesByUser :many
-SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
-FROM bonuses
-WHERE user_id = sqlc.arg(user_id)
-  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean)
-ORDER BY created_at DESC
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
+ORDER BY b.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountBonusesByStudent :one
@@ -320,19 +336,29 @@ WHERE student_id = sqlc.arg(student_id)
   AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean);
 
 -- name: ListBonusesByStudent :many
-SELECT id, user_id, student_id, bonus_type_id, points, created_at, used_at
-FROM bonuses
-WHERE student_id = sqlc.arg(student_id)
-  AND user_id = sqlc.arg(user_id)
-  AND (sqlc.narg(used)::boolean IS NULL OR (used_at IS NOT NULL) = sqlc.narg(used)::boolean)
-ORDER BY created_at DESC
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.student_id = sqlc.arg(student_id)
+  AND b.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
+ORDER BY b.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: UseBonus :one
 UPDATE bonuses
 SET used_at = NOW()
-WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) AND used_at IS NULL
-RETURNING id, user_id, student_id, bonus_type_id, points, created_at, used_at;
+WHERE bonuses.id = sqlc.arg(id) AND bonuses.user_id = sqlc.arg(user_id) AND bonuses.used_at IS NULL
+RETURNING
+    bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.used_at,
+    (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = bonuses.student_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id) AS bonus_type_name;
 
 -- name: DeleteBonusByUser :execrows
 DELETE FROM bonuses
