@@ -38,6 +38,21 @@ func UserFromRepository(u *repository.CreateUserRow) *ReturnUserDto {
 	}
 }
 
+func UserFromGetByIDRow(u *repository.GetUserByIDRow) *ReturnUserDto {
+	if u == nil {
+		return nil
+	}
+
+	return &ReturnUserDto{
+		ID:        u.ID,
+		Email:     u.Email,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}
+}
+
 func UserListFromRepository(users []*repository.CreateUserRow) []*ReturnUserDto {
 	dtos := make([]*ReturnUserDto, 0, len(users))
 

@@ -294,6 +294,15 @@ Réponse `200` :
 }
 ```
 
+### GET `/user/me`
+
+Auth :
+- Bearer token requis
+
+Réponses :
+- `200` -> `ReturnUserDto`
+- `401` -> `unauthorized`
+
 ## 5. Dashboard
 
 ### GET `/dashboard?classroom_id=uuid`

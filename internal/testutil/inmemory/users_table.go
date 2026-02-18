@@ -6,12 +6,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
 const (
 	OpUserEmailExists = "UserEmailExists"
 	OpCreateUser      = "CreateUser"
+	OpGetUserByID     = "GetUserByID"
 )
 
 func (r *Repository) SetUserEmailExistsError(err error) {
@@ -20,6 +22,10 @@ func (r *Repository) SetUserEmailExistsError(err error) {
 
 func (r *Repository) SetCreateUserError(err error) {
 	r.SetError(OpCreateUser, err)
+}
+
+func (r *Repository) SetGetUserByIDError(err error) {
+	r.SetError(OpGetUserByID, err)
 }
 
 func (r *Repository) SeedUser(user repository.User) {
@@ -95,5 +101,28 @@ func (r *Repository) CreateUser(_ context.Context, arg repository.CreateUserPara
 		LastName:  arg.LastName,
 		CreatedAt: now,
 		UpdatedAt: now,
+	}, nil
+}
+
+func (r *Repository) GetUserByID(_ context.Context, id uuid.UUID) (repository.GetUserByIDRow, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if err := r.errFor(OpGetUserByID); err != nil {
+		return repository.GetUserByIDRow{}, err
+	}
+
+	user, ok := r.users[id]
+	if !ok {
+		return repository.GetUserByIDRow{}, pgx.ErrNoRows
+	}
+
+	return repository.GetUserByIDRow{
+		ID:        user.ID,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}, nil
 }

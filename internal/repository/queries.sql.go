@@ -1641,6 +1641,35 @@ func (q *Queries) GetStudentKpis(ctx context.Context, arg GetStudentKpisParams) 
 	return i, err
 }
 
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, email, first_name, last_name, created_at, updated_at
+FROM users
+WHERE id = $1 LIMIT 1
+`
+
+type GetUserByIDRow struct {
+	ID        uuid.UUID `json:"id"`
+	Email     string    `json:"email"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i GetUserByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.LastName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserCredentialsByEmailForAuth = `-- name: GetUserCredentialsByEmailForAuth :one
 SELECT id, email, password_hash FROM users WHERE email = LOWER($1) LIMIT 1
 `

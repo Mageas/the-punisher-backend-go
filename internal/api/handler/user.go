@@ -5,6 +5,7 @@ import (
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
@@ -47,4 +48,16 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	web.WriteJSON(w, http.StatusCreated, user, nil)
+}
+
+func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	user, err := h.service.GetCurrentUser(r.Context(), userID)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, user, nil)
 }
