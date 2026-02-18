@@ -477,12 +477,24 @@ func (q *Queries) CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypePa
 
 const createPunishment = `-- name: CreatePunishment :one
 
-INSERT INTO punishments (
-    user_id, student_id, punishment_type_id, due_at
-) VALUES (
-    $1, $2, $3, $4
+WITH created_punishment AS (
+    INSERT INTO punishments (
+        user_id, student_id, punishment_type_id, due_at
+    ) VALUES (
+        $1, $2, $3, $4
+    )
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
 )
-RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM created_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
 type CreatePunishmentParams struct {
@@ -492,15 +504,30 @@ type CreatePunishmentParams struct {
 	DueAt            time.Time `json:"due_at"`
 }
 
+type CreatePunishmentRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+}
+
 // ==================== Punishment ====================
-func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentParams) (Punishment, error) {
+func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentParams) (CreatePunishmentRow, error) {
 	row := q.db.QueryRow(ctx, createPunishment,
 		arg.UserID,
 		arg.StudentID,
 		arg.PunishmentTypeID,
 		arg.DueAt,
 	)
-	var i Punishment
+	var i CreatePunishmentRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -510,6 +537,10 @@ func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentPara
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PunishmentTypeName,
+		&i.TriggeringRuleName,
 	)
 	return i, err
 }
@@ -520,7 +551,12 @@ INSERT INTO punishments (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+RETURNING
+    id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at,
+    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
+    (SELECT name FROM punishment_types WHERE punishment_types.id = punishment_type_id) AS punishment_type_name,
+    COALESCE((SELECT name FROM rules WHERE rules.id = triggering_rule_id), ''::text) AS triggering_rule_name
 `
 
 type CreatePunishmentFromRuleParams struct {
@@ -531,7 +567,22 @@ type CreatePunishmentFromRuleParams struct {
 	DueAt            time.Time   `json:"due_at"`
 }
 
-func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunishmentFromRuleParams) (Punishment, error) {
+type CreatePunishmentFromRuleRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName interface{}        `json:"triggering_rule_name"`
+}
+
+func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunishmentFromRuleParams) (CreatePunishmentFromRuleRow, error) {
 	row := q.db.QueryRow(ctx, createPunishmentFromRule,
 		arg.UserID,
 		arg.StudentID,
@@ -539,7 +590,7 @@ func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunish
 		arg.TriggeringRuleID,
 		arg.DueAt,
 	)
-	var i Punishment
+	var i CreatePunishmentFromRuleRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -549,6 +600,10 @@ func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunish
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PunishmentTypeName,
+		&i.TriggeringRuleName,
 	)
 	return i, err
 }
@@ -1110,9 +1165,17 @@ func (q *Queries) GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeBy
 }
 
 const getPunishmentByUser = `-- name: GetPunishmentByUser :one
-SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
-FROM punishments
-WHERE id = $1 AND user_id = $2 LIMIT 1
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.id = $1 AND p.user_id = $2 LIMIT 1
 `
 
 type GetPunishmentByUserParams struct {
@@ -1120,9 +1183,24 @@ type GetPunishmentByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (Punishment, error) {
+type GetPunishmentByUserRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+}
+
+func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (GetPunishmentByUserRow, error) {
 	row := q.db.QueryRow(ctx, getPunishmentByUser, arg.ID, arg.UserID)
-	var i Punishment
+	var i GetPunishmentByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -1132,6 +1210,10 @@ func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUs
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PunishmentTypeName,
+		&i.TriggeringRuleName,
 	)
 	return i, err
 }
@@ -1812,12 +1894,20 @@ func (q *Queries) ListPunishmentTypesByUser(ctx context.Context, arg ListPunishm
 }
 
 const listPunishmentsByStudent = `-- name: ListPunishmentsByStudent :many
-SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
-FROM punishments
-WHERE student_id = $1
-  AND user_id = $2
-  AND ($3::boolean IS NULL OR (resolved_at IS NOT NULL) = $3::boolean)
-ORDER BY created_at DESC
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.student_id = $1
+  AND p.user_id = $2
+  AND ($3::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $3::boolean)
+ORDER BY p.created_at DESC
 LIMIT $5 OFFSET $4
 `
 
@@ -1829,7 +1919,22 @@ type ListPunishmentsByStudentParams struct {
 	QueryLimit  int32       `json:"query_limit"`
 }
 
-func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishmentsByStudentParams) ([]Punishment, error) {
+type ListPunishmentsByStudentRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+}
+
+func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishmentsByStudentParams) ([]ListPunishmentsByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listPunishmentsByStudent,
 		arg.StudentID,
 		arg.UserID,
@@ -1841,9 +1946,9 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Punishment
+	var items []ListPunishmentsByStudentRow
 	for rows.Next() {
-		var i Punishment
+		var i ListPunishmentsByStudentRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1853,6 +1958,10 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 			&i.CreatedAt,
 			&i.DueAt,
 			&i.ResolvedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.PunishmentTypeName,
+			&i.TriggeringRuleName,
 		); err != nil {
 			return nil, err
 		}
@@ -1865,11 +1974,19 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 }
 
 const listPunishmentsByUser = `-- name: ListPunishmentsByUser :many
-SELECT id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
-FROM punishments
-WHERE user_id = $1
-  AND ($2::boolean IS NULL OR (resolved_at IS NOT NULL) = $2::boolean)
-ORDER BY created_at DESC
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.user_id = $1
+  AND ($2::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $2::boolean)
+ORDER BY p.created_at DESC
 LIMIT $4 OFFSET $3
 `
 
@@ -1880,7 +1997,22 @@ type ListPunishmentsByUserParams struct {
 	QueryLimit  int32       `json:"query_limit"`
 }
 
-func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]Punishment, error) {
+type ListPunishmentsByUserRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+}
+
+func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]ListPunishmentsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listPunishmentsByUser,
 		arg.UserID,
 		arg.Resolved,
@@ -1891,9 +2023,9 @@ func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishments
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Punishment
+	var items []ListPunishmentsByUserRow
 	for rows.Next() {
-		var i Punishment
+		var i ListPunishmentsByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1903,6 +2035,10 @@ func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishments
 			&i.CreatedAt,
 			&i.DueAt,
 			&i.ResolvedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.PunishmentTypeName,
+			&i.TriggeringRuleName,
 		); err != nil {
 			return nil, err
 		}
@@ -2133,10 +2269,22 @@ func (q *Queries) RemoveStudentFromClassroom(ctx context.Context, arg RemoveStud
 }
 
 const resolvePunishment = `-- name: ResolvePunishment :one
-UPDATE punishments
-SET resolved_at = NOW()
-WHERE id = $1 AND user_id = $2 AND resolved_at IS NULL
-RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+WITH resolved_punishment AS (
+    UPDATE punishments
+    SET resolved_at = NOW()
+    WHERE punishments.id = $1 AND punishments.user_id = $2 AND punishments.resolved_at IS NULL
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.created_at, punishments.due_at, punishments.resolved_at
+)
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM resolved_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
 type ResolvePunishmentParams struct {
@@ -2144,9 +2292,24 @@ type ResolvePunishmentParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentParams) (Punishment, error) {
+type ResolvePunishmentRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+}
+
+func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentParams) (ResolvePunishmentRow, error) {
 	row := q.db.QueryRow(ctx, resolvePunishment, arg.ID, arg.UserID)
-	var i Punishment
+	var i ResolvePunishmentRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -2156,6 +2319,10 @@ func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentPa
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PunishmentTypeName,
+		&i.TriggeringRuleName,
 	)
 	return i, err
 }

@@ -59,7 +59,7 @@ func (s *punishmentService) CreatePunishment(ctx context.Context, userID uuid.UU
 
 	slog.Info("punishment created", "punishment_id", punishment.ID, "user_id", userID, "student_id", studentID, "punishment_type_id", punishmentTypeID)
 
-	return dto.PunishmentFromRepository(&punishment), nil
+	return dto.PunishmentFromCreateRow(&punishment), nil
 }
 
 func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
@@ -71,7 +71,7 @@ func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID,
 		return nil, fmt.Errorf("failed to get punishment: %w", err)
 	}
 
-	return dto.PunishmentFromRepository(&punishment), nil
+	return dto.PunishmentFromGetRow(&punishment), nil
 }
 
 func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
@@ -98,7 +98,7 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 		return nil, 0, fmt.Errorf("failed to list punishments: %w", err)
 	}
 
-	return dto.PunishmentListFromRepository(punishments), totalCount, nil
+	return dto.PunishmentListFromListByUserRows(punishments), totalCount, nil
 }
 
 func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
@@ -134,7 +134,7 @@ func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID
 		return nil, 0, fmt.Errorf("failed to list punishments by student: %w", err)
 	}
 
-	return dto.PunishmentListFromRepository(punishments), totalCount, nil
+	return dto.PunishmentListFromListByStudentRows(punishments), totalCount, nil
 }
 
 func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
@@ -158,7 +158,7 @@ func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.U
 
 	slog.Info("punishment resolved", "punishment_id", punishment.ID, "user_id", userID)
 
-	return dto.PunishmentFromRepository(&punishment), nil
+	return dto.PunishmentFromResolveRow(&punishment), nil
 }
 
 func (s *punishmentService) DeletePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) error {
