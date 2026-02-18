@@ -19,6 +19,94 @@ const (
 	OpListActiveRulesByUserAndPenaltyType = "ListActiveRulesByUserAndPenaltyType"
 )
 
+func (r *Repository) penaltyTypeNameLocked(penaltyTypeID uuid.UUID) string {
+	if penaltyType, ok := r.penaltyTypes[penaltyTypeID]; ok {
+		return penaltyType.Name
+	}
+
+	return ""
+}
+
+func (r *Repository) punishmentTypeNameLocked(punishmentTypeID uuid.UUID) string {
+	if punishmentType, ok := r.punishmentTypes[punishmentTypeID]; ok {
+		return punishmentType.Name
+	}
+
+	return ""
+}
+
+func (r *Repository) buildCreateRuleRowLocked(rule repository.Rule) repository.CreateRuleRow {
+	return repository.CreateRuleRow{
+		ID:                          rule.ID,
+		UserID:                      rule.UserID,
+		Name:                        rule.Name,
+		ResultingPunishmentTypeID:   rule.ResultingPunishmentTypeID,
+		PenaltyTypeID:               rule.PenaltyTypeID,
+		Threshold:                   rule.Threshold,
+		Mode:                        rule.Mode,
+		IsActive:                    rule.IsActive,
+		CreatedAt:                   rule.CreatedAt,
+		UpdatedAt:                   rule.UpdatedAt,
+		DueAtAfterDays:              rule.DueAtAfterDays,
+		PenaltyTypeName:             r.penaltyTypeNameLocked(rule.PenaltyTypeID),
+		ResultingPunishmentTypeName: r.punishmentTypeNameLocked(rule.ResultingPunishmentTypeID),
+	}
+}
+
+func (r *Repository) buildGetRuleRowLocked(rule repository.Rule) repository.GetRuleByUserRow {
+	return repository.GetRuleByUserRow{
+		ID:                          rule.ID,
+		UserID:                      rule.UserID,
+		Name:                        rule.Name,
+		ResultingPunishmentTypeID:   rule.ResultingPunishmentTypeID,
+		PenaltyTypeID:               rule.PenaltyTypeID,
+		Threshold:                   rule.Threshold,
+		Mode:                        rule.Mode,
+		IsActive:                    rule.IsActive,
+		CreatedAt:                   rule.CreatedAt,
+		UpdatedAt:                   rule.UpdatedAt,
+		DueAtAfterDays:              rule.DueAtAfterDays,
+		PenaltyTypeName:             r.penaltyTypeNameLocked(rule.PenaltyTypeID),
+		ResultingPunishmentTypeName: r.punishmentTypeNameLocked(rule.ResultingPunishmentTypeID),
+	}
+}
+
+func (r *Repository) buildListRuleRowLocked(rule repository.Rule) repository.ListRulesByUserRow {
+	return repository.ListRulesByUserRow{
+		ID:                          rule.ID,
+		UserID:                      rule.UserID,
+		Name:                        rule.Name,
+		ResultingPunishmentTypeID:   rule.ResultingPunishmentTypeID,
+		PenaltyTypeID:               rule.PenaltyTypeID,
+		Threshold:                   rule.Threshold,
+		Mode:                        rule.Mode,
+		IsActive:                    rule.IsActive,
+		CreatedAt:                   rule.CreatedAt,
+		UpdatedAt:                   rule.UpdatedAt,
+		DueAtAfterDays:              rule.DueAtAfterDays,
+		PenaltyTypeName:             r.penaltyTypeNameLocked(rule.PenaltyTypeID),
+		ResultingPunishmentTypeName: r.punishmentTypeNameLocked(rule.ResultingPunishmentTypeID),
+	}
+}
+
+func (r *Repository) buildUpdateRuleRowLocked(rule repository.Rule) repository.UpdateRuleByUserRow {
+	return repository.UpdateRuleByUserRow{
+		ID:                          rule.ID,
+		UserID:                      rule.UserID,
+		Name:                        rule.Name,
+		ResultingPunishmentTypeID:   rule.ResultingPunishmentTypeID,
+		PenaltyTypeID:               rule.PenaltyTypeID,
+		Threshold:                   rule.Threshold,
+		Mode:                        rule.Mode,
+		IsActive:                    rule.IsActive,
+		CreatedAt:                   rule.CreatedAt,
+		UpdatedAt:                   rule.UpdatedAt,
+		DueAtAfterDays:              rule.DueAtAfterDays,
+		PenaltyTypeName:             r.penaltyTypeNameLocked(rule.PenaltyTypeID),
+		ResultingPunishmentTypeName: r.punishmentTypeNameLocked(rule.ResultingPunishmentTypeID),
+	}
+}
+
 func (r *Repository) SeedRule(rule repository.Rule) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -37,12 +125,12 @@ func (r *Repository) SeedRule(rule repository.Rule) {
 	r.rules[rule.ID] = rule
 }
 
-func (r *Repository) CreateRule(_ context.Context, arg repository.CreateRuleParams) (repository.Rule, error) {
+func (r *Repository) CreateRule(_ context.Context, arg repository.CreateRuleParams) (repository.CreateRuleRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpCreateRule); err != nil {
-		return repository.Rule{}, err
+		return repository.CreateRuleRow{}, err
 	}
 
 	now := time.Now()
@@ -61,23 +149,23 @@ func (r *Repository) CreateRule(_ context.Context, arg repository.CreateRulePara
 	}
 	r.rules[rule.ID] = rule
 
-	return rule, nil
+	return r.buildCreateRuleRowLocked(rule), nil
 }
 
-func (r *Repository) GetRuleByUser(_ context.Context, arg repository.GetRuleByUserParams) (repository.Rule, error) {
+func (r *Repository) GetRuleByUser(_ context.Context, arg repository.GetRuleByUserParams) (repository.GetRuleByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if err := r.errFor(OpGetRuleByUser); err != nil {
-		return repository.Rule{}, err
+		return repository.GetRuleByUserRow{}, err
 	}
 
 	rule, ok := r.rules[arg.ID]
 	if !ok || rule.UserID != arg.UserID {
-		return repository.Rule{}, pgx.ErrNoRows
+		return repository.GetRuleByUserRow{}, pgx.ErrNoRows
 	}
 
-	return rule, nil
+	return r.buildGetRuleRowLocked(rule), nil
 }
 
 func (r *Repository) CountRulesByUser(_ context.Context, userID uuid.UUID) (int64, error) {
@@ -98,7 +186,7 @@ func (r *Repository) CountRulesByUser(_ context.Context, userID uuid.UUID) (int6
 	return count, nil
 }
 
-func (r *Repository) ListRulesByUser(_ context.Context, arg repository.ListRulesByUserParams) ([]repository.Rule, error) {
+func (r *Repository) ListRulesByUser(_ context.Context, arg repository.ListRulesByUserParams) ([]repository.ListRulesByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -114,20 +202,27 @@ func (r *Repository) ListRulesByUser(_ context.Context, arg repository.ListRules
 	}
 
 	sortRulesByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListRulesByUserRow, 0, len(paginated))
+	for _, rule := range paginated {
+		rows = append(rows, r.buildListRuleRowLocked(rule))
+	}
+
+	return rows, nil
 }
 
-func (r *Repository) UpdateRuleByUser(_ context.Context, arg repository.UpdateRuleByUserParams) (repository.Rule, error) {
+func (r *Repository) UpdateRuleByUser(_ context.Context, arg repository.UpdateRuleByUserParams) (repository.UpdateRuleByUserRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpUpdateRuleByUser); err != nil {
-		return repository.Rule{}, err
+		return repository.UpdateRuleByUserRow{}, err
 	}
 
 	rule, ok := r.rules[arg.ID]
 	if !ok || rule.UserID != arg.UserID {
-		return repository.Rule{}, pgx.ErrNoRows
+		return repository.UpdateRuleByUserRow{}, pgx.ErrNoRows
 	}
 
 	if arg.Name.Valid {
@@ -155,7 +250,7 @@ func (r *Repository) UpdateRuleByUser(_ context.Context, arg repository.UpdateRu
 	rule.UpdatedAt = time.Now()
 	r.rules[arg.ID] = rule
 
-	return rule, nil
+	return r.buildUpdateRuleRowLocked(rule), nil
 }
 
 func (r *Repository) DeleteRuleByUser(_ context.Context, arg repository.DeleteRuleByUserParams) (int64, error) {
