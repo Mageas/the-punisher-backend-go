@@ -2,12 +2,6 @@
 
 Base path: `/v1`
 
-Cette référence décrit le contrat API actuellement implémenté (routes, payloads, formats de réponse), incluant les enrichissements récents :
-- `GET /dashboard`
-- `GET /students/{id}/kpis`
-- `GET /students/{id}/history`
-- DTO enrichis pour `students`, `classrooms`, `bonuses`, `penalties`, `punishments`, `rules`.
-
 ## 1. Conventions globales
 
 - Auth Bearer requise sur toutes les routes sauf :
@@ -52,7 +46,7 @@ Toutes les routes `List*` renvoient :
 
 ## 2. Objets de réponse
 
-### Student (enrichi)
+### Student
 
 ```json
 {
@@ -67,7 +61,7 @@ Toutes les routes `List*` renvoient :
 }
 ```
 
-### Classroom (enrichi)
+### Classroom
 
 ```json
 {
@@ -88,7 +82,7 @@ Toutes les routes `List*` renvoient :
 
 `students_preview` est limité à 5 élèves max.
 
-### Bonus (enrichi)
+### Bonus
 
 ```json
 {
@@ -104,7 +98,7 @@ Toutes les routes `List*` renvoient :
 }
 ```
 
-### Penalty (enrichi)
+### Penalty
 
 ```json
 {
@@ -118,7 +112,7 @@ Toutes les routes `List*` renvoient :
 }
 ```
 
-### Punishment (enrichi)
+### Punishment
 
 ```json
 {
@@ -140,7 +134,7 @@ Pour une punition manuelle :
 - `triggering_rule_id = null`
 - `triggering_rule_name = null`
 
-### Rule (enrichi)
+### Rule
 
 ```json
 {
@@ -326,7 +320,7 @@ Body :
 ```
 
 Réponse :
-- `201` -> `ReturnStudentDto` enrichi
+- `201` -> `ReturnStudentDto`
 
 ### GET `/students/`
 
@@ -427,7 +421,7 @@ Body :
 ```
 
 Réponse :
-- `201` -> `ReturnClassroomDto` enrichi
+- `201` -> `ReturnClassroomDto`
 
 ### GET `/classrooms/`
 
@@ -752,3 +746,202 @@ Conflicts :
 - `student_classroom_relation_exists`
 - `bonus_already_used`
 - `punishment_already_resolved`
+
+## 16. Définitions des DTOs
+
+### ReturnUserDto
+
+```json
+{
+  "id": "uuid",
+  "email": "teacher@example.com",
+  "first_name": "Jean",
+  "last_name": "Dupont",
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnDashboardDto
+
+```json
+{
+  "kpis": {
+    "student_count": 34,
+    "available_bonus_points": 14.5,
+    "unused_bonus_count": 12,
+    "penalty_count": 47,
+    "pending_punishment_count": 5
+  },
+  "recent_penalties": [],
+  "recent_bonuses": [],
+  "pending_punishments": []
+}
+```
+
+### ReturnStudentDto
+
+```json
+{
+  "id": "uuid",
+  "first_name": "Lucas",
+  "last_name": "Dubois",
+  "classrooms": [{ "id": "uuid", "name": "6eme A" }],
+  "available_bonus_points": 3,
+  "penalty_count": 5,
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### StudentKpisDto
+
+```json
+{
+  "available_bonus_points": 3,
+  "active_bonus_count": 2,
+  "total_penalty_count": 5,
+  "pending_punishment_count": 1
+}
+```
+
+### StudentHistoryItemDto
+
+```json
+{
+  "type": "punishment|penalty|bonus",
+  "id": "uuid",
+  "penalty_type_id": "uuid|null",
+  "penalty_type_name": "string|null",
+  "bonus_type_id": "uuid|null",
+  "bonus_type_name": "string|null",
+  "points": 1.5,
+  "used_at": "2026-02-18T10:00:00Z|null",
+  "punishment_type_id": "uuid|null",
+  "punishment_type_name": "string|null",
+  "triggering_rule_id": "uuid|null",
+  "triggering_rule_name": "string|null",
+  "due_at": "2026-02-25T10:00:00Z|null",
+  "resolved_at": "2026-02-26T10:00:00Z|null",
+  "created_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnClassroomDto
+
+```json
+{
+  "id": "uuid",
+  "name": "6eme A",
+  "year": "2025-2026",
+  "main_teacher": "Mme Martin",
+  "student_count": 12,
+  "students_preview": [
+    { "id": "uuid", "first_name": "Lucas", "last_name": "Dubois" }
+  ],
+  "total_bonus_points": 14.5,
+  "total_penalty_count": 23,
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnBonusTypeDto
+
+```json
+{
+  "id": "uuid",
+  "name": "Participation",
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnPenaltyTypeDto
+
+```json
+{
+  "id": "uuid",
+  "name": "Bavardage",
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnPunishmentTypeDto
+
+```json
+{
+  "id": "uuid",
+  "name": "Retenue",
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnBonusDto
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "student_first_name": "Emma",
+  "student_last_name": "Bernard",
+  "bonus_type_id": "uuid",
+  "bonus_type_name": "Participation",
+  "points": 1,
+  "created_at": "2026-02-18T10:00:00Z",
+  "used_at": "2026-02-19T10:00:00Z|null"
+}
+```
+
+### ReturnPenaltyDto
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "student_first_name": "Lucas",
+  "student_last_name": "Dubois",
+  "penalty_type_id": "uuid",
+  "penalty_type_name": "Bavardage",
+  "created_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### ReturnPunishmentDto
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "student_first_name": "Lucas",
+  "student_last_name": "Dubois",
+  "punishment_type_id": "uuid",
+  "punishment_type_name": "Retenue",
+  "triggering_rule_id": "uuid|null",
+  "triggering_rule_name": "string|null",
+  "created_at": "2026-02-18T10:00:00Z",
+  "due_at": "2026-02-25T10:00:00Z",
+  "resolved_at": "2026-02-26T10:00:00Z|null"
+}
+```
+
+### ReturnRuleDto
+
+```json
+{
+  "id": "uuid",
+  "name": "3 bavardages => retenue",
+  "resulting_punishment_type_id": "uuid",
+  "resulting_punishment_type_name": "Retenue",
+  "penalty_type_id": "uuid",
+  "penalty_type_name": "Bavardage",
+  "threshold": 3,
+  "due_at_after_days": 7,
+  "mode": "after|at|every",
+  "is_active": true,
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
