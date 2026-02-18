@@ -366,7 +366,7 @@ Query params :
 - aucun
 
 Réponse :
-- `200` -> `StudentProfileKpisDto`
+- `200` -> `StudentKpisDto`
 
 ### GET `/students/{id}/history`
 
@@ -375,7 +375,7 @@ Query params :
 - `history_page` optionnel (support legacy, prioritaire sur `page`)
 
 Réponse :
-- `200` -> `[]StudentProfileHistoryItemDto`
+- `200` -> `[]StudentHistoryItemDto`
 
 ### GET `/students/{id}/classrooms`
 
