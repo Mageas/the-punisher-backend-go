@@ -1201,6 +1201,81 @@ func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUser
 	return i, err
 }
 
+const getDashboardKpis = `-- name: GetDashboardKpis :one
+
+WITH filtered_students AS (
+    SELECT s.id
+    FROM students s
+    WHERE s.user_id = $1
+      AND (
+        $2::uuid IS NULL
+        OR EXISTS (
+            SELECT 1
+            FROM student_classrooms sc
+            WHERE sc.student_id = s.id
+              AND sc.classroom_id = $2::uuid
+        )
+    )
+)
+SELECT
+    COUNT(*)::bigint AS student_count,
+    COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        JOIN filtered_students fs ON fs.id = b.student_id
+        WHERE b.user_id = $1
+          AND b.used_at IS NULL
+    ), 0)::double precision AS available_bonus_points,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM bonuses b
+        JOIN filtered_students fs ON fs.id = b.student_id
+        WHERE b.user_id = $1
+          AND b.used_at IS NULL
+    ), 0)::bigint AS unused_bonus_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        JOIN filtered_students fs ON fs.id = p.student_id
+        WHERE p.user_id = $1
+    ), 0)::bigint AS penalty_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        JOIN filtered_students fs ON fs.id = p.student_id
+        WHERE p.user_id = $1
+          AND p.resolved_at IS NULL
+    ), 0)::bigint AS pending_punishment_count
+FROM filtered_students
+`
+
+type GetDashboardKpisParams struct {
+	UserID      uuid.UUID   `json:"user_id"`
+	ClassroomID pgtype.UUID `json:"classroom_id"`
+}
+
+type GetDashboardKpisRow struct {
+	StudentCount           int64   `json:"student_count"`
+	AvailableBonusPoints   float64 `json:"available_bonus_points"`
+	UnusedBonusCount       int64   `json:"unused_bonus_count"`
+	PenaltyCount           int64   `json:"penalty_count"`
+	PendingPunishmentCount int64   `json:"pending_punishment_count"`
+}
+
+// ==================== Dashboard ====================
+func (q *Queries) GetDashboardKpis(ctx context.Context, arg GetDashboardKpisParams) (GetDashboardKpisRow, error) {
+	row := q.db.QueryRow(ctx, getDashboardKpis, arg.UserID, arg.ClassroomID)
+	var i GetDashboardKpisRow
+	err := row.Scan(
+		&i.StudentCount,
+		&i.AvailableBonusPoints,
+		&i.UnusedBonusCount,
+		&i.PenaltyCount,
+		&i.PendingPunishmentCount,
+	)
+	return i, err
+}
+
 const getPenaltyByUser = `-- name: GetPenaltyByUser :one
 SELECT
     p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
@@ -1930,6 +2005,246 @@ func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsBy
 			&i.StudentCount,
 			&i.TotalBonusPoints,
 			&i.TotalPenaltyCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDashboardPendingPunishments = `-- name: ListDashboardPendingPunishments :many
+WITH filtered_students AS (
+    SELECT s.id
+    FROM students s
+    WHERE s.user_id = $1
+      AND (
+        $3::uuid IS NULL
+        OR EXISTS (
+            SELECT 1
+            FROM student_classrooms sc
+            WHERE sc.student_id = s.id
+              AND sc.classroom_id = $3::uuid
+        )
+    )
+)
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM punishments p
+JOIN filtered_students fs ON fs.id = p.student_id
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+WHERE p.user_id = $1
+  AND p.resolved_at IS NULL
+ORDER BY p.created_at DESC
+LIMIT $2
+`
+
+type ListDashboardPendingPunishmentsParams struct {
+	UserID      uuid.UUID   `json:"user_id"`
+	QueryLimit  int32       `json:"query_limit"`
+	ClassroomID pgtype.UUID `json:"classroom_id"`
+}
+
+type ListDashboardPendingPunishmentsRow struct {
+	ID                 uuid.UUID          `json:"id"`
+	UserID             uuid.UUID          `json:"user_id"`
+	StudentID          uuid.UUID          `json:"student_id"`
+	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
+	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	CreatedAt          time.Time          `json:"created_at"`
+	DueAt              time.Time          `json:"due_at"`
+	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	StudentFirstName   string             `json:"student_first_name"`
+	StudentLastName    string             `json:"student_last_name"`
+	PunishmentTypeName string             `json:"punishment_type_name"`
+	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+}
+
+func (q *Queries) ListDashboardPendingPunishments(ctx context.Context, arg ListDashboardPendingPunishmentsParams) ([]ListDashboardPendingPunishmentsRow, error) {
+	rows, err := q.db.Query(ctx, listDashboardPendingPunishments, arg.UserID, arg.QueryLimit, arg.ClassroomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDashboardPendingPunishmentsRow
+	for rows.Next() {
+		var i ListDashboardPendingPunishmentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.StudentID,
+			&i.PunishmentTypeID,
+			&i.TriggeringRuleID,
+			&i.CreatedAt,
+			&i.DueAt,
+			&i.ResolvedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.PunishmentTypeName,
+			&i.TriggeringRuleName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDashboardRecentBonuses = `-- name: ListDashboardRecentBonuses :many
+WITH filtered_students AS (
+    SELECT s.id
+    FROM students s
+    WHERE s.user_id = $1
+      AND (
+        $3::uuid IS NULL
+        OR EXISTS (
+            SELECT 1
+            FROM student_classrooms sc
+            WHERE sc.student_id = s.id
+              AND sc.classroom_id = $3::uuid
+        )
+    )
+)
+SELECT
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    bt.name AS bonus_type_name
+FROM bonuses b
+JOIN filtered_students fs ON fs.id = b.student_id
+JOIN students s ON s.id = b.student_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id
+WHERE b.user_id = $1
+ORDER BY b.created_at DESC
+LIMIT $2
+`
+
+type ListDashboardRecentBonusesParams struct {
+	UserID      uuid.UUID   `json:"user_id"`
+	QueryLimit  int32       `json:"query_limit"`
+	ClassroomID pgtype.UUID `json:"classroom_id"`
+}
+
+type ListDashboardRecentBonusesRow struct {
+	ID               uuid.UUID          `json:"id"`
+	UserID           uuid.UUID          `json:"user_id"`
+	StudentID        uuid.UUID          `json:"student_id"`
+	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
+	Points           float64            `json:"points"`
+	CreatedAt        time.Time          `json:"created_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	StudentFirstName string             `json:"student_first_name"`
+	StudentLastName  string             `json:"student_last_name"`
+	BonusTypeName    string             `json:"bonus_type_name"`
+}
+
+func (q *Queries) ListDashboardRecentBonuses(ctx context.Context, arg ListDashboardRecentBonusesParams) ([]ListDashboardRecentBonusesRow, error) {
+	rows, err := q.db.Query(ctx, listDashboardRecentBonuses, arg.UserID, arg.QueryLimit, arg.ClassroomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDashboardRecentBonusesRow
+	for rows.Next() {
+		var i ListDashboardRecentBonusesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.StudentID,
+			&i.BonusTypeID,
+			&i.Points,
+			&i.CreatedAt,
+			&i.UsedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.BonusTypeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDashboardRecentPenalties = `-- name: ListDashboardRecentPenalties :many
+WITH filtered_students AS (
+    SELECT s.id
+    FROM students s
+    WHERE s.user_id = $1
+      AND (
+        $3::uuid IS NULL
+        OR EXISTS (
+            SELECT 1
+            FROM student_classrooms sc
+            WHERE sc.student_id = s.id
+              AND sc.classroom_id = $3::uuid
+        )
+    )
+)
+SELECT
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS penalty_type_name
+FROM penalties p
+JOIN filtered_students fs ON fs.id = p.student_id
+JOIN students s ON s.id = p.student_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC
+LIMIT $2
+`
+
+type ListDashboardRecentPenaltiesParams struct {
+	UserID      uuid.UUID   `json:"user_id"`
+	QueryLimit  int32       `json:"query_limit"`
+	ClassroomID pgtype.UUID `json:"classroom_id"`
+}
+
+type ListDashboardRecentPenaltiesRow struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
+}
+
+func (q *Queries) ListDashboardRecentPenalties(ctx context.Context, arg ListDashboardRecentPenaltiesParams) ([]ListDashboardRecentPenaltiesRow, error) {
+	rows, err := q.db.Query(ctx, listDashboardRecentPenalties, arg.UserID, arg.QueryLimit, arg.ClassroomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDashboardRecentPenaltiesRow
+	for rows.Next() {
+		var i ListDashboardRecentPenaltiesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.StudentID,
+			&i.PenaltyTypeID,
+			&i.CreatedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.PenaltyTypeName,
 		); err != nil {
 			return nil, err
 		}
