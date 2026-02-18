@@ -63,7 +63,7 @@ func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusOK, student, nil)
 }
 
-func (h *StudentHandler) GetStudentProfile(w http.ResponseWriter, r *http.Request) {
+func (h *StudentHandler) GetStudentKpis(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -72,22 +72,39 @@ func (h *StudentHandler) GetStudentProfile(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	historyPage := 1
-	if rawPage := r.URL.Query().Get("history_page"); rawPage != "" {
-		if parsed, parseErr := strconv.Atoi(rawPage); parseErr == nil && parsed > 0 {
-			historyPage = parsed
-		}
-	}
-	historyLimit := int32(web.DefaultItemPerPage)
-	historyOffset := int32((historyPage - 1) * web.DefaultItemPerPage)
-
-	profile, err := h.service.GetStudentProfile(r.Context(), userID, studentID, historyLimit, historyOffset)
+	kpis, err := h.service.GetStudentKpis(r.Context(), userID, studentID)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
 	}
 
-	web.WriteJSON(w, http.StatusOK, profile, nil)
+	web.WriteJSON(w, http.StatusOK, kpis, nil)
+}
+
+func (h *StudentHandler) GetStudentHistory(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+		return
+	}
+
+	limit, offset, _ := web.ParsePagination(r)
+
+	if rawPage := r.URL.Query().Get("history_page"); rawPage != "" {
+		if parsed, parseErr := strconv.Atoi(rawPage); parseErr == nil && parsed > 0 {
+			offset = int32((parsed - 1) * web.DefaultItemPerPage)
+		}
+	}
+
+	history, err := h.service.ListStudentHistory(r.Context(), userID, studentID, limit, offset)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, history, nil)
 }
 
 func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {

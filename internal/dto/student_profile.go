@@ -107,6 +107,23 @@ func StudentProfileFromRows(
 	return response
 }
 
+func StudentProfileKpisFromRow(kpis *repository.GetStudentProfileKpisRow) *StudentProfileKpisDto {
+	if kpis == nil {
+		return nil
+	}
+
+	return &StudentProfileKpisDto{
+		AvailableBonusPoints:   kpis.AvailableBonusPoints,
+		ActiveBonusCount:       kpis.ActiveBonusCount,
+		TotalPenaltyCount:      kpis.TotalPenaltyCount,
+		PendingPunishmentCount: kpis.PendingPunishmentCount,
+	}
+}
+
+func StudentProfileHistoryFromRows(rows []repository.ListStudentProfileHistoryRow) []StudentProfileHistoryItemDto {
+	return studentProfileHistoryFromRows(rows)
+}
+
 func studentProfileClassroomsFromRows(rows []repository.ListStudentProfileClassroomsRow) []StudentClassroomDto {
 	classrooms := make([]StudentClassroomDto, 0, len(rows))
 
