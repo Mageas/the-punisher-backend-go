@@ -46,7 +46,7 @@ type Querier interface {
 	// ==================== RefreshToken ====================
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	// ==================== Rule ====================
-	CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, error)
+	CreateRule(ctx context.Context, arg CreateRuleParams) (CreateRuleRow, error)
 	// ==================== Student ====================
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (Student, error)
 	// ==================== User ====================
@@ -69,7 +69,7 @@ type Querier interface {
 	GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (Punishment, error)
 	GetPunishmentTypeByUser(ctx context.Context, arg GetPunishmentTypeByUserParams) (PunishmentType, error)
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
-	GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (Rule, error)
+	GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (GetRuleByUserRow, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (Student, error)
 	GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error)
 	ListActiveRulesByUserAndPenaltyType(ctx context.Context, arg ListActiveRulesByUserAndPenaltyTypeParams) ([]Rule, error)
@@ -85,7 +85,7 @@ type Querier interface {
 	ListPunishmentsByStudent(ctx context.Context, arg ListPunishmentsByStudentParams) ([]Punishment, error)
 	ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]Punishment, error)
 	ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
-	ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]Rule, error)
+	ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]ListRulesByUserRow, error)
 	ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]Student, error)
 	ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]Student, error)
 	RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) (int64, error)
@@ -95,7 +95,7 @@ type Querier interface {
 	UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (Classroom, error)
 	UpdatePenaltyTypeByUser(ctx context.Context, arg UpdatePenaltyTypeByUserParams) (PenaltyType, error)
 	UpdatePunishmentTypeByUser(ctx context.Context, arg UpdatePunishmentTypeByUserParams) (PunishmentType, error)
-	UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (Rule, error)
+	UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (UpdateRuleByUserRow, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (Student, error)
 	UseBonus(ctx context.Context, arg UseBonusParams) (Bonus, error)
 	UserEmailExists(ctx context.Context, email string) (bool, error)

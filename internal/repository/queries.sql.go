@@ -592,7 +592,10 @@ INSERT INTO rules (
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8
 )
-RETURNING id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+RETURNING
+    id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name,
+    (SELECT name FROM punishment_types WHERE punishment_types.id = resulting_punishment_type_id) AS resulting_punishment_type_name
 `
 
 type CreateRuleParams struct {
@@ -606,8 +609,24 @@ type CreateRuleParams struct {
 	DueAtAfterDays            int32     `json:"due_at_after_days"`
 }
 
+type CreateRuleRow struct {
+	ID                          uuid.UUID `json:"id"`
+	UserID                      uuid.UUID `json:"user_id"`
+	Name                        string    `json:"name"`
+	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
+	Threshold                   int32     `json:"threshold"`
+	Mode                        string    `json:"mode"`
+	IsActive                    bool      `json:"is_active"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
+	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	PenaltyTypeName             string    `json:"penalty_type_name"`
+	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
+}
+
 // ==================== Rule ====================
-func (q *Queries) CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, error) {
+func (q *Queries) CreateRule(ctx context.Context, arg CreateRuleParams) (CreateRuleRow, error) {
 	row := q.db.QueryRow(ctx, createRule,
 		arg.UserID,
 		arg.Name,
@@ -618,7 +637,7 @@ func (q *Queries) CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, e
 		arg.IsActive,
 		arg.DueAtAfterDays,
 	)
-	var i Rule
+	var i CreateRuleRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -631,6 +650,8 @@ func (q *Queries) CreateRule(ctx context.Context, arg CreateRuleParams) (Rule, e
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DueAtAfterDays,
+		&i.PenaltyTypeName,
+		&i.ResultingPunishmentTypeName,
 	)
 	return i, err
 }
@@ -1087,9 +1108,14 @@ func (q *Queries) GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams
 }
 
 const getRuleByUser = `-- name: GetRuleByUser :one
-SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
-FROM rules
-WHERE id = $1 AND user_id = $2 LIMIT 1
+SELECT
+    r.id, r.user_id, r.name, r.resulting_punishment_type_id, r.penalty_type_id, r.threshold, r.mode, r.is_active, r.created_at, r.updated_at, r.due_at_after_days,
+    pt.name AS penalty_type_name,
+    put.name AS resulting_punishment_type_name
+FROM rules r
+JOIN penalty_types pt ON pt.id = r.penalty_type_id
+JOIN punishment_types put ON put.id = r.resulting_punishment_type_id
+WHERE r.id = $1 AND r.user_id = $2 LIMIT 1
 `
 
 type GetRuleByUserParams struct {
@@ -1097,9 +1123,25 @@ type GetRuleByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (Rule, error) {
+type GetRuleByUserRow struct {
+	ID                          uuid.UUID `json:"id"`
+	UserID                      uuid.UUID `json:"user_id"`
+	Name                        string    `json:"name"`
+	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
+	Threshold                   int32     `json:"threshold"`
+	Mode                        string    `json:"mode"`
+	IsActive                    bool      `json:"is_active"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
+	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	PenaltyTypeName             string    `json:"penalty_type_name"`
+	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
+}
+
+func (q *Queries) GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (GetRuleByUserRow, error) {
 	row := q.db.QueryRow(ctx, getRuleByUser, arg.ID, arg.UserID)
-	var i Rule
+	var i GetRuleByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -1112,6 +1154,8 @@ func (q *Queries) GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (R
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DueAtAfterDays,
+		&i.PenaltyTypeName,
+		&i.ResultingPunishmentTypeName,
 	)
 	return i, err
 }
@@ -1743,10 +1787,15 @@ func (q *Queries) ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUI
 }
 
 const listRulesByUser = `-- name: ListRulesByUser :many
-SELECT id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
-FROM rules
-WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT
+    r.id, r.user_id, r.name, r.resulting_punishment_type_id, r.penalty_type_id, r.threshold, r.mode, r.is_active, r.created_at, r.updated_at, r.due_at_after_days,
+    pt.name AS penalty_type_name,
+    put.name AS resulting_punishment_type_name
+FROM rules r
+JOIN penalty_types pt ON pt.id = r.penalty_type_id
+JOIN punishment_types put ON put.id = r.resulting_punishment_type_id
+WHERE r.user_id = $1
+ORDER BY r.created_at DESC
 LIMIT $3 OFFSET $2
 `
 
@@ -1756,15 +1805,31 @@ type ListRulesByUserParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]Rule, error) {
+type ListRulesByUserRow struct {
+	ID                          uuid.UUID `json:"id"`
+	UserID                      uuid.UUID `json:"user_id"`
+	Name                        string    `json:"name"`
+	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
+	Threshold                   int32     `json:"threshold"`
+	Mode                        string    `json:"mode"`
+	IsActive                    bool      `json:"is_active"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
+	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	PenaltyTypeName             string    `json:"penalty_type_name"`
+	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
+}
+
+func (q *Queries) ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]ListRulesByUserRow, error) {
 	rows, err := q.db.Query(ctx, listRulesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Rule
+	var items []ListRulesByUserRow
 	for rows.Next() {
-		var i Rule
+		var i ListRulesByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
@@ -1777,6 +1842,8 @@ func (q *Queries) ListRulesByUser(ctx context.Context, arg ListRulesByUserParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DueAtAfterDays,
+			&i.PenaltyTypeName,
+			&i.ResultingPunishmentTypeName,
 		); err != nil {
 			return nil, err
 		}
@@ -2092,8 +2159,11 @@ SET
     is_active = COALESCE($6::boolean, is_active),
     due_at_after_days = COALESCE($7, due_at_after_days),
     updated_at = NOW()
-WHERE id = $8 AND user_id = $9
-RETURNING id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days
+WHERE rules.id = $8 AND rules.user_id = $9
+RETURNING
+    rules.id, rules.user_id, rules.name, rules.resulting_punishment_type_id, rules.penalty_type_id, rules.threshold, rules.mode, rules.is_active, rules.created_at, rules.updated_at, rules.due_at_after_days,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name,
+    (SELECT name FROM punishment_types WHERE punishment_types.id = resulting_punishment_type_id) AS resulting_punishment_type_name
 `
 
 type UpdateRuleByUserParams struct {
@@ -2108,7 +2178,23 @@ type UpdateRuleByUserParams struct {
 	UserID                    uuid.UUID   `json:"user_id"`
 }
 
-func (q *Queries) UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (Rule, error) {
+type UpdateRuleByUserRow struct {
+	ID                          uuid.UUID `json:"id"`
+	UserID                      uuid.UUID `json:"user_id"`
+	Name                        string    `json:"name"`
+	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
+	Threshold                   int32     `json:"threshold"`
+	Mode                        string    `json:"mode"`
+	IsActive                    bool      `json:"is_active"`
+	CreatedAt                   time.Time `json:"created_at"`
+	UpdatedAt                   time.Time `json:"updated_at"`
+	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	PenaltyTypeName             string    `json:"penalty_type_name"`
+	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
+}
+
+func (q *Queries) UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (UpdateRuleByUserRow, error) {
 	row := q.db.QueryRow(ctx, updateRuleByUser,
 		arg.Name,
 		arg.ResultingPunishmentTypeID,
@@ -2120,7 +2206,7 @@ func (q *Queries) UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserPara
 		arg.ID,
 		arg.UserID,
 	)
-	var i Rule
+	var i UpdateRuleByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -2133,6 +2219,8 @@ func (q *Queries) UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DueAtAfterDays,
+		&i.PenaltyTypeName,
+		&i.ResultingPunishmentTypeName,
 	)
 	return i, err
 }

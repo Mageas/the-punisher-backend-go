@@ -41,6 +41,12 @@ func TestRuleServiceCreateRule(t *testing.T) {
 		if !rule.IsActive {
 			t.Fatal("expected is_active=true by default")
 		}
+		if rule.PenaltyTypeName != "Retard" {
+			t.Fatalf("expected penalty_type_name=%q, got=%q", "Retard", rule.PenaltyTypeName)
+		}
+		if rule.ResultingPunishmentTypeName != "Retenue" {
+			t.Fatalf("expected resulting_punishment_type_name=%q, got=%q", "Retenue", rule.ResultingPunishmentTypeName)
+		}
 	})
 
 	t.Run("returns_invalid_request_body_when_punishment_type_id_is_invalid_uuid", func(t *testing.T) {

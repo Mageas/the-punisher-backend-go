@@ -84,7 +84,7 @@ func (s *ruleService) CreateRule(ctx context.Context, userID uuid.UUID, req dto.
 
 	slog.Info("rule created", "rule_id", rule.ID, "user_id", userID)
 
-	return dto.RuleFromRepository(&rule), nil
+	return dto.RuleFromCreateRow(&rule), nil
 }
 
 func (s *ruleService) GetRule(ctx context.Context, userID, ruleID uuid.UUID) (*dto.ReturnRuleDto, error) {
@@ -99,7 +99,7 @@ func (s *ruleService) GetRule(ctx context.Context, userID, ruleID uuid.UUID) (*d
 		return nil, fmt.Errorf("failed to get rule: %w", err)
 	}
 
-	return dto.RuleFromRepository(&rule), nil
+	return dto.RuleFromGetRow(&rule), nil
 }
 
 func (s *ruleService) ListRules(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnRuleDto, int64, error) {
@@ -192,7 +192,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 		return nil, fmt.Errorf("failed to update rule: %w", err)
 	}
 
-	return dto.RuleFromRepository(&rule), nil
+	return dto.RuleFromUpdateRow(&rule), nil
 }
 
 func (s *ruleService) DeleteRule(ctx context.Context, userID, ruleID uuid.UUID) error {
