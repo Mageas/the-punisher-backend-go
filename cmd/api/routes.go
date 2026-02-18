@@ -76,6 +76,7 @@ func (app *application) mount() http.Handler {
 		r.Post("/", studentHandler.CreateStudent)
 		r.Get("/", studentHandler.ListStudents)
 		r.Get("/{id}", studentHandler.GetStudent)
+		r.Get("/{id}/profile", studentHandler.GetStudentProfile)
 		r.Put("/{id}", studentHandler.UpdateStudent)
 		r.Delete("/{id}", studentHandler.DeleteStudent)
 		r.Get("/{id}/classrooms", classroomHandler.ListClassroomsByStudent)

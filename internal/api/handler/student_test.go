@@ -456,6 +456,7 @@ func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 		r.Post("/", h.CreateStudent)
 		r.Get("/", h.ListStudents)
 		r.Get("/{id}", h.GetStudent)
+		r.Get("/{id}/profile", h.GetStudentProfile)
 		r.Put("/{id}", h.UpdateStudent)
 		r.Delete("/{id}", h.DeleteStudent)
 	})
