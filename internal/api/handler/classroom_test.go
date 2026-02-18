@@ -23,10 +23,20 @@ import (
 )
 
 type classroomResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Year        *string   `json:"year"`
-	MainTeacher *string   `json:"main_teacher"`
+	ID                uuid.UUID                       `json:"id"`
+	Name              string                          `json:"name"`
+	Year              *string                         `json:"year"`
+	MainTeacher       *string                         `json:"main_teacher"`
+	StudentCount      int64                           `json:"student_count"`
+	StudentsPreview   []classroomStudentPreviewRecord `json:"students_preview"`
+	TotalBonusPoints  float64                         `json:"total_bonus_points"`
+	TotalPenaltyCount int64                           `json:"total_penalty_count"`
+}
+
+type classroomStudentPreviewRecord struct {
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
 }
 
 type paginatedClassroomResponse struct {
@@ -74,6 +84,15 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	if created.MainTeacher == nil || *created.MainTeacher != "Mme Martin" {
 		t.Fatalf("expected teacher %q, got %+v", "Mme Martin", created.MainTeacher)
 	}
+	if created.StudentCount != 0 {
+		t.Fatalf("expected student_count %d, got %d", 0, created.StudentCount)
+	}
+	if len(created.StudentsPreview) != 0 {
+		t.Fatalf("expected empty students_preview, got %+v", created.StudentsPreview)
+	}
+	if created.TotalBonusPoints != 0 || created.TotalPenaltyCount != 0 {
+		t.Fatalf("expected zero classroom aggregates, got %+v", created)
+	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/", userID, cfg)
 	listRR := httptest.NewRecorder()
@@ -90,6 +109,9 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	if listResp.Data[0].ID != created.ID {
 		t.Fatalf("expected listed id %s, got %s", created.ID, listResp.Data[0].ID)
 	}
+	if listResp.Data[0].StudentCount != 0 || len(listResp.Data[0].StudentsPreview) != 0 {
+		t.Fatalf("expected empty classroom preview before link, got %+v", listResp.Data[0])
+	}
 
 	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/"+created.ID.String(), userID, cfg)
 	getRR := httptest.NewRecorder()
@@ -102,6 +124,9 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	getResp := httpx.DecodeJSONResponse[classroomResponse](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected classroom id %s, got %s", created.ID, getResp.ID)
+	}
+	if getResp.StudentCount != 0 || len(getResp.StudentsPreview) != 0 {
+		t.Fatalf("expected empty classroom preview before link, got %+v", getResp)
 	}
 
 	updateReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, "/v1/classrooms/"+created.ID.String(), map[string]any{
@@ -117,6 +142,9 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	updated := httpx.DecodeJSONResponse[classroomResponse](t, updateRR)
 	if updated.Name != "CM1 B" {
 		t.Fatalf("expected updated name %q, got %q", "CM1 B", updated.Name)
+	}
+	if updated.StudentCount != 0 || len(updated.StudentsPreview) != 0 {
+		t.Fatalf("expected empty classroom preview on update before link, got %+v", updated)
 	}
 
 	addStudentReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPost, "/v1/classrooms/"+created.ID.String()+"/students", map[string]any{
@@ -165,6 +193,21 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	}
 	if listClassroomsByStudentResp.Data[0].ID != created.ID {
 		t.Fatalf("expected classroom id %s, got %s", created.ID, listClassroomsByStudentResp.Data[0].ID)
+	}
+	if listClassroomsByStudentResp.Data[0].StudentCount != 1 {
+		t.Fatalf("expected student_count %d, got %d", 1, listClassroomsByStudentResp.Data[0].StudentCount)
+	}
+	if len(listClassroomsByStudentResp.Data[0].StudentsPreview) != 1 {
+		t.Fatalf("expected one students_preview entry, got %+v", listClassroomsByStudentResp.Data[0].StudentsPreview)
+	}
+	if listClassroomsByStudentResp.Data[0].StudentsPreview[0].ID != studentID {
+		t.Fatalf("expected preview student id %s, got %s", studentID, listClassroomsByStudentResp.Data[0].StudentsPreview[0].ID)
+	}
+	if listClassroomsByStudentResp.Data[0].StudentsPreview[0].FirstName != "Jean" || listClassroomsByStudentResp.Data[0].StudentsPreview[0].LastName != "Dupont" {
+		t.Fatalf("unexpected student preview names: %+v", listClassroomsByStudentResp.Data[0].StudentsPreview[0])
+	}
+	if listClassroomsByStudentResp.Data[0].TotalBonusPoints != 0 || listClassroomsByStudentResp.Data[0].TotalPenaltyCount != 0 {
+		t.Fatalf("expected zero classroom aggregates, got %+v", listClassroomsByStudentResp.Data[0])
 	}
 
 	removeReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/classrooms/"+created.ID.String()+"/students/"+studentID.String(), userID, cfg)

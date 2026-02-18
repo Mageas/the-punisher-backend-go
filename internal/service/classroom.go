@@ -56,7 +56,12 @@ func (s *classroomService) CreateClassroom(ctx context.Context, userID uuid.UUID
 
 	slog.Info("classroom created", "classroom_id", classroom.ID, "user_id", userID)
 
-	return dto.ClassroomFromRepository(&classroom), nil
+	response := dto.ClassroomFromCreateRow(&classroom)
+	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, []*dto.ReturnClassroomDto{response}); err != nil {
+		return nil, fmt.Errorf("failed to list classroom students preview: %w", err)
+	}
+
+	return response, nil
 }
 
 func (s *classroomService) GetClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) (*dto.ReturnClassroomDto, error) {
@@ -71,7 +76,12 @@ func (s *classroomService) GetClassroom(ctx context.Context, userID uuid.UUID, c
 		return nil, fmt.Errorf("failed to get classroom: %w", err)
 	}
 
-	return dto.ClassroomFromRepository(&classroom), nil
+	response := dto.ClassroomFromGetRow(&classroom)
+	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, []*dto.ReturnClassroomDto{response}); err != nil {
+		return nil, fmt.Errorf("failed to list classroom students preview: %w", err)
+	}
+
+	return response, nil
 }
 
 func (s *classroomService) ListClassrooms(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error) {
@@ -89,7 +99,12 @@ func (s *classroomService) ListClassrooms(ctx context.Context, userID uuid.UUID,
 		return nil, 0, fmt.Errorf("failed to list classrooms: %w", err)
 	}
 
-	return dto.ClassroomListFromRepository(classrooms), totalCount, nil
+	response := dto.ClassroomListFromListByUserRows(classrooms)
+	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, response); err != nil {
+		return nil, 0, fmt.Errorf("failed to list classroom students preview: %w", err)
+	}
+
+	return response, totalCount, nil
 }
 
 func (s *classroomService) UpdateClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, req dto.UpdateClassroomDto) (*dto.ReturnClassroomDto, error) {
@@ -116,7 +131,12 @@ func (s *classroomService) UpdateClassroom(ctx context.Context, userID uuid.UUID
 		return nil, fmt.Errorf("failed to update classroom: %w", err)
 	}
 
-	return dto.ClassroomFromRepository(&classroom), nil
+	response := dto.ClassroomFromUpdateRow(&classroom)
+	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, []*dto.ReturnClassroomDto{response}); err != nil {
+		return nil, fmt.Errorf("failed to list classroom students preview: %w", err)
+	}
+
+	return response, nil
 }
 
 func (s *classroomService) DeleteClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) error {
@@ -247,5 +267,10 @@ func (s *classroomService) ListClassroomsByStudent(ctx context.Context, userID u
 		return nil, 0, fmt.Errorf("failed to list classrooms by student: %w", err)
 	}
 
-	return dto.ClassroomListFromRepository(classrooms), totalCount, nil
+	response := dto.ClassroomListFromListByStudentRows(classrooms)
+	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, response); err != nil {
+		return nil, 0, fmt.Errorf("failed to list classroom students preview: %w", err)
+	}
+
+	return response, totalCount, nil
 }

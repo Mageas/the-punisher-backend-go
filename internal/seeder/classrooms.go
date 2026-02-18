@@ -11,7 +11,7 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
-func createClassroom(ctx context.Context, repo repository.Querier, userID uuid.UUID, index int) (repository.Classroom, error) {
+func createClassroom(ctx context.Context, repo repository.Querier, userID uuid.UUID, index int) (repository.CreateClassroomRow, error) {
 	classroom, err := repo.CreateClassroom(ctx, repository.CreateClassroomParams{
 		UserID:      userID,
 		Name:        fmt.Sprintf("Classe %d", index),
@@ -19,7 +19,7 @@ func createClassroom(ctx context.Context, repo repository.Querier, userID uuid.U
 		MainTeacher: pgtype.Text{String: fmt.Sprintf("%s %s", faker.FirstName(), faker.LastName()), Valid: true},
 	})
 	if err != nil {
-		return repository.Classroom{}, fmt.Errorf("failed to create classroom: %w", err)
+		return repository.CreateClassroomRow{}, fmt.Errorf("failed to create classroom: %w", err)
 	}
 
 	slog.Info("classroom created", "classroom_id", classroom.ID, "user_id", userID)

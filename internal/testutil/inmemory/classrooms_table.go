@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,19 +12,139 @@ import (
 )
 
 const (
-	OpCreateClassroom            = "CreateClassroom"
-	OpGetClassroomByUser         = "GetClassroomByUser"
-	OpCountClassroomsByUser      = "CountClassroomsByUser"
-	OpListClassroomsByUser       = "ListClassroomsByUser"
-	OpUpdateClassroomByUser      = "UpdateClassroomByUser"
-	OpDeleteClassroomByUser      = "DeleteClassroomByUser"
-	OpAddStudentToClassroom      = "AddStudentToClassroom"
-	OpRemoveStudentFromClassroom = "RemoveStudentFromClassroom"
-	OpCountStudentsByClassroom   = "CountStudentsByClassroom"
-	OpListStudentsByClassroom    = "ListStudentsByClassroom"
-	OpCountClassroomsByStudent   = "CountClassroomsByStudent"
-	OpListClassroomsByStudent    = "ListClassroomsByStudent"
+	OpCreateClassroom                   = "CreateClassroom"
+	OpGetClassroomByUser                = "GetClassroomByUser"
+	OpCountClassroomsByUser             = "CountClassroomsByUser"
+	OpListClassroomsByUser              = "ListClassroomsByUser"
+	OpUpdateClassroomByUser             = "UpdateClassroomByUser"
+	OpDeleteClassroomByUser             = "DeleteClassroomByUser"
+	OpAddStudentToClassroom             = "AddStudentToClassroom"
+	OpRemoveStudentFromClassroom        = "RemoveStudentFromClassroom"
+	OpCountStudentsByClassroom          = "CountStudentsByClassroom"
+	OpListStudentsByClassroom           = "ListStudentsByClassroom"
+	OpCountClassroomsByStudent          = "CountClassroomsByStudent"
+	OpListClassroomsByStudent           = "ListClassroomsByStudent"
+	OpListStudentsPreviewByClassroomIDs = "ListStudentsPreviewByClassroomIDs"
 )
+
+func (r *Repository) classroomAggregateFieldsLocked(classroom repository.Classroom) (int64, float64, int64) {
+	studentIDs := make(map[uuid.UUID]struct{})
+	for _, relation := range r.studentClassrooms {
+		if relation.ClassroomID != classroom.ID {
+			continue
+		}
+		studentIDs[relation.StudentID] = struct{}{}
+	}
+
+	studentCount := int64(len(studentIDs))
+
+	var totalBonusPoints float64
+	for _, bonus := range r.bonuses {
+		if bonus.UserID != classroom.UserID || bonus.UsedAt.Valid {
+			continue
+		}
+		if _, ok := studentIDs[bonus.StudentID]; ok {
+			totalBonusPoints += bonus.Points
+		}
+	}
+
+	var totalPenaltyCount int64
+	for _, penalty := range r.penalties {
+		if penalty.UserID != classroom.UserID {
+			continue
+		}
+		if _, ok := studentIDs[penalty.StudentID]; ok {
+			totalPenaltyCount++
+		}
+	}
+
+	return studentCount, totalBonusPoints, totalPenaltyCount
+}
+
+func (r *Repository) buildCreateClassroomRowLocked(classroom repository.Classroom) repository.CreateClassroomRow {
+	studentCount, totalBonusPoints, totalPenaltyCount := r.classroomAggregateFieldsLocked(classroom)
+
+	return repository.CreateClassroomRow{
+		ID:                classroom.ID,
+		UserID:            classroom.UserID,
+		Name:              classroom.Name,
+		Year:              classroom.Year,
+		MainTeacher:       classroom.MainTeacher,
+		CreatedAt:         classroom.CreatedAt,
+		UpdatedAt:         classroom.UpdatedAt,
+		StudentCount:      studentCount,
+		TotalBonusPoints:  totalBonusPoints,
+		TotalPenaltyCount: totalPenaltyCount,
+	}
+}
+
+func (r *Repository) buildGetClassroomRowLocked(classroom repository.Classroom) repository.GetClassroomByUserRow {
+	studentCount, totalBonusPoints, totalPenaltyCount := r.classroomAggregateFieldsLocked(classroom)
+
+	return repository.GetClassroomByUserRow{
+		ID:                classroom.ID,
+		UserID:            classroom.UserID,
+		Name:              classroom.Name,
+		Year:              classroom.Year,
+		MainTeacher:       classroom.MainTeacher,
+		CreatedAt:         classroom.CreatedAt,
+		UpdatedAt:         classroom.UpdatedAt,
+		StudentCount:      studentCount,
+		TotalBonusPoints:  totalBonusPoints,
+		TotalPenaltyCount: totalPenaltyCount,
+	}
+}
+
+func (r *Repository) buildListClassroomByUserRowLocked(classroom repository.Classroom) repository.ListClassroomsByUserRow {
+	studentCount, totalBonusPoints, totalPenaltyCount := r.classroomAggregateFieldsLocked(classroom)
+
+	return repository.ListClassroomsByUserRow{
+		ID:                classroom.ID,
+		UserID:            classroom.UserID,
+		Name:              classroom.Name,
+		Year:              classroom.Year,
+		MainTeacher:       classroom.MainTeacher,
+		CreatedAt:         classroom.CreatedAt,
+		UpdatedAt:         classroom.UpdatedAt,
+		StudentCount:      studentCount,
+		TotalBonusPoints:  totalBonusPoints,
+		TotalPenaltyCount: totalPenaltyCount,
+	}
+}
+
+func (r *Repository) buildUpdateClassroomRowLocked(classroom repository.Classroom) repository.UpdateClassroomByUserRow {
+	studentCount, totalBonusPoints, totalPenaltyCount := r.classroomAggregateFieldsLocked(classroom)
+
+	return repository.UpdateClassroomByUserRow{
+		ID:                classroom.ID,
+		UserID:            classroom.UserID,
+		Name:              classroom.Name,
+		Year:              classroom.Year,
+		MainTeacher:       classroom.MainTeacher,
+		CreatedAt:         classroom.CreatedAt,
+		UpdatedAt:         classroom.UpdatedAt,
+		StudentCount:      studentCount,
+		TotalBonusPoints:  totalBonusPoints,
+		TotalPenaltyCount: totalPenaltyCount,
+	}
+}
+
+func (r *Repository) buildListClassroomByStudentRowLocked(classroom repository.Classroom) repository.ListClassroomsByStudentRow {
+	studentCount, totalBonusPoints, totalPenaltyCount := r.classroomAggregateFieldsLocked(classroom)
+
+	return repository.ListClassroomsByStudentRow{
+		ID:                classroom.ID,
+		UserID:            classroom.UserID,
+		Name:              classroom.Name,
+		Year:              classroom.Year,
+		MainTeacher:       classroom.MainTeacher,
+		CreatedAt:         classroom.CreatedAt,
+		UpdatedAt:         classroom.UpdatedAt,
+		StudentCount:      studentCount,
+		TotalBonusPoints:  totalBonusPoints,
+		TotalPenaltyCount: totalPenaltyCount,
+	}
+}
 
 func (r *Repository) SeedClassroom(classroom repository.Classroom) {
 	r.mu.Lock()
@@ -43,12 +164,12 @@ func (r *Repository) SeedClassroom(classroom repository.Classroom) {
 	r.classrooms[classroom.ID] = classroom
 }
 
-func (r *Repository) CreateClassroom(_ context.Context, arg repository.CreateClassroomParams) (repository.Classroom, error) {
+func (r *Repository) CreateClassroom(_ context.Context, arg repository.CreateClassroomParams) (repository.CreateClassroomRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpCreateClassroom); err != nil {
-		return repository.Classroom{}, err
+		return repository.CreateClassroomRow{}, err
 	}
 
 	now := time.Now()
@@ -63,23 +184,23 @@ func (r *Repository) CreateClassroom(_ context.Context, arg repository.CreateCla
 	}
 	r.classrooms[classroom.ID] = classroom
 
-	return classroom, nil
+	return r.buildCreateClassroomRowLocked(classroom), nil
 }
 
-func (r *Repository) GetClassroomByUser(_ context.Context, arg repository.GetClassroomByUserParams) (repository.Classroom, error) {
+func (r *Repository) GetClassroomByUser(_ context.Context, arg repository.GetClassroomByUserParams) (repository.GetClassroomByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	if err := r.errFor(OpGetClassroomByUser); err != nil {
-		return repository.Classroom{}, err
+		return repository.GetClassroomByUserRow{}, err
 	}
 
 	classroom, ok := r.classrooms[arg.ID]
 	if !ok || classroom.UserID != arg.UserID {
-		return repository.Classroom{}, pgx.ErrNoRows
+		return repository.GetClassroomByUserRow{}, pgx.ErrNoRows
 	}
 
-	return classroom, nil
+	return r.buildGetClassroomRowLocked(classroom), nil
 }
 
 func (r *Repository) CountClassroomsByUser(_ context.Context, userID uuid.UUID) (int64, error) {
@@ -100,7 +221,7 @@ func (r *Repository) CountClassroomsByUser(_ context.Context, userID uuid.UUID) 
 	return count, nil
 }
 
-func (r *Repository) ListClassroomsByUser(_ context.Context, arg repository.ListClassroomsByUserParams) ([]repository.Classroom, error) {
+func (r *Repository) ListClassroomsByUser(_ context.Context, arg repository.ListClassroomsByUserParams) ([]repository.ListClassroomsByUserRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -116,20 +237,27 @@ func (r *Repository) ListClassroomsByUser(_ context.Context, arg repository.List
 	}
 
 	sortClassroomsByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListClassroomsByUserRow, 0, len(paginated))
+	for _, classroom := range paginated {
+		rows = append(rows, r.buildListClassroomByUserRowLocked(classroom))
+	}
+
+	return rows, nil
 }
 
-func (r *Repository) UpdateClassroomByUser(_ context.Context, arg repository.UpdateClassroomByUserParams) (repository.Classroom, error) {
+func (r *Repository) UpdateClassroomByUser(_ context.Context, arg repository.UpdateClassroomByUserParams) (repository.UpdateClassroomByUserRow, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if err := r.errFor(OpUpdateClassroomByUser); err != nil {
-		return repository.Classroom{}, err
+		return repository.UpdateClassroomByUserRow{}, err
 	}
 
 	classroom, ok := r.classrooms[arg.ID]
 	if !ok || classroom.UserID != arg.UserID {
-		return repository.Classroom{}, pgx.ErrNoRows
+		return repository.UpdateClassroomByUserRow{}, pgx.ErrNoRows
 	}
 
 	if arg.Name.Valid {
@@ -145,7 +273,7 @@ func (r *Repository) UpdateClassroomByUser(_ context.Context, arg repository.Upd
 	classroom.UpdatedAt = time.Now()
 	r.classrooms[arg.ID] = classroom
 
-	return classroom, nil
+	return r.buildUpdateClassroomRowLocked(classroom), nil
 }
 
 func (r *Repository) DeleteClassroomByUser(_ context.Context, arg repository.DeleteClassroomByUserParams) (int64, error) {
@@ -314,7 +442,7 @@ func (r *Repository) CountClassroomsByStudent(_ context.Context, arg repository.
 	return count, nil
 }
 
-func (r *Repository) ListClassroomsByStudent(_ context.Context, arg repository.ListClassroomsByStudentParams) ([]repository.Classroom, error) {
+func (r *Repository) ListClassroomsByStudent(_ context.Context, arg repository.ListClassroomsByStudentParams) ([]repository.ListClassroomsByStudentRow, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -324,7 +452,7 @@ func (r *Repository) ListClassroomsByStudent(_ context.Context, arg repository.L
 
 	student, studentExists := r.students[arg.StudentID]
 	if !studentExists || student.UserID != arg.UserID {
-		return []repository.Classroom{}, nil
+		return []repository.ListClassroomsByStudentRow{}, nil
 	}
 
 	items := make([]repository.Classroom, 0)
@@ -342,5 +470,75 @@ func (r *Repository) ListClassroomsByStudent(_ context.Context, arg repository.L
 	}
 
 	sortClassroomsByCreatedAtDesc(items)
-	return paginate(items, arg.QueryOffset, arg.QueryLimit), nil
+	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
+
+	rows := make([]repository.ListClassroomsByStudentRow, 0, len(paginated))
+	for _, classroom := range paginated {
+		rows = append(rows, r.buildListClassroomByStudentRowLocked(classroom))
+	}
+
+	return rows, nil
+}
+
+func (r *Repository) ListStudentsPreviewByClassroomIDs(_ context.Context, arg repository.ListStudentsPreviewByClassroomIDsParams) ([]repository.ListStudentsPreviewByClassroomIDsRow, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if err := r.errFor(OpListStudentsPreviewByClassroomIDs); err != nil {
+		return nil, err
+	}
+	if arg.PreviewLimit <= 0 || len(arg.ClassroomIds) == 0 {
+		return []repository.ListStudentsPreviewByClassroomIDsRow{}, nil
+	}
+
+	classroomIDs := make([]uuid.UUID, 0, len(arg.ClassroomIds))
+	seenClassrooms := make(map[uuid.UUID]struct{}, len(arg.ClassroomIds))
+	for _, classroomID := range arg.ClassroomIds {
+		if _, seen := seenClassrooms[classroomID]; seen {
+			continue
+		}
+
+		classroom, classroomExists := r.classrooms[classroomID]
+		if !classroomExists || classroom.UserID != arg.UserID {
+			continue
+		}
+
+		seenClassrooms[classroomID] = struct{}{}
+		classroomIDs = append(classroomIDs, classroomID)
+	}
+
+	sort.Slice(classroomIDs, func(i, j int) bool {
+		return classroomIDs[i].String() < classroomIDs[j].String()
+	})
+
+	rows := make([]repository.ListStudentsPreviewByClassroomIDsRow, 0)
+	for _, classroomID := range classroomIDs {
+		students := make([]repository.Student, 0)
+		for _, relation := range r.studentClassrooms {
+			if relation.ClassroomID != classroomID {
+				continue
+			}
+
+			student, studentExists := r.students[relation.StudentID]
+			if !studentExists {
+				continue
+			}
+
+			students = append(students, student)
+		}
+
+		sortStudentsByCreatedAtDesc(students)
+		paginatedStudents := paginate(students, 0, arg.PreviewLimit)
+
+		for _, student := range paginatedStudents {
+			rows = append(rows, repository.ListStudentsPreviewByClassroomIDsRow{
+				ClassroomID: classroomID,
+				StudentID:   student.ID,
+				FirstName:   student.FirstName,
+				LastName:    student.LastName,
+			})
+		}
+	}
+
+	return rows, nil
 }
