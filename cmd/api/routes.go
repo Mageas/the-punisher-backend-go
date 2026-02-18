@@ -68,6 +68,9 @@ func (app *application) mount() http.Handler {
 	ruleService := service.NewRuleService(repo)
 	ruleHandler := handler.NewRuleHandler(ruleService)
 
+	dashboardService := service.NewDashboardService(repo)
+	dashboardHandler := handler.NewDashboardHandler(dashboardService)
+
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
 		r.Post("/", studentHandler.CreateStudent)
@@ -162,6 +165,11 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", ruleHandler.GetRule)
 		r.Put("/{id}", ruleHandler.UpdateRule)
 		r.Delete("/{id}", ruleHandler.DeleteRule)
+	})
+
+	r.Route("/v1/dashboard", func(r chi.Router) {
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Get("/", dashboardHandler.GetDashboard)
 	})
 
 	return r
