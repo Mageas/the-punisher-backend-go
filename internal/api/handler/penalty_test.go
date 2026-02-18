@@ -22,9 +22,12 @@ import (
 )
 
 type penaltyResponse struct {
-	ID            uuid.UUID `json:"id"`
-	StudentID     uuid.UUID `json:"student_id"`
-	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+	ID               uuid.UUID `json:"id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
 }
 
 type paginatedPenaltyResponse struct {
@@ -68,6 +71,9 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 	if created.ID == uuid.Nil {
 		t.Fatal("expected created penalty id")
 	}
+	if created.StudentFirstName != "Jean" || created.StudentLastName != "Dupont" || created.PenaltyTypeName != "Retard" {
+		t.Fatalf("expected enriched create payload, got %+v", created)
+	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/penalties/", userID, cfg)
 	listRR := httptest.NewRecorder()
@@ -80,6 +86,9 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 	listResp := httpx.DecodeJSONResponse[paginatedPenaltyResponse](t, listRR)
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
+	}
+	if listResp.Data[0].StudentFirstName != "Jean" || listResp.Data[0].StudentLastName != "Dupont" || listResp.Data[0].PenaltyTypeName != "Retard" {
+		t.Fatalf("expected enriched list payload, got %+v", listResp.Data[0])
 	}
 
 	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/penalties/"+created.ID.String(), userID, cfg)
@@ -94,6 +103,9 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 	if getResp.ID != created.ID {
 		t.Fatalf("expected penalty id %s, got %s", created.ID, getResp.ID)
 	}
+	if getResp.StudentFirstName != "Jean" || getResp.StudentLastName != "Dupont" || getResp.PenaltyTypeName != "Retard" {
+		t.Fatalf("expected enriched get payload, got %+v", getResp)
+	}
 
 	listByStudentReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/penalties", userID, cfg)
 	listByStudentRR := httptest.NewRecorder()
@@ -106,6 +118,9 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 	listByStudentResp := httpx.DecodeJSONResponse[paginatedPenaltyResponse](t, listByStudentRR)
 	if listByStudentResp.TotalCount != 1 || len(listByStudentResp.Data) != 1 {
 		t.Fatalf("unexpected list by student response: %+v", listByStudentResp)
+	}
+	if listByStudentResp.Data[0].StudentFirstName != "Jean" || listByStudentResp.Data[0].StudentLastName != "Dupont" || listByStudentResp.Data[0].PenaltyTypeName != "Retard" {
+		t.Fatalf("expected enriched list-by-student payload, got %+v", listByStudentResp.Data[0])
 	}
 
 	deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/penalties/"+created.ID.String(), userID, cfg)

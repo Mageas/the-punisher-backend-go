@@ -35,7 +35,7 @@ type Querier interface {
 	// ==================== Classroom ====================
 	CreateClassroom(ctx context.Context, arg CreateClassroomParams) (Classroom, error)
 	// ==================== Penalty ====================
-	CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (Penalty, error)
+	CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (CreatePenaltyRow, error)
 	// ==================== PenaltyType ====================
 	CreatePenaltyType(ctx context.Context, arg CreatePenaltyTypeParams) (PenaltyType, error)
 	// ==================== Punishment ====================
@@ -64,7 +64,7 @@ type Querier interface {
 	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (Bonus, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
 	GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (Classroom, error)
-	GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (Penalty, error)
+	GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (GetPenaltyByUserRow, error)
 	GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeByUserParams) (PenaltyType, error)
 	GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (Punishment, error)
 	GetPunishmentTypeByUser(ctx context.Context, arg GetPunishmentTypeByUserParams) (PunishmentType, error)
@@ -78,8 +78,8 @@ type Querier interface {
 	ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]Bonus, error)
 	ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]Classroom, error)
 	ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]Classroom, error)
-	ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesByStudentParams) ([]Penalty, error)
-	ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUserParams) ([]Penalty, error)
+	ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesByStudentParams) ([]ListPenaltiesByStudentRow, error)
+	ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUserParams) ([]ListPenaltiesByUserRow, error)
 	ListPenaltyTypesByUser(ctx context.Context, arg ListPenaltyTypesByUserParams) ([]PenaltyType, error)
 	ListPunishmentTypesByUser(ctx context.Context, arg ListPunishmentTypesByUserParams) ([]PunishmentType, error)
 	ListPunishmentsByStudent(ctx context.Context, arg ListPunishmentsByStudentParams) ([]Punishment, error)

@@ -385,7 +385,11 @@ INSERT INTO penalties (
 ) VALUES (
     $1, $2, $3
 )
-RETURNING id, user_id, student_id, penalty_type_id, created_at
+RETURNING
+    id, user_id, student_id, penalty_type_id, created_at,
+    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name
 `
 
 type CreatePenaltyParams struct {
@@ -394,16 +398,30 @@ type CreatePenaltyParams struct {
 	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
 }
 
+type CreatePenaltyRow struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
+}
+
 // ==================== Penalty ====================
-func (q *Queries) CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (Penalty, error) {
+func (q *Queries) CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (CreatePenaltyRow, error) {
 	row := q.db.QueryRow(ctx, createPenalty, arg.UserID, arg.StudentID, arg.PenaltyTypeID)
-	var i Penalty
+	var i CreatePenaltyRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.StudentID,
 		&i.PenaltyTypeID,
 		&i.CreatedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PenaltyTypeName,
 	)
 	return i, err
 }
@@ -982,9 +1000,15 @@ func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUser
 }
 
 const getPenaltyByUser = `-- name: GetPenaltyByUser :one
-SELECT id, user_id, student_id, penalty_type_id, created_at
-FROM penalties
-WHERE id = $1 AND user_id = $2 LIMIT 1
+SELECT
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS penalty_type_name
+FROM penalties p
+JOIN students s ON s.id = p.student_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id
+WHERE p.id = $1 AND p.user_id = $2 LIMIT 1
 `
 
 type GetPenaltyByUserParams struct {
@@ -992,15 +1016,29 @@ type GetPenaltyByUserParams struct {
 	UserID uuid.UUID `json:"user_id"`
 }
 
-func (q *Queries) GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (Penalty, error) {
+type GetPenaltyByUserRow struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
+}
+
+func (q *Queries) GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (GetPenaltyByUserRow, error) {
 	row := q.db.QueryRow(ctx, getPenaltyByUser, arg.ID, arg.UserID)
-	var i Penalty
+	var i GetPenaltyByUserRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.StudentID,
 		&i.PenaltyTypeID,
 		&i.CreatedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PenaltyTypeName,
 	)
 	return i, err
 }
@@ -1482,10 +1520,16 @@ func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsBy
 }
 
 const listPenaltiesByStudent = `-- name: ListPenaltiesByStudent :many
-SELECT id, user_id, student_id, penalty_type_id, created_at
-FROM penalties
-WHERE student_id = $1 AND user_id = $2
-ORDER BY created_at DESC
+SELECT
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS penalty_type_name
+FROM penalties p
+JOIN students s ON s.id = p.student_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id
+WHERE p.student_id = $1 AND p.user_id = $2
+ORDER BY p.created_at DESC
 LIMIT $4 OFFSET $3
 `
 
@@ -1496,7 +1540,18 @@ type ListPenaltiesByStudentParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesByStudentParams) ([]Penalty, error) {
+type ListPenaltiesByStudentRow struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
+}
+
+func (q *Queries) ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesByStudentParams) ([]ListPenaltiesByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listPenaltiesByStudent,
 		arg.StudentID,
 		arg.UserID,
@@ -1507,15 +1562,18 @@ func (q *Queries) ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesB
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Penalty
+	var items []ListPenaltiesByStudentRow
 	for rows.Next() {
-		var i Penalty
+		var i ListPenaltiesByStudentRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.StudentID,
 			&i.PenaltyTypeID,
 			&i.CreatedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.PenaltyTypeName,
 		); err != nil {
 			return nil, err
 		}
@@ -1528,10 +1586,16 @@ func (q *Queries) ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesB
 }
 
 const listPenaltiesByUser = `-- name: ListPenaltiesByUser :many
-SELECT id, user_id, student_id, penalty_type_id, created_at
-FROM penalties
-WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS penalty_type_name
+FROM penalties p
+JOIN students s ON s.id = p.student_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id
+WHERE p.user_id = $1
+ORDER BY p.created_at DESC
 LIMIT $3 OFFSET $2
 `
 
@@ -1541,21 +1605,35 @@ type ListPenaltiesByUserParams struct {
 	QueryLimit  int32     `json:"query_limit"`
 }
 
-func (q *Queries) ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUserParams) ([]Penalty, error) {
+type ListPenaltiesByUserRow struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
+}
+
+func (q *Queries) ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUserParams) ([]ListPenaltiesByUserRow, error) {
 	rows, err := q.db.Query(ctx, listPenaltiesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Penalty
+	var items []ListPenaltiesByUserRow
 	for rows.Next() {
-		var i Penalty
+		var i ListPenaltiesByUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.UserID,
 			&i.StudentID,
 			&i.PenaltyTypeID,
 			&i.CreatedAt,
+			&i.StudentFirstName,
+			&i.StudentLastName,
+			&i.PenaltyTypeName,
 		); err != nil {
 			return nil, err
 		}
