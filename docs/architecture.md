@@ -155,6 +155,9 @@ Dans `db/sqlc/queries.sql`:
 - utiliser `:execrows` pour les updates/deletes conditionnels.
 - utiliser `COALESCE(sqlc.narg(...), ...)` pour updates partielles.
 - paginer via `LIMIT/OFFSET`.
+- pour enrichir un `INSERT/UPDATE` :
+  - privilégier `RETURNING` + scalar subqueries quand l'enrichissement est simple;
+  - utiliser un CTE (`WITH ... RETURNING`) suivi de `JOIN`s quand un `LEFT JOIN` est nécessaire.
 
 Patterns utiles:
 - `Count*ByUser`

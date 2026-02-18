@@ -616,18 +616,18 @@ FROM (
         'punishment'::text AS type,
         p.id,
         p.created_at,
-        NULL::uuid AS penalty_type_id,
-        NULL::text AS penalty_type_name,
-        NULL::uuid AS bonus_type_id,
-        NULL::text AS bonus_type_name,
-        NULL::double precision AS points,
-        NULL::timestamptz AS used_at,
-        CASE WHEN TRUE THEN p.punishment_type_id ELSE NULL::uuid END AS punishment_type_id,
-        CASE WHEN TRUE THEN pt.name ELSE NULL::text END AS punishment_type_name,
-        p.triggering_rule_id,
-        r.name AS triggering_rule_name,
-        CASE WHEN TRUE THEN p.due_at ELSE NULL::timestamptz END AS due_at,
-        p.resolved_at
+        '00000000-0000-0000-0000-000000000000'::uuid AS penalty_type_id,
+        ''::text AS penalty_type_name,
+        '00000000-0000-0000-0000-000000000000'::uuid AS bonus_type_id,
+        ''::text AS bonus_type_name,
+        0::double precision AS points,
+        '1970-01-01T00:00:00Z'::timestamptz AS used_at,
+        p.punishment_type_id,
+        pt.name AS punishment_type_name,
+        COALESCE(p.triggering_rule_id, '00000000-0000-0000-0000-000000000000'::uuid) AS triggering_rule_id,
+        COALESCE(r.name, ''::text) AS triggering_rule_name,
+        p.due_at,
+        COALESCE(p.resolved_at, '1970-01-01T00:00:00Z'::timestamptz) AS resolved_at
     FROM punishments p
     JOIN punishment_types pt ON pt.id = p.punishment_type_id
     LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
@@ -642,16 +642,16 @@ FROM (
         p.created_at,
         p.penalty_type_id,
         pt.name AS penalty_type_name,
-        NULL::uuid AS bonus_type_id,
-        NULL::text AS bonus_type_name,
-        NULL::double precision AS points,
-        NULL::timestamptz AS used_at,
+        '00000000-0000-0000-0000-000000000000'::uuid AS bonus_type_id,
+        ''::text AS bonus_type_name,
+        0::double precision AS points,
+        '1970-01-01T00:00:00Z'::timestamptz AS used_at,
         '00000000-0000-0000-0000-000000000000'::uuid AS punishment_type_id,
         ''::text AS punishment_type_name,
-        NULL::uuid AS triggering_rule_id,
-        NULL::text AS triggering_rule_name,
+        '00000000-0000-0000-0000-000000000000'::uuid AS triggering_rule_id,
+        ''::text AS triggering_rule_name,
         '1970-01-01T00:00:00Z'::timestamptz AS due_at,
-        NULL::timestamptz AS resolved_at
+        '1970-01-01T00:00:00Z'::timestamptz AS resolved_at
     FROM penalties p
     JOIN penalty_types pt ON pt.id = p.penalty_type_id
     WHERE p.student_id = sqlc.arg(student_id)
@@ -663,18 +663,18 @@ FROM (
         'bonus'::text AS type,
         b.id,
         b.created_at,
-        NULL::uuid AS penalty_type_id,
-        NULL::text AS penalty_type_name,
+        '00000000-0000-0000-0000-000000000000'::uuid AS penalty_type_id,
+        ''::text AS penalty_type_name,
         b.bonus_type_id,
         bt.name AS bonus_type_name,
         b.points,
-        b.used_at,
+        COALESCE(b.used_at, '1970-01-01T00:00:00Z'::timestamptz) AS used_at,
         '00000000-0000-0000-0000-000000000000'::uuid AS punishment_type_id,
         ''::text AS punishment_type_name,
-        NULL::uuid AS triggering_rule_id,
-        NULL::text AS triggering_rule_name,
+        '00000000-0000-0000-0000-000000000000'::uuid AS triggering_rule_id,
+        ''::text AS triggering_rule_name,
         '1970-01-01T00:00:00Z'::timestamptz AS due_at,
-        NULL::timestamptz AS resolved_at
+        '1970-01-01T00:00:00Z'::timestamptz AS resolved_at
     FROM bonuses b
     JOIN bonus_types bt ON bt.id = b.bonus_type_id
     WHERE b.student_id = sqlc.arg(student_id)
@@ -1035,17 +1035,24 @@ JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;
 
 -- name: CreatePunishmentFromRule :one
-INSERT INTO punishments (
-    user_id, student_id, punishment_type_id, triggering_rule_id, due_at
-) VALUES (
-    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(triggering_rule_id), sqlc.arg(due_at)
+WITH created_punishment AS (
+    INSERT INTO punishments (
+        user_id, student_id, punishment_type_id, triggering_rule_id, due_at
+    ) VALUES (
+        sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(triggering_rule_id), sqlc.arg(due_at)
+    )
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
 )
-RETURNING
-    id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at,
-    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
-    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
-    (SELECT name FROM punishment_types WHERE punishment_types.id = punishment_type_id) AS punishment_type_name,
-    COALESCE((SELECT name FROM rules WHERE rules.id = triggering_rule_id), ''::text) AS triggering_rule_name;
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM created_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;
 
 -- name: GetPunishmentByUser :one
 SELECT
