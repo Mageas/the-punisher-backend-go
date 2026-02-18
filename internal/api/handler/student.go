@@ -111,8 +111,9 @@ func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
+	search := web.ParseSearchQueryParam(r, "search")
 
-	students, totalCount, err := h.service.ListStudents(r.Context(), userID, limit, offset)
+	students, totalCount, err := h.service.ListStudents(r.Context(), userID, search, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

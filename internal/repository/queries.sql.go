@@ -73,18 +73,24 @@ func (q *Queries) CountBonusesByStudent(ctx context.Context, arg CountBonusesByS
 
 const countBonusesByUser = `-- name: CountBonusesByUser :one
 SELECT COUNT(*)
-FROM bonuses
-WHERE user_id = $1
-  AND ($2::boolean IS NULL OR (used_at IS NOT NULL) = $2::boolean)
+FROM bonuses b
+JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
+WHERE b.user_id = $1
+  AND ($2::boolean IS NULL OR (b.used_at IS NOT NULL) = $2::boolean)
+  AND (
+    $3::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+  )
 `
 
 type CountBonusesByUserParams struct {
 	UserID uuid.UUID   `json:"user_id"`
 	Used   pgtype.Bool `json:"used"`
+	Search pgtype.Text `json:"search"`
 }
 
 func (q *Queries) CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countBonusesByUser, arg.UserID, arg.Used)
+	row := q.db.QueryRow(ctx, countBonusesByUser, arg.UserID, arg.Used, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -215,18 +221,24 @@ func (q *Queries) CountPunishmentsByStudent(ctx context.Context, arg CountPunish
 
 const countPunishmentsByUser = `-- name: CountPunishmentsByUser :one
 SELECT COUNT(*)
-FROM punishments
-WHERE user_id = $1
-  AND ($2::boolean IS NULL OR (resolved_at IS NOT NULL) = $2::boolean)
+FROM punishments p
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+WHERE p.user_id = $1
+  AND ($2::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $2::boolean)
+  AND (
+    $3::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+  )
 `
 
 type CountPunishmentsByUserParams struct {
 	UserID   uuid.UUID   `json:"user_id"`
 	Resolved pgtype.Bool `json:"resolved"`
+	Search   pgtype.Text `json:"search"`
 }
 
 func (q *Queries) CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countPunishmentsByUser, arg.UserID, arg.Resolved)
+	row := q.db.QueryRow(ctx, countPunishmentsByUser, arg.UserID, arg.Resolved, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -263,11 +275,22 @@ func (q *Queries) CountStudentsByClassroom(ctx context.Context, arg CountStudent
 }
 
 const countStudentsByUser = `-- name: CountStudentsByUser :one
-SELECT COUNT(*) FROM students WHERE user_id = $1
+SELECT COUNT(*)
+FROM students s
+WHERE s.user_id = $1
+  AND (
+    $2::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $2::text || '%'
+  )
 `
 
-func (q *Queries) CountStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countStudentsByUser, userID)
+type CountStudentsByUserParams struct {
+	UserID uuid.UUID   `json:"user_id"`
+	Search pgtype.Text `json:"search"`
+}
+
+func (q *Queries) CountStudentsByUser(ctx context.Context, arg CountStudentsByUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudentsByUser, arg.UserID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1806,13 +1829,18 @@ JOIN students s ON s.id = b.student_id
 JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.user_id = $1
   AND ($2::boolean IS NULL OR (b.used_at IS NOT NULL) = $2::boolean)
+  AND (
+    $3::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+  )
 ORDER BY b.created_at DESC
-LIMIT $4 OFFSET $3
+LIMIT $5 OFFSET $4
 `
 
 type ListBonusesByUserParams struct {
 	UserID      uuid.UUID   `json:"user_id"`
 	Used        pgtype.Bool `json:"used"`
+	Search      pgtype.Text `json:"search"`
 	QueryOffset int32       `json:"query_offset"`
 	QueryLimit  int32       `json:"query_limit"`
 }
@@ -1834,6 +1862,7 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 	rows, err := q.db.Query(ctx, listBonusesByUser,
 		arg.UserID,
 		arg.Used,
+		arg.Search,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)
@@ -2619,13 +2648,18 @@ JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = $1
   AND ($2::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $2::boolean)
+  AND (
+    $3::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+  )
 ORDER BY p.created_at DESC
-LIMIT $4 OFFSET $3
+LIMIT $5 OFFSET $4
 `
 
 type ListPunishmentsByUserParams struct {
 	UserID      uuid.UUID   `json:"user_id"`
 	Resolved    pgtype.Bool `json:"resolved"`
+	Search      pgtype.Text `json:"search"`
 	QueryOffset int32       `json:"query_offset"`
 	QueryLimit  int32       `json:"query_limit"`
 }
@@ -2649,6 +2683,7 @@ func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishments
 	rows, err := q.db.Query(ctx, listPunishmentsByUser,
 		arg.UserID,
 		arg.Resolved,
+		arg.Search,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)
@@ -3038,14 +3073,19 @@ SELECT
     ), 0)::bigint AS penalty_count
 FROM students s
 WHERE s.user_id = $1
+  AND (
+    $2::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $2::text || '%'
+  )
 ORDER BY s.created_at DESC
-LIMIT $3 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListStudentsByUserParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	QueryOffset int32     `json:"query_offset"`
-	QueryLimit  int32     `json:"query_limit"`
+	UserID      uuid.UUID   `json:"user_id"`
+	Search      pgtype.Text `json:"search"`
+	QueryOffset int32       `json:"query_offset"`
+	QueryLimit  int32       `json:"query_limit"`
 }
 
 type ListStudentsByUserRow struct {
@@ -3060,7 +3100,12 @@ type ListStudentsByUserRow struct {
 }
 
 func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]ListStudentsByUserRow, error) {
-	rows, err := q.db.Query(ctx, listStudentsByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	rows, err := q.db.Query(ctx, listStudentsByUser,
+		arg.UserID,
+		arg.Search,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

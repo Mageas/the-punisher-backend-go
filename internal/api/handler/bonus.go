@@ -60,6 +60,7 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
+	search := web.ParseSearchQueryParam(r, "search")
 
 	used, details, err := web.ParseEnumQueryParamToBool(r, "state", "used", "unused")
 	if err != nil {
@@ -67,7 +68,7 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bonuses, totalCount, err := h.service.ListBonuses(r.Context(), userID, used, limit, offset)
+	bonuses, totalCount, err := h.service.ListBonuses(r.Context(), userID, used, search, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

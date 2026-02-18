@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
@@ -307,6 +308,54 @@ func TestPunishmentHandlerValidationsAndDecodeErrors(t *testing.T) {
 			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, listByStudentBadIDRR.Code)
 		}
 	})
+}
+
+func TestPunishmentHandlerListSearch(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newPunishmentRouter(repo, cfg)
+	userID := uuid.New()
+	studentMatchID := uuid.New()
+	studentOtherID := uuid.New()
+	punishmentTypeID := uuid.New()
+	now := time.Now()
+
+	repo.SeedStudent(repository.Student{ID: studentMatchID, UserID: userID, FirstName: "Jean", LastName: "Dupont"})
+	repo.SeedStudent(repository.Student{ID: studentOtherID, UserID: userID, FirstName: "Lucas", LastName: "Martin"})
+	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Heure de colle"})
+
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(1 * time.Minute), DueAt: now.Add(2 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(2 * time.Minute), DueAt: now.Add(2 * time.Hour), ResolvedAt: pgtype.Timestamptz{Time: now.Add(3 * time.Minute), Valid: true}})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOtherID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(4 * time.Minute), DueAt: now.Add(2 * time.Hour)})
+
+	searchReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/?search=%20%20jean%20%20dupont%20%20", userID, cfg)
+	searchRR := httptest.NewRecorder()
+	router.ServeHTTP(searchRR, searchReq)
+
+	if searchRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, searchRR.Code)
+	}
+
+	searchResp := httpx.DecodeJSONResponse[paginatedPunishmentResponse](t, searchRR)
+	if searchResp.TotalCount != 2 || len(searchResp.Data) != 2 {
+		t.Fatalf("unexpected search response: %+v", searchResp)
+	}
+
+	stateSearchReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/?state=pending&search=jean%20dupont", userID, cfg)
+	stateSearchRR := httptest.NewRecorder()
+	router.ServeHTTP(stateSearchRR, stateSearchReq)
+
+	if stateSearchRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, stateSearchRR.Code)
+	}
+
+	stateSearchResp := httpx.DecodeJSONResponse[paginatedPunishmentResponse](t, stateSearchRR)
+	if stateSearchResp.TotalCount != 1 || len(stateSearchResp.Data) != 1 {
+		t.Fatalf("unexpected state+search response: %+v", stateSearchResp)
+	}
+	if stateSearchResp.Data[0].StudentFirstName != "Jean" || stateSearchResp.Data[0].StudentLastName != "Dupont" {
+		t.Fatalf("expected Jean Dupont result, got %+v", stateSearchResp.Data[0])
+	}
 }
 
 func TestPunishmentHandlerBusinessAndInternalErrors(t *testing.T) {

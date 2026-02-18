@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -361,6 +362,46 @@ func TestStudentHandlerDecodeAndIDErrors(t *testing.T) {
 		if resp.Error != api.ErrMalformedParameter.Error() {
 			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
 		}
+	}
+}
+
+func TestStudentHandlerListSearch(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+	otherUserID := uuid.New()
+
+	for i := 0; i < 21; i++ {
+		repo.SeedStudent(inmemoryStudent(uuid.New(), userID, "Lucas", fmt.Sprintf("Dupont %02d", i)))
+	}
+	repo.SeedStudent(inmemoryStudent(uuid.New(), userID, "Jean", "Martin"))
+	repo.SeedStudent(inmemoryStudent(uuid.New(), otherUserID, "Lucas", "Dupont Externe"))
+
+	pageOneReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/?search=%20%20lucas%20%20%20dupont%20%20", userID, cfg)
+	pageOneRR := httptest.NewRecorder()
+	router.ServeHTTP(pageOneRR, pageOneReq)
+
+	if pageOneRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, pageOneRR.Code)
+	}
+
+	pageOneResp := httpx.DecodeJSONResponse[paginatedStudentResponse](t, pageOneRR)
+	if pageOneResp.Page != 1 || pageOneResp.TotalCount != 21 || len(pageOneResp.Data) != 20 {
+		t.Fatalf("unexpected page 1 search response: %+v", pageOneResp)
+	}
+
+	pageTwoReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/?page=2&search=lucas%20dupont", userID, cfg)
+	pageTwoRR := httptest.NewRecorder()
+	router.ServeHTTP(pageTwoRR, pageTwoReq)
+
+	if pageTwoRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, pageTwoRR.Code)
+	}
+
+	pageTwoResp := httpx.DecodeJSONResponse[paginatedStudentResponse](t, pageTwoRR)
+	if pageTwoResp.Page != 2 || pageTwoResp.TotalCount != 21 || len(pageTwoResp.Data) != 1 {
+		t.Fatalf("unexpected page 2 search response: %+v", pageTwoResp)
 	}
 }
 

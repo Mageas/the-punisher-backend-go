@@ -17,7 +17,7 @@ import (
 type BonusService interface {
 	CreateBonus(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, bonusTypeID uuid.UUID, points float64) (*dto.ReturnBonusDto, error)
 	GetBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error)
-	ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
+	ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, search *string, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
 	ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
 	UseBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error)
 	DeleteBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) error
@@ -73,15 +73,20 @@ func (s *bonusService) GetBonus(ctx context.Context, userID uuid.UUID, bonusID u
 	return dto.BonusFromGetRow(&bonus), nil
 }
 
-func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
+func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, search *string, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
 	usedParam := pgtype.Bool{}
 	if used != nil {
 		usedParam = pgtype.Bool{Bool: *used, Valid: true}
+	}
+	searchParam := pgtype.Text{}
+	if search != nil {
+		searchParam = pgtype.Text{String: *search, Valid: true}
 	}
 
 	totalCount, err := s.repo.CountBonusesByUser(ctx, repository.CountBonusesByUserParams{
 		UserID: userID,
 		Used:   usedParam,
+		Search: searchParam,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count bonuses: %w", err)
@@ -90,6 +95,7 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *
 	bonuses, err := s.repo.ListBonusesByUser(ctx, repository.ListBonusesByUserParams{
 		UserID:      userID,
 		Used:        usedParam,
+		Search:      searchParam,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
