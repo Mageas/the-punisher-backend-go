@@ -1,110 +1,536 @@
-# API Reference - Cible Métier
+# API Reference
 
 Base path: `/v1`
 
-Ce document décrit le contrat API cible aligné sur la BDD canonique.
+Cette référence décrit le contrat API actuellement implémenté (routes, payloads, formats de réponse), incluant les enrichissements récents :
+- `GET /dashboard`
+- `GET /students/{id}/profile`
+- DTO enrichis pour `students`, `classrooms`, `bonuses`, `penalties`, `punishments`, `rules`.
 
 ## 1. Conventions globales
 
-- Auth Bearer requise hors `/health` et `/auth/*`.
-- JSON strict (unknown fields interdits).
-- Pagination via `?page=` (taille fixe 20).
-- Erreur standard:
+- Auth Bearer requise sur toutes les routes sauf :
+  - `GET /health`
+  - `POST /auth/register`
+  - `POST /auth/login`
+  - `POST /auth/refresh`
+- JSON strict :
+  - champs inconnus rejetés (`400 invalid_request_body`)
+  - validation via tags `validate` (`400 validation_failed`)
+- Pagination :
+  - query param `?page=`
+  - taille fixe : `20`
+  - si `page` invalide ou <= 0, fallback sur page `1`
+- Dates : format RFC3339.
+- Réponse d'erreur standard :
 
 ```json
 {
   "error": "validation_failed",
   "error_code": 400,
   "error_details": [
-    { "field": "name", "error": "validation_field_required" }
+    { "field": "first_name", "error": "validation_field_required" }
   ]
 }
 ```
 
-## 2. Health
+### Réponse paginée standard
+
+Toutes les routes `List*` renvoient :
+
+```json
+{
+  "page": 1,
+  "item_per_page": 20,
+  "total_count": 42,
+  "previous_page": null,
+  "next_page": 2,
+  "data": []
+}
+```
+
+## 2. Objets de réponse
+
+### Student (enrichi)
+
+```json
+{
+  "id": "uuid",
+  "first_name": "Lucas",
+  "last_name": "Dubois",
+  "classrooms": [{ "id": "uuid", "name": "6eme A" }],
+  "available_bonus_points": 3,
+  "penalty_count": 5,
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### Classroom (enrichi)
+
+```json
+{
+  "id": "uuid",
+  "name": "6eme A",
+  "year": "2025-2026",
+  "main_teacher": "Mme Martin",
+  "student_count": 12,
+  "students_preview": [
+    { "id": "uuid", "first_name": "Lucas", "last_name": "Dubois" }
+  ],
+  "total_bonus_points": 14.5,
+  "total_penalty_count": 23,
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+`students_preview` est limité à 5 élèves max.
+
+### Bonus (enrichi)
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "student_first_name": "Emma",
+  "student_last_name": "Bernard",
+  "bonus_type_id": "uuid",
+  "bonus_type_name": "Participation",
+  "points": 1,
+  "created_at": "2026-02-18T10:00:00Z",
+  "used_at": null
+}
+```
+
+### Penalty (enrichi)
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "student_first_name": "Lucas",
+  "student_last_name": "Dubois",
+  "penalty_type_id": "uuid",
+  "penalty_type_name": "Bavardage",
+  "created_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### Punishment (enrichi)
+
+```json
+{
+  "id": "uuid",
+  "student_id": "uuid",
+  "student_first_name": "Lucas",
+  "student_last_name": "Dubois",
+  "punishment_type_id": "uuid",
+  "punishment_type_name": "Retenue",
+  "triggering_rule_id": "uuid",
+  "triggering_rule_name": "3 bavardages => retenue",
+  "created_at": "2026-02-18T10:00:00Z",
+  "due_at": "2026-02-25T10:00:00Z",
+  "resolved_at": null
+}
+```
+
+Pour une punition manuelle :
+- `triggering_rule_id = null`
+- `triggering_rule_name = null`
+
+### Rule (enrichi)
+
+```json
+{
+  "id": "uuid",
+  "name": "3 bavardages => retenue",
+  "resulting_punishment_type_id": "uuid",
+  "resulting_punishment_type_name": "Retenue",
+  "penalty_type_id": "uuid",
+  "penalty_type_name": "Bavardage",
+  "threshold": 3,
+  "due_at_after_days": 7,
+  "mode": "every",
+  "is_active": true,
+  "created_at": "2026-02-18T10:00:00Z",
+  "updated_at": "2026-02-18T10:00:00Z"
+}
+```
+
+### Dashboard
+
+```json
+{
+  "kpis": {
+    "student_count": 34,
+    "available_bonus_points": 14.5,
+    "unused_bonus_count": 12,
+    "penalty_count": 47,
+    "pending_punishment_count": 5
+  },
+  "recent_penalties": [],
+  "recent_bonuses": [],
+  "pending_punishments": []
+}
+```
+
+Chaque liste est limitée à 10 éléments.
+
+### Student Profile
+
+```json
+{
+  "student": {
+    "id": "uuid",
+    "first_name": "Lucas",
+    "last_name": "Dubois",
+    "created_at": "2026-02-18T10:00:00Z",
+    "updated_at": "2026-02-18T10:00:00Z"
+  },
+  "classrooms": [{ "id": "uuid", "name": "6eme A" }],
+  "kpis": {
+    "available_bonus_points": 3,
+    "active_bonus_count": 2,
+    "total_penalty_count": 5,
+    "pending_punishment_count": 1
+  },
+  "pending_punishments": [],
+  "available_bonuses": [],
+  "history": [
+    {
+      "type": "punishment",
+      "id": "uuid",
+      "punishment_type_id": "uuid",
+      "punishment_type_name": "Retenue",
+      "triggering_rule_id": "uuid",
+      "triggering_rule_name": "3 bavardages => retenue",
+      "due_at": "2026-02-25T10:00:00Z",
+      "resolved_at": null,
+      "created_at": "2026-02-18T10:00:00Z"
+    },
+    {
+      "type": "penalty",
+      "id": "uuid",
+      "penalty_type_id": "uuid",
+      "penalty_type_name": "Bavardage",
+      "created_at": "2026-02-18T09:00:00Z"
+    },
+    {
+      "type": "bonus",
+      "id": "uuid",
+      "bonus_type_id": "uuid",
+      "bonus_type_name": "Participation",
+      "points": 1,
+      "used_at": null,
+      "created_at": "2026-02-18T08:00:00Z"
+    }
+  ]
+}
+```
+
+`history` est trié par `created_at` desc et paginé via `history_page` (taille fixe 20).
+
+## 3. Health
 
 ### GET `/health`
 
-- `200` healthy
-- `503` unhealthy
+Réponses :
+- `200` si healthy
+- `503` si unhealthy
 
-## 3. Auth
-
-### POST `/auth/register`
-### POST `/auth/login`
-### POST `/auth/refresh`
-
-Principes:
-- access token dans le body.
-- refresh token en cookie `HttpOnly`.
-
-## 4. Students
-
-### POST `/students`
-### GET `/students?page=1`
-### GET `/students/{id}`
-### PUT `/students/{id}`
-### DELETE `/students/{id}`
-
-Note:
-- les réponses `students` restent plates (pas d'IDs de relations embarqués).
-- pour les relations, utiliser les endpoints dédiés ci-dessous.
-
-### GET `/students/{id}/classrooms?page=1`
-### GET `/students/{id}/bonuses?page=1`
-Paramètre optionnel:
-- `state`: `used|unused`. Exemple: `GET /students/{id}/bonuses?page=1&state=used`.
-### GET `/students/{id}/penalties?page=1`
-### GET `/students/{id}/punishments?page=1`
-Paramètre optionnel:
-- `state`: `pending|resolved`. Exemple: `GET /students/{id}/punishments?page=1&state=resolved`.
-
-## 5. Classrooms
-
-### POST `/classrooms`
-### GET `/classrooms?page=1`
-### GET `/classrooms/{id}`
-### PUT `/classrooms/{id}`
-### DELETE `/classrooms/{id}`
-### POST `/classrooms/{id}/students`
-
-Body:
+Body :
 
 ```json
-{ "student_id": "uuid" }
+{
+  "status": "healthy",
+  "environment": "dev",
+  "version": "dev",
+  "services": {
+    "database": "healthy"
+  }
+}
 ```
 
+## 4. Auth
+
+### POST `/auth/register`
+
+Body :
+
+```json
+{
+  "email": "teacher@example.com",
+  "first_name": "Jean",
+  "last_name": "Dupont",
+  "password": "password123"
+}
+```
+
+Réponses :
+- `201` -> `ReturnUserDto`
+- `401 register_not_allowed` si `ALLOW_REGISTER=false`
+
+### POST `/auth/login`
+
+Body :
+
+```json
+{
+  "email": "teacher@example.com",
+  "password": "password123"
+}
+```
+
+Réponse `200` :
+
+```json
+{
+  "access_token": "jwt"
+}
+```
+
+Cookie `HttpOnly` posé :
+- nom : `refresh_token`
+- path : `/v1/auth/refresh`
+
+### POST `/auth/refresh`
+
+Nécessite le cookie `refresh_token`.
+
+Réponse `200` :
+
+```json
+{
+  "access_token": "jwt"
+}
+```
+
+## 5. Dashboard
+
+### GET `/dashboard?classroom_id=uuid`
+
+Query params :
+- `classroom_id` optionnel
+
+Réponses :
+- `200` -> `ReturnDashboardDto`
+- `400 malformed_parameter` si `classroom_id` n'est pas un UUID
+- `404 classroom_not_found` si classe absente pour l'utilisateur
+
+## 6. Students
+
+### POST `/students/`
+
+Body :
+
+```json
+{
+  "first_name": "Lucas",
+  "last_name": "Dubois"
+}
+```
+
+Réponse :
+- `201` -> `ReturnStudentDto` enrichi
+
+### GET `/students/`
+
+Query params :
+- `page` optionnel
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnStudentDto>`
+
+### GET `/students/{id}`
+
+Réponse :
+- `200` -> `ReturnStudentDto`
+
+### PUT `/students/{id}`
+
+Body partiel :
+
+```json
+{
+  "first_name": "Nouveau",
+  "last_name": "Nom"
+}
+```
+
+Réponse :
+- `200` -> `ReturnStudentDto`
+
+### DELETE `/students/{id}`
+
+Réponse :
+- `204` no content
+
+### GET `/students/{id}/profile?history_page=1`
+
+Query params :
+- `history_page` optionnel (fallback `1` si invalide)
+
+Réponse :
+- `200` -> `ReturnStudentProfileDto`
+
+### GET `/students/{id}/classrooms`
+
+Query params :
+- `page` optionnel
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnClassroomDto>`
+
+### GET `/students/{id}/bonuses`
+
+Query params :
+- `page` optionnel
+- `state` optionnel : `used|unused`
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnBonusDto>`
+
+### GET `/students/{id}/penalties`
+
+Query params :
+- `page` optionnel
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnPenaltyDto>`
+
+### GET `/students/{id}/punishments`
+
+Query params :
+- `page` optionnel
+- `state` optionnel : `pending|resolved`
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnPunishmentDto>`
+
+## 7. Classrooms
+
+### POST `/classrooms/`
+
+Body :
+
+```json
+{
+  "name": "6eme A",
+  "year": "2025-2026",
+  "main_teacher": "Mme Martin"
+}
+```
+
+Réponse :
+- `201` -> `ReturnClassroomDto` enrichi
+
+### GET `/classrooms/`
+
+Query params :
+- `page` optionnel
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnClassroomDto>`
+
+### GET `/classrooms/{id}`
+
+Réponse :
+- `200` -> `ReturnClassroomDto`
+
+### PUT `/classrooms/{id}`
+
+Body partiel :
+
+```json
+{
+  "name": "6eme B",
+  "year": "2026-2027",
+  "main_teacher": "M. Leroy"
+}
+```
+
+Réponse :
+- `200` -> `ReturnClassroomDto`
+
+### DELETE `/classrooms/{id}`
+
+Réponse :
+- `204` no content
+
+### POST `/classrooms/{id}/students`
+
+Body :
+
+```json
+{
+  "student_id": "uuid"
+}
+```
+
+Réponse :
+- `204` no content
+
 ### DELETE `/classrooms/{id}/students/{studentId}`
-### GET `/classrooms/{id}/students?page=1`
 
-## 6. Types catalogues
+Réponse :
+- `204` no content
 
-### Bonus Types
-- `POST /bonus-types`
-- `GET /bonus-types`
-- `GET /bonus-types/{id}`
-- `PUT /bonus-types/{id}`
-- `DELETE /bonus-types/{id}`
+### GET `/classrooms/{id}/students`
 
-### Penalty Types
-- `POST /penalty-types`
-- `GET /penalty-types`
-- `GET /penalty-types/{id}`
-- `PUT /penalty-types/{id}`
-- `DELETE /penalty-types/{id}`
+Query params :
+- `page` optionnel
 
-### Punishment Types
-- `POST /punishment-types`
-- `GET /punishment-types`
-- `GET /punishment-types/{id}`
-- `PUT /punishment-types/{id}`
-- `DELETE /punishment-types/{id}`
+Réponse :
+- `200` -> `PaginatedResponse<ReturnStudentDto>`
 
-## 7. Bonuses
+## 8. Bonus Types
 
-### POST `/bonuses`
+### POST `/bonus-types/`
+### GET `/bonus-types/`
+### GET `/bonus-types/{id}`
+### PUT `/bonus-types/{id}`
+### DELETE `/bonus-types/{id}`
 
-Body:
+Payloads :
+- create/update body : `{ "name": "Participation" }`
+- list : `PaginatedResponse<ReturnBonusTypeDto>`
+- get/create/update : `ReturnBonusTypeDto`
+- delete : `204`
+
+## 9. Penalty Types
+
+### POST `/penalty-types/`
+### GET `/penalty-types/`
+### GET `/penalty-types/{id}`
+### PUT `/penalty-types/{id}`
+### DELETE `/penalty-types/{id}`
+
+Payloads :
+- create/update body : `{ "name": "Bavardage" }`
+- list : `PaginatedResponse<ReturnPenaltyTypeDto>`
+- get/create/update : `ReturnPenaltyTypeDto`
+- delete : `204`
+
+## 10. Punishment Types
+
+### POST `/punishment-types/`
+### GET `/punishment-types/`
+### GET `/punishment-types/{id}`
+### PUT `/punishment-types/{id}`
+### DELETE `/punishment-types/{id}`
+
+Payloads :
+- create/update body : `{ "name": "Retenue" }`
+- list : `PaginatedResponse<ReturnPunishmentTypeDto>`
+- get/create/update : `ReturnPunishmentTypeDto`
+- delete : `204`
+
+## 11. Bonuses
+
+### POST `/bonuses/`
+
+Body :
 
 ```json
 {
@@ -114,22 +540,41 @@ Body:
 }
 ```
 
-### GET `/bonuses?page=1`
-Paramètre optionnel:
-- `state`: `used|unused`. Exemple: `GET /bonuses?page=1&state=used`.
+Réponse :
+- `201` -> `ReturnBonusDto`
+
+### GET `/bonuses/`
+
+Query params :
+- `page` optionnel
+- `state` optionnel : `used|unused`
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnBonusDto>`
+
 ### GET `/bonuses/{id}`
-### DELETE `/bonuses/{id}`
+
+Réponse :
+- `200` -> `ReturnBonusDto`
+
 ### POST `/bonuses/{id}/use`
 
-Effet:
-- passe `used_at` de `NULL` à timestamp.
-- si déjà utilisé: conflit.
+Effet :
+- passe `used_at` de `null` à `now`
 
-## 8. Penalties
+Réponse :
+- `200` -> `ReturnBonusDto`
 
-### POST `/penalties`
+### DELETE `/bonuses/{id}`
 
-Body:
+Réponse :
+- `204` no content
+
+## 12. Penalties
+
+### POST `/penalties/`
+
+Body :
 
 ```json
 {
@@ -138,94 +583,37 @@ Body:
 }
 ```
 
-Effet métier:
-- enregistre une pénalité,
-- déclenche l'évaluation des règles actives (`is_active = true`).
+Effet métier :
+- crée une pénalité
+- évalue les règles actives
+- peut créer automatiquement une punition
 
-### GET `/penalties?page=1`
+Réponse :
+- `201` -> `ReturnPenaltyDto`
+
+### GET `/penalties/`
+
+Query params :
+- `page` optionnel
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnPenaltyDto>`
+
 ### GET `/penalties/{id}`
+
+Réponse :
+- `200` -> `ReturnPenaltyDto`
+
 ### DELETE `/penalties/{id}`
 
-## 9. Rules
+Réponse :
+- `204` no content
 
-### POST `/rules`
+## 13. Punishments
 
-Body:
+### POST `/punishments/`
 
-```json
-{
-  "name": "3 oublis matériel => retenue",
-  "resulting_punishment_type_id": "uuid",
-  "penalty_type_id": "uuid-oubli-materiel",
-  "threshold": 3,
-  "due_at_after_days": 7,
-  "mode": "every",
-  "is_active": true
-}
-```
-
-Contraintes:
-- `mode`: `after|at|every`
-- `threshold >= 1`
-- `due_at_after_days >= 0`
-- `is_active` booléen (`true` par défaut).
-- `penalty_type_id` doit appartenir au même user.
-- `resulting_punishment_type_id` doit appartenir au même user.
-- seules les règles avec `is_active = true` peuvent déclencher automatiquement une `Punishment`.
-- si un `penalty_type` est supprimé, ses règles associées sont supprimées en cascade.
-- lors d'un déclenchement automatique, `punishments.due_at = now + due_at_after_days`.
-- `punishments.resolved_at` reste `NULL` à la création.
-
-Autres exemples:
-
-```json
-{
-  "name": "3 retards => retenue (déclenchement au seuil)",
-  "resulting_punishment_type_id": "uuid",
-  "penalty_type_id": "uuid-retard",
-  "threshold": 3,
-  "due_at_after_days": 3,
-  "mode": "at",
-  "is_active": true
-}
-```
-
-```json
-{
-  "name": "Tous les 5 bavardages => mot aux parents",
-  "resulting_punishment_type_id": "uuid",
-  "penalty_type_id": "uuid-bavardage",
-  "threshold": 5,
-  "due_at_after_days": 14,
-  "mode": "every",
-  "is_active": false
-}
-```
-
-```json
-{
-  "name": "Après 2 bavardages, chaque nouveau bavardage => mot aux parents",
-  "resulting_punishment_type_id": "uuid",
-  "penalty_type_id": "uuid-bavardage",
-  "threshold": 2,
-  "due_at_after_days": 10,
-  "mode": "after",
-  "is_active": true
-}
-```
-
-### GET `/rules?page=1`
-### GET `/rules/{id}`
-### PUT `/rules/{id}`
-### DELETE `/rules/{id}`
-
-## 10. Punishments
-
-### POST `/punishments`
-
-Création manuelle.
-
-Body:
+Body :
 
 ```json
 {
@@ -235,36 +623,126 @@ Body:
 }
 ```
 
-### GET `/punishments?page=1`
-Paramètre optionnel:
-- `state`: `pending|resolved`. Exemple: `GET /punishments?page=1&state=pending`.
+Réponse :
+- `201` -> `ReturnPunishmentDto`
+
+### GET `/punishments/`
+
+Query params :
+- `page` optionnel
+- `state` optionnel : `pending|resolved`
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnPunishmentDto>`
+
 ### GET `/punishments/{id}`
-### DELETE `/punishments/{id}`
+
+Réponse :
+- `200` -> `ReturnPunishmentDto`
+
 ### POST `/punishments/{id}/resolve`
 
-Effet:
-- passe `resolved_at` de `NULL` à timestamp.
-- si déjà résolue: conflit.
+Effet :
+- passe `resolved_at` de `null` à `now`
 
-Format de réponse `punishments`:
-- `triggering_rule_id` est toujours présent dans le JSON.
-- valeur `null` pour une punition manuelle, UUID pour une punition automatique.
+Réponse :
+- `200` -> `ReturnPunishmentDto`
 
-## 11. Codes d'erreur recommandés
+### DELETE `/punishments/{id}`
 
-- `400 validation_failed`
-- `400 invalid_request_body`
-- `400 malformed_parameter`
-- `401 unauthorized`
-- `404 student_not_found`
-- `404 classroom_not_found`
-- `404 bonus_type_not_found`
-- `404 penalty_type_not_found`
-- `404 punishment_type_not_found`
-- `404 rule_not_found`
-- `404 bonus_not_found`
-- `404 penalty_not_found`
-- `404 punishment_not_found`
-- `409 student_classroom_relation_exists`
-- `409 bonus_already_used`
-- `409 punishment_already_resolved`
+Réponse :
+- `204` no content
+
+## 14. Rules
+
+### POST `/rules/`
+
+Body :
+
+```json
+{
+  "name": "3 bavardages => retenue",
+  "resulting_punishment_type_id": "uuid",
+  "penalty_type_id": "uuid",
+  "threshold": 3,
+  "due_at_after_days": 7,
+  "mode": "every",
+  "is_active": true
+}
+```
+
+Contraintes :
+- `mode` : `after|at|every`
+- `threshold >= 1`
+- `due_at_after_days >= 0`
+
+Réponse :
+- `201` -> `ReturnRuleDto`
+
+### GET `/rules/`
+
+Query params :
+- `page` optionnel
+
+Réponse :
+- `200` -> `PaginatedResponse<ReturnRuleDto>`
+
+### GET `/rules/{id}`
+
+Réponse :
+- `200` -> `ReturnRuleDto`
+
+### PUT `/rules/{id}`
+
+Body partiel possible :
+
+```json
+{
+  "name": "4 bavardages => retenue",
+  "threshold": 4,
+  "mode": "at",
+  "is_active": false
+}
+```
+
+Réponse :
+- `200` -> `ReturnRuleDto`
+
+### DELETE `/rules/{id}`
+
+Réponse :
+- `204` no content
+
+## 15. Codes d'erreur utilisés
+
+Erreurs globales :
+- `internal_error`
+- `invalid_request_body`
+- `malformed_parameter`
+- `validation_failed`
+- `unauthorized`
+
+Auth :
+- `register_not_allowed`
+- `invalid_credentials_or_user_doesnt_exist`
+- `jwt_invalid_signing_method`
+- `jwt_invalid_token`
+- `jwt_expired`
+
+Not found :
+- `student_not_found`
+- `classroom_not_found`
+- `bonus_type_not_found`
+- `penalty_type_not_found`
+- `punishment_type_not_found`
+- `rule_not_found`
+- `bonus_not_found`
+- `penalty_not_found`
+- `punishment_not_found`
+- `student_or_classroom_not_found`
+
+Conflicts :
+- `conflict` (email déjà utilisé, via `error_details`)
+- `student_classroom_relation_exists`
+- `bonus_already_used`
+- `punishment_already_resolved`
