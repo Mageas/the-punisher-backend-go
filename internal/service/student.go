@@ -17,7 +17,8 @@ import (
 type StudentService interface {
 	CreateStudent(ctx context.Context, userID uuid.UUID, req dto.RequestStudentDto) (*dto.ReturnStudentDto, error)
 	GetStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.ReturnStudentDto, error)
-	GetStudentProfile(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, historyLimit int32, historyOffset int32) (*dto.ReturnStudentProfileDto, error)
+	GetStudentKpis(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.StudentProfileKpisDto, error)
+	ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentProfileHistoryItemDto, error)
 	ListStudents(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error)
 	UpdateStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, req dto.UpdateStudentDto) (*dto.ReturnStudentDto, error)
 	DeleteStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error

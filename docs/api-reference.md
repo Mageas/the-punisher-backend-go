@@ -4,7 +4,8 @@ Base path: `/v1`
 
 Cette référence décrit le contrat API actuellement implémenté (routes, payloads, formats de réponse), incluant les enrichissements récents :
 - `GET /dashboard`
-- `GET /students/{id}/profile`
+- `GET /students/{id}/kpis`
+- `GET /students/{id}/history`
 - DTO enrichis pour `students`, `classrooms`, `bonuses`, `penalties`, `punishments`, `rules`.
 
 ## 1. Conventions globales
@@ -177,59 +178,52 @@ Pour une punition manuelle :
 
 Chaque liste est limitée à 10 éléments.
 
-### Student Profile
+### Student KPIs
 
 ```json
 {
-  "student": {
-    "id": "uuid",
-    "first_name": "Lucas",
-    "last_name": "Dubois",
-    "created_at": "2026-02-18T10:00:00Z",
-    "updated_at": "2026-02-18T10:00:00Z"
-  },
-  "classrooms": [{ "id": "uuid", "name": "6eme A" }],
-  "kpis": {
-    "available_bonus_points": 3,
-    "active_bonus_count": 2,
-    "total_penalty_count": 5,
-    "pending_punishment_count": 1
-  },
-  "pending_punishments": [],
-  "available_bonuses": [],
-  "history": [
-    {
-      "type": "punishment",
-      "id": "uuid",
-      "punishment_type_id": "uuid",
-      "punishment_type_name": "Retenue",
-      "triggering_rule_id": "uuid",
-      "triggering_rule_name": "3 bavardages => retenue",
-      "due_at": "2026-02-25T10:00:00Z",
-      "resolved_at": null,
-      "created_at": "2026-02-18T10:00:00Z"
-    },
-    {
-      "type": "penalty",
-      "id": "uuid",
-      "penalty_type_id": "uuid",
-      "penalty_type_name": "Bavardage",
-      "created_at": "2026-02-18T09:00:00Z"
-    },
-    {
-      "type": "bonus",
-      "id": "uuid",
-      "bonus_type_id": "uuid",
-      "bonus_type_name": "Participation",
-      "points": 1,
-      "used_at": null,
-      "created_at": "2026-02-18T08:00:00Z"
-    }
-  ]
+  "available_bonus_points": 3,
+  "active_bonus_count": 2,
+  "total_penalty_count": 5,
+  "pending_punishment_count": 1
 }
 ```
 
-`history` est trié par `created_at` desc et paginé via `history_page` (taille fixe 20).
+### Student History
+
+```json
+[
+  {
+    "type": "punishment",
+    "id": "uuid",
+    "punishment_type_id": "uuid",
+    "punishment_type_name": "Retenue",
+    "triggering_rule_id": "uuid",
+    "triggering_rule_name": "3 bavardages => retenue",
+    "due_at": "2026-02-25T10:00:00Z",
+    "resolved_at": null,
+    "created_at": "2026-02-18T10:00:00Z"
+  },
+  {
+    "type": "penalty",
+    "id": "uuid",
+    "penalty_type_id": "uuid",
+    "penalty_type_name": "Bavardage",
+    "created_at": "2026-02-18T09:00:00Z"
+  },
+  {
+    "type": "bonus",
+    "id": "uuid",
+    "bonus_type_id": "uuid",
+    "bonus_type_name": "Participation",
+    "points": 1,
+    "used_at": null,
+    "created_at": "2026-02-18T08:00:00Z"
+  }
+]
+```
+
+`history` est trié par `created_at` desc et paginé (taille fixe 20).
 
 ## 3. Health
 
@@ -366,13 +360,22 @@ Réponse :
 Réponse :
 - `204` no content
 
-### GET `/students/{id}/profile?history_page=1`
+### GET `/students/{id}/kpis`
 
 Query params :
-- `history_page` optionnel (fallback `1` si invalide)
+- aucun
 
 Réponse :
-- `200` -> `ReturnStudentProfileDto`
+- `200` -> `StudentProfileKpisDto`
+
+### GET `/students/{id}/history`
+
+Query params :
+- `page` optionnel
+- `history_page` optionnel (support legacy, prioritaire sur `page`)
+
+Réponse :
+- `200` -> `[]StudentProfileHistoryItemDto`
 
 ### GET `/students/{id}/classrooms`
 
