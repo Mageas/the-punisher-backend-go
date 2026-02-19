@@ -11,14 +11,15 @@ import (
 )
 
 const (
-	OpCreateBonus           = "CreateBonus"
-	OpGetBonusByUser        = "GetBonusByUser"
-	OpCountBonusesByUser    = "CountBonusesByUser"
-	OpListBonusesByUser     = "ListBonusesByUser"
-	OpCountBonusesByStudent = "CountBonusesByStudent"
-	OpListBonusesByStudent  = "ListBonusesByStudent"
-	OpUseBonus              = "UseBonus"
-	OpDeleteBonusByUser     = "DeleteBonusByUser"
+	OpCreateBonus               = "CreateBonus"
+	OpGetBonusByUser            = "GetBonusByUser"
+	OpCountBonusesByUser        = "CountBonusesByUser"
+	OpListBonusesByUser         = "ListBonusesByUser"
+	OpCountBonusesByStudent     = "CountBonusesByStudent"
+	OpListBonusesByStudent      = "ListBonusesByStudent"
+	OpUseBonus                  = "UseBonus"
+	OpDeleteBonusByUser         = "DeleteBonusByUser"
+	OpDeleteBonusesByTypeByUser = "DeleteBonusesByTypeByUser"
 )
 
 func (r *Repository) bonusTypeNameForBonusLocked(bonusTypeID uuid.UUID) string {
@@ -316,4 +317,24 @@ func (r *Repository) DeleteBonusByUser(_ context.Context, arg repository.DeleteB
 
 	delete(r.bonuses, arg.ID)
 	return 1, nil
+}
+
+func (r *Repository) DeleteBonusesByTypeByUser(_ context.Context, arg repository.DeleteBonusesByTypeByUserParams) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeleteBonusesByTypeByUser); err != nil {
+		return 0, err
+	}
+
+	var deleted int64
+	for id, bonus := range r.bonuses {
+		if bonus.UserID != arg.UserID || bonus.BonusTypeID != arg.BonusTypeID {
+			continue
+		}
+		delete(r.bonuses, id)
+		deleted++
+	}
+
+	return deleted, nil
 }

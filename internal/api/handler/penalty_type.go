@@ -124,3 +124,20 @@ func (h *PenaltyTypeHandler) DeletePenaltyType(w http.ResponseWriter, r *http.Re
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *PenaltyTypeHandler) ForceDeletePenaltyType(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	penaltyTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+		return
+	}
+
+	if err := h.service.ForceDeletePenaltyType(r.Context(), userID, penaltyTypeID); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

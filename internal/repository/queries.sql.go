@@ -958,6 +958,24 @@ func (q *Queries) DeleteBonusTypeByUser(ctx context.Context, arg DeleteBonusType
 	return result.RowsAffected(), nil
 }
 
+const deleteBonusesByTypeByUser = `-- name: DeleteBonusesByTypeByUser :execrows
+DELETE FROM bonuses
+WHERE bonus_type_id = $1 AND user_id = $2
+`
+
+type DeleteBonusesByTypeByUserParams struct {
+	BonusTypeID uuid.UUID `json:"bonus_type_id"`
+	UserID      uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteBonusesByTypeByUser(ctx context.Context, arg DeleteBonusesByTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteBonusesByTypeByUser, arg.BonusTypeID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteClassroomByUser = `-- name: DeleteClassroomByUser :execrows
 DELETE FROM classrooms
 WHERE id = $1 AND user_id = $2
@@ -970,6 +988,24 @@ type DeleteClassroomByUserParams struct {
 
 func (q *Queries) DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteClassroomByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deletePenaltiesByTypeByUser = `-- name: DeletePenaltiesByTypeByUser :execrows
+DELETE FROM penalties
+WHERE penalty_type_id = $1 AND user_id = $2
+`
+
+type DeletePenaltiesByTypeByUserParams struct {
+	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+	UserID        uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeletePenaltiesByTypeByUser(ctx context.Context, arg DeletePenaltiesByTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePenaltiesByTypeByUser, arg.PenaltyTypeID, arg.UserID)
 	if err != nil {
 		return 0, err
 	}
@@ -1048,6 +1084,24 @@ func (q *Queries) DeletePunishmentTypeByUser(ctx context.Context, arg DeletePuni
 	return result.RowsAffected(), nil
 }
 
+const deletePunishmentsByTypeByUser = `-- name: DeletePunishmentsByTypeByUser :execrows
+DELETE FROM punishments
+WHERE punishment_type_id = $1 AND user_id = $2
+`
+
+type DeletePunishmentsByTypeByUserParams struct {
+	PunishmentTypeID uuid.UUID `json:"punishment_type_id"`
+	UserID           uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeletePunishmentsByTypeByUser(ctx context.Context, arg DeletePunishmentsByTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deletePunishmentsByTypeByUser, arg.PunishmentTypeID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
 DELETE FROM refresh_tokens
 WHERE token = $1
@@ -1070,6 +1124,42 @@ type DeleteRuleByUserParams struct {
 
 func (q *Queries) DeleteRuleByUser(ctx context.Context, arg DeleteRuleByUserParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteRuleByUser, arg.ID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteRulesByPenaltyTypeByUser = `-- name: DeleteRulesByPenaltyTypeByUser :execrows
+DELETE FROM rules
+WHERE penalty_type_id = $1 AND user_id = $2
+`
+
+type DeleteRulesByPenaltyTypeByUserParams struct {
+	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+	UserID        uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteRulesByPenaltyTypeByUser(ctx context.Context, arg DeleteRulesByPenaltyTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRulesByPenaltyTypeByUser, arg.PenaltyTypeID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteRulesByResultingPunishmentTypeByUser = `-- name: DeleteRulesByResultingPunishmentTypeByUser :execrows
+DELETE FROM rules
+WHERE resulting_punishment_type_id = $1 AND user_id = $2
+`
+
+type DeleteRulesByResultingPunishmentTypeByUserParams struct {
+	ResultingPunishmentTypeID uuid.UUID `json:"resulting_punishment_type_id"`
+	UserID                    uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteRulesByResultingPunishmentTypeByUser(ctx context.Context, arg DeleteRulesByResultingPunishmentTypeByUserParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteRulesByResultingPunishmentTypeByUser, arg.ResultingPunishmentTypeID, arg.UserID)
 	if err != nil {
 		return 0, err
 	}

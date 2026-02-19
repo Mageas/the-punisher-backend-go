@@ -10,13 +10,15 @@ import (
 )
 
 const (
-	OpCreateRule                          = "CreateRule"
-	OpGetRuleByUser                       = "GetRuleByUser"
-	OpCountRulesByUser                    = "CountRulesByUser"
-	OpListRulesByUser                     = "ListRulesByUser"
-	OpUpdateRuleByUser                    = "UpdateRuleByUser"
-	OpDeleteRuleByUser                    = "DeleteRuleByUser"
-	OpListActiveRulesByUserAndPenaltyType = "ListActiveRulesByUserAndPenaltyType"
+	OpCreateRule                                 = "CreateRule"
+	OpGetRuleByUser                              = "GetRuleByUser"
+	OpCountRulesByUser                           = "CountRulesByUser"
+	OpListRulesByUser                            = "ListRulesByUser"
+	OpUpdateRuleByUser                           = "UpdateRuleByUser"
+	OpDeleteRuleByUser                           = "DeleteRuleByUser"
+	OpListActiveRulesByUserAndPenaltyType        = "ListActiveRulesByUserAndPenaltyType"
+	OpDeleteRulesByPenaltyTypeByUser             = "DeleteRulesByPenaltyTypeByUser"
+	OpDeleteRulesByResultingPunishmentTypeByUser = "DeleteRulesByResultingPunishmentTypeByUser"
 )
 
 func (r *Repository) penaltyTypeNameLocked(penaltyTypeID uuid.UUID) string {
@@ -287,4 +289,44 @@ func (r *Repository) ListActiveRulesByUserAndPenaltyType(_ context.Context, arg 
 
 	sortRulesByCreatedAtDesc(items)
 	return items, nil
+}
+
+func (r *Repository) DeleteRulesByPenaltyTypeByUser(_ context.Context, arg repository.DeleteRulesByPenaltyTypeByUserParams) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeleteRulesByPenaltyTypeByUser); err != nil {
+		return 0, err
+	}
+
+	var deleted int64
+	for id, rule := range r.rules {
+		if rule.UserID != arg.UserID || rule.PenaltyTypeID != arg.PenaltyTypeID {
+			continue
+		}
+		delete(r.rules, id)
+		deleted++
+	}
+
+	return deleted, nil
+}
+
+func (r *Repository) DeleteRulesByResultingPunishmentTypeByUser(_ context.Context, arg repository.DeleteRulesByResultingPunishmentTypeByUserParams) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeleteRulesByResultingPunishmentTypeByUser); err != nil {
+		return 0, err
+	}
+
+	var deleted int64
+	for id, rule := range r.rules {
+		if rule.UserID != arg.UserID || rule.ResultingPunishmentTypeID != arg.ResultingPunishmentTypeID {
+			continue
+		}
+		delete(r.rules, id)
+		deleted++
+	}
+
+	return deleted, nil
 }

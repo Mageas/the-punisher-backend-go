@@ -700,6 +700,10 @@ RETURNING id, user_id, name, created_at, updated_at;
 DELETE FROM bonus_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 
+-- name: DeleteBonusesByTypeByUser :execrows
+DELETE FROM bonuses
+WHERE bonus_type_id = sqlc.arg(bonus_type_id) AND user_id = sqlc.arg(user_id);
+
 -- ==================== PenaltyType ====================
 
 -- name: CreatePenaltyType :one
@@ -737,6 +741,14 @@ RETURNING id, user_id, name, created_at, updated_at;
 DELETE FROM penalty_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
 
+-- name: DeletePenaltiesByTypeByUser :execrows
+DELETE FROM penalties
+WHERE penalty_type_id = sqlc.arg(penalty_type_id) AND user_id = sqlc.arg(user_id);
+
+-- name: DeleteRulesByPenaltyTypeByUser :execrows
+DELETE FROM rules
+WHERE penalty_type_id = sqlc.arg(penalty_type_id) AND user_id = sqlc.arg(user_id);
+
 -- ==================== PunishmentType ====================
 
 -- name: CreatePunishmentType :one
@@ -773,6 +785,14 @@ RETURNING id, user_id, name, created_at, updated_at;
 -- name: DeletePunishmentTypeByUser :execrows
 DELETE FROM punishment_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- name: DeletePunishmentsByTypeByUser :execrows
+DELETE FROM punishments
+WHERE punishment_type_id = sqlc.arg(punishment_type_id) AND user_id = sqlc.arg(user_id);
+
+-- name: DeleteRulesByResultingPunishmentTypeByUser :execrows
+DELETE FROM rules
+WHERE resulting_punishment_type_id = sqlc.arg(resulting_punishment_type_id) AND user_id = sqlc.arg(user_id);
 
 -- ==================== Bonus ====================
 

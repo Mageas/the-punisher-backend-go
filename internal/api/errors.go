@@ -40,6 +40,7 @@ var (
 	ErrValidationFailed   = NewAPIError(http.StatusBadRequest, "validation_failed")
 
 	ErrEmailAlreadyExists                  = NewAPIError(http.StatusConflict, "conflict", ErrorDetail{Field: "email", Error: KeyValidationEmailAlreadyExists})
+	ErrConflict                            = NewAPIError(http.StatusConflict, "conflict")
 	ErrInvalidCredentialsOrUserDoesntExist = NewAPIError(http.StatusUnauthorized, "invalid_credentials_or_user_doesnt_exist")
 
 	ErrJWTInvalidSigningMethod = NewAPIError(http.StatusUnauthorized, "jwt_invalid_signing_method")
@@ -56,6 +57,7 @@ var (
 	ErrPunishmentNotFound        = NewAPIError(http.StatusNotFound, "punishment_not_found")
 	ErrPunishmentAlreadyResolved = NewAPIError(http.StatusConflict, "punishment_already_resolved")
 	ErrBonusAlreadyUsed          = NewAPIError(http.StatusConflict, "bonus_already_used")
+	ErrRelatedRecordCannotDelete = NewAPIError(http.StatusConflict, "related_record_cannot_delete")
 
 	ErrClassroomNotFound              = NewAPIError(http.StatusNotFound, "classroom_not_found")
 	ErrStudentClassroomRelationExists = NewAPIError(http.StatusConflict, "student_classroom_relation_exists")

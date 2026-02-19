@@ -18,6 +18,7 @@ const (
 	OpListPenaltiesByStudent         = "ListPenaltiesByStudent"
 	OpCountPenaltiesByStudentAndType = "CountPenaltiesByStudentAndType"
 	OpDeletePenaltyByUser            = "DeletePenaltyByUser"
+	OpDeletePenaltiesByTypeByUser    = "DeletePenaltiesByTypeByUser"
 )
 
 func (r *Repository) studentNamesLocked(studentID uuid.UUID) (string, string) {
@@ -267,4 +268,24 @@ func (r *Repository) DeletePenaltyByUser(_ context.Context, arg repository.Delet
 
 	delete(r.penalties, arg.ID)
 	return 1, nil
+}
+
+func (r *Repository) DeletePenaltiesByTypeByUser(_ context.Context, arg repository.DeletePenaltiesByTypeByUserParams) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeletePenaltiesByTypeByUser); err != nil {
+		return 0, err
+	}
+
+	var deleted int64
+	for id, penalty := range r.penalties {
+		if penalty.UserID != arg.UserID || penalty.PenaltyTypeID != arg.PenaltyTypeID {
+			continue
+		}
+		delete(r.penalties, id)
+		deleted++
+	}
+
+	return deleted, nil
 }

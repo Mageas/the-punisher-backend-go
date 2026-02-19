@@ -20,10 +20,17 @@ type PunishmentTypeService interface {
 	ListPunishmentTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPunishmentTypeDto, int64, error)
 	UpdatePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID, req dto.UpdatePunishmentTypeDto) (*dto.ReturnPunishmentTypeDto, error)
 	DeletePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) error
+	ForceDeletePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) error
 }
 
 type punishmentTypeService struct {
 	repo repository.Querier
+}
+
+type transactionalPunishmentTypeRepo interface {
+	repository.Querier
+	Begin(ctx context.Context) (pgx.Tx, error)
+	WithTxQuerier(tx pgx.Tx) repository.Querier
 }
 
 func NewPunishmentTypeService(repo repository.Querier) PunishmentTypeService {
@@ -114,6 +121,60 @@ func (s *punishmentTypeService) DeletePunishmentType(ctx context.Context, userID
 	}
 
 	slog.Info("punishment type deleted", "punishment_type_id", punishmentTypeID, "user_id", userID)
+
+	return nil
+}
+
+func (s *punishmentTypeService) ForceDeletePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) error {
+	txRepo, ok := s.repo.(transactionalPunishmentTypeRepo)
+	if !ok {
+		return fmt.Errorf("punishment type repository does not support transactions")
+	}
+
+	tx, err := txRepo.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			slog.Error("failed to rollback transaction", "error", rollbackErr)
+		}
+	}()
+
+	txQuerier := txRepo.WithTxQuerier(tx)
+
+	if _, err := txQuerier.DeleteRulesByResultingPunishmentTypeByUser(ctx, repository.DeleteRulesByResultingPunishmentTypeByUserParams{
+		ResultingPunishmentTypeID: punishmentTypeID,
+		UserID:                    userID,
+	}); err != nil {
+		return fmt.Errorf("failed to delete rules by resulting punishment type: %w", err)
+	}
+
+	if _, err := txQuerier.DeletePunishmentsByTypeByUser(ctx, repository.DeletePunishmentsByTypeByUserParams{
+		PunishmentTypeID: punishmentTypeID,
+		UserID:           userID,
+	}); err != nil {
+		return fmt.Errorf("failed to delete punishments by punishment type: %w", err)
+	}
+
+	rowsAffected, err := txQuerier.DeletePunishmentTypeByUser(ctx, repository.DeletePunishmentTypeByUserParams{
+		ID:     punishmentTypeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to force delete punishment type: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return api.ErrPunishmentTypeNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	slog.Info("punishment type force deleted", "punishment_type_id", punishmentTypeID, "user_id", userID)
 
 	return nil
 }

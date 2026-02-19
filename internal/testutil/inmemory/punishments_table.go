@@ -11,15 +11,16 @@ import (
 )
 
 const (
-	OpCreatePunishment          = "CreatePunishment"
-	OpCreatePunishmentFromRule  = "CreatePunishmentFromRule"
-	OpGetPunishmentByUser       = "GetPunishmentByUser"
-	OpCountPunishmentsByUser    = "CountPunishmentsByUser"
-	OpListPunishmentsByUser     = "ListPunishmentsByUser"
-	OpCountPunishmentsByStudent = "CountPunishmentsByStudent"
-	OpListPunishmentsByStudent  = "ListPunishmentsByStudent"
-	OpResolvePunishment         = "ResolvePunishment"
-	OpDeletePunishmentByUser    = "DeletePunishmentByUser"
+	OpCreatePunishment              = "CreatePunishment"
+	OpCreatePunishmentFromRule      = "CreatePunishmentFromRule"
+	OpGetPunishmentByUser           = "GetPunishmentByUser"
+	OpCountPunishmentsByUser        = "CountPunishmentsByUser"
+	OpListPunishmentsByUser         = "ListPunishmentsByUser"
+	OpCountPunishmentsByStudent     = "CountPunishmentsByStudent"
+	OpListPunishmentsByStudent      = "ListPunishmentsByStudent"
+	OpResolvePunishment             = "ResolvePunishment"
+	OpDeletePunishmentByUser        = "DeletePunishmentByUser"
+	OpDeletePunishmentsByTypeByUser = "DeletePunishmentsByTypeByUser"
 )
 
 func (r *Repository) triggeringRuleNameForPunishmentLocked(triggeringRuleID pgtype.UUID) string {
@@ -390,4 +391,24 @@ func (r *Repository) DeletePunishmentByUser(_ context.Context, arg repository.De
 
 	delete(r.punishments, arg.ID)
 	return 1, nil
+}
+
+func (r *Repository) DeletePunishmentsByTypeByUser(_ context.Context, arg repository.DeletePunishmentsByTypeByUserParams) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeletePunishmentsByTypeByUser); err != nil {
+		return 0, err
+	}
+
+	var deleted int64
+	for id, punishment := range r.punishments {
+		if punishment.UserID != arg.UserID || punishment.PunishmentTypeID != arg.PunishmentTypeID {
+			continue
+		}
+		delete(r.punishments, id)
+		deleted++
+	}
+
+	return deleted, nil
 }

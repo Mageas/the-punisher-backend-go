@@ -10,8 +10,36 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mageas/the-punisher-backend/internal/api"
 )
+
+const (
+	pgCodeRestrictViolation   = "23001"
+	pgCodeForeignKeyViolation = "23503"
+	pgCodeSerializationFail   = "40001"
+	pgCodeDeadlockDetected    = "40P01"
+	pgCodeLockNotAvailable    = "55P03"
+)
+
+func isRelatedRecordConflictCode(code string) bool {
+	return code == pgCodeRestrictViolation || code == pgCodeForeignKeyViolation
+}
+
+func isConflictSQLState(code string) bool {
+	// SQLSTATE class 23 = integrity constraint violations.
+	if strings.HasPrefix(code, "23") {
+		return true
+	}
+
+	// Transaction-level conflicts that are safe to expose as HTTP 409.
+	switch code {
+	case pgCodeSerializationFail, pgCodeDeadlockDetected, pgCodeLockNotAvailable:
+		return true
+	default:
+		return false
+	}
+}
 
 func WriteJSON(w http.ResponseWriter, status int, data any, headers http.Header) error {
 	maps.Copy(w.Header(), headers)
@@ -90,6 +118,24 @@ func WriteFromError(w http.ResponseWriter, err error) {
 	if errors.As(err, &apiErr) {
 		WriteError(w, apiErr.StatusCode, apiErr, apiErr.Details)
 		return
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		if isRelatedRecordConflictCode(pgErr.Code) {
+			WriteError(
+				w,
+				api.ErrRelatedRecordCannotDelete.StatusCode,
+				api.ErrRelatedRecordCannotDelete,
+				api.ErrRelatedRecordCannotDelete.Details,
+			)
+			return
+		}
+
+		if isConflictSQLState(pgErr.Code) {
+			WriteError(w, api.ErrConflict.StatusCode, api.ErrConflict, api.ErrConflict.Details)
+			return
+		}
 	}
 
 	WriteServerError(w, err)

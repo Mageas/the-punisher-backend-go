@@ -20,10 +20,17 @@ type BonusTypeService interface {
 	ListBonusTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusTypeDto, int64, error)
 	UpdateBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID, req dto.UpdateBonusTypeDto) (*dto.ReturnBonusTypeDto, error)
 	DeleteBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) error
+	ForceDeleteBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) error
 }
 
 type bonusTypeService struct {
 	repo repository.Querier
+}
+
+type transactionalBonusTypeRepo interface {
+	repository.Querier
+	Begin(ctx context.Context) (pgx.Tx, error)
+	WithTxQuerier(tx pgx.Tx) repository.Querier
 }
 
 func NewBonusTypeService(repo repository.Querier) BonusTypeService {
@@ -114,6 +121,53 @@ func (s *bonusTypeService) DeleteBonusType(ctx context.Context, userID, bonusTyp
 	}
 
 	slog.Info("bonus type deleted", "bonus_type_id", bonusTypeID, "user_id", userID)
+
+	return nil
+}
+
+func (s *bonusTypeService) ForceDeleteBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) error {
+	txRepo, ok := s.repo.(transactionalBonusTypeRepo)
+	if !ok {
+		return fmt.Errorf("bonus type repository does not support transactions")
+	}
+
+	tx, err := txRepo.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer func() {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			slog.Error("failed to rollback transaction", "error", rollbackErr)
+		}
+	}()
+
+	txQuerier := txRepo.WithTxQuerier(tx)
+
+	if _, err := txQuerier.DeleteBonusesByTypeByUser(ctx, repository.DeleteBonusesByTypeByUserParams{
+		BonusTypeID: bonusTypeID,
+		UserID:      userID,
+	}); err != nil {
+		return fmt.Errorf("failed to delete bonuses by bonus type: %w", err)
+	}
+
+	rowsAffected, err := txQuerier.DeleteBonusTypeByUser(ctx, repository.DeleteBonusTypeByUserParams{
+		ID:     bonusTypeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to force delete bonus type: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return api.ErrBonusTypeNotFound
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	slog.Info("bonus type force deleted", "bonus_type_id", bonusTypeID, "user_id", userID)
 
 	return nil
 }

@@ -119,6 +119,7 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", bonusTypeHandler.GetBonusType)
 		r.Put("/{id}", bonusTypeHandler.UpdateBonusType)
 		r.Delete("/{id}", bonusTypeHandler.DeleteBonusType)
+		r.Delete("/{id}/force", bonusTypeHandler.ForceDeleteBonusType)
 	})
 
 	r.Route("/v1/penalty-types", func(r chi.Router) {
@@ -128,6 +129,7 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", penaltyTypeHandler.GetPenaltyType)
 		r.Put("/{id}", penaltyTypeHandler.UpdatePenaltyType)
 		r.Delete("/{id}", penaltyTypeHandler.DeletePenaltyType)
+		r.Delete("/{id}/force", penaltyTypeHandler.ForceDeletePenaltyType)
 	})
 
 	r.Route("/v1/punishment-types", func(r chi.Router) {
@@ -137,6 +139,7 @@ func (app *application) mount() http.Handler {
 		r.Get("/{id}", punishmentTypeHandler.GetPunishmentType)
 		r.Put("/{id}", punishmentTypeHandler.UpdatePunishmentType)
 		r.Delete("/{id}", punishmentTypeHandler.DeletePunishmentType)
+		r.Delete("/{id}/force", punishmentTypeHandler.ForceDeletePunishmentType)
 	})
 
 	r.Route("/v1/bonuses", func(r chi.Router) {
