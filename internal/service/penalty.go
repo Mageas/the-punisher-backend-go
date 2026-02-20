@@ -133,6 +133,7 @@ func (s *penaltyService) evaluateRulesForPenalty(ctx context.Context, repo repos
 			StudentID:        studentID,
 			PunishmentTypeID: rule.ResultingPunishmentTypeID,
 			TriggeringRuleID: pgtype.UUID{Bytes: rule.ID, Valid: true},
+			Automated:        true,
 			DueAt:            dueAt,
 		})
 		if err != nil {

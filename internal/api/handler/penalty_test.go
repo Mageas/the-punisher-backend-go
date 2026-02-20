@@ -421,6 +421,9 @@ func TestPenaltyHandlerCreateTriggersPunishmentFromRule(t *testing.T) {
 	if *createdPunishment.TriggeringRuleName != "2 retards => colle" {
 		t.Fatalf("expected triggering_rule_name=%q, got %q", "2 retards => colle", *createdPunishment.TriggeringRuleName)
 	}
+	if !createdPunishment.Automated {
+		t.Fatalf("expected automated=true for punishment created by rule, got %+v", createdPunishment)
+	}
 	if createdPunishment.StudentFirstName != "Jean" || createdPunishment.StudentLastName != "Dupont" {
 		t.Fatalf("expected enriched student names, got %+v", createdPunishment)
 	}

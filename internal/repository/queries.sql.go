@@ -541,14 +541,14 @@ const createPunishment = `-- name: CreatePunishment :one
 
 WITH created_punishment AS (
     INSERT INTO punishments (
-        user_id, student_id, punishment_type_id, due_at
+        user_id, student_id, punishment_type_id, automated, due_at
     ) VALUES (
-        $1, $2, $3, $4
+        $1, $2, $3, FALSE, $4
     )
-    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, due_at, resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -572,6 +572,7 @@ type CreatePunishmentRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -596,6 +597,7 @@ func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentPara
 		&i.StudentID,
 		&i.PunishmentTypeID,
 		&i.TriggeringRuleID,
+		&i.Automated,
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
@@ -610,14 +612,14 @@ func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentPara
 const createPunishmentFromRule = `-- name: CreatePunishmentFromRule :one
 WITH created_punishment AS (
     INSERT INTO punishments (
-        user_id, student_id, punishment_type_id, triggering_rule_id, due_at
+        user_id, student_id, punishment_type_id, triggering_rule_id, automated, due_at
     ) VALUES (
-        $1, $2, $3, $4, $5
+        $1, $2, $3, $4, $5, $6
     )
-    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, created_at, due_at, resolved_at
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, due_at, resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -633,6 +635,7 @@ type CreatePunishmentFromRuleParams struct {
 	StudentID        uuid.UUID   `json:"student_id"`
 	PunishmentTypeID uuid.UUID   `json:"punishment_type_id"`
 	TriggeringRuleID pgtype.UUID `json:"triggering_rule_id"`
+	Automated        bool        `json:"automated"`
 	DueAt            time.Time   `json:"due_at"`
 }
 
@@ -642,6 +645,7 @@ type CreatePunishmentFromRuleRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -657,6 +661,7 @@ func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunish
 		arg.StudentID,
 		arg.PunishmentTypeID,
 		arg.TriggeringRuleID,
+		arg.Automated,
 		arg.DueAt,
 	)
 	var i CreatePunishmentFromRuleRow
@@ -666,6 +671,7 @@ func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunish
 		&i.StudentID,
 		&i.PunishmentTypeID,
 		&i.TriggeringRuleID,
+		&i.Automated,
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
@@ -1376,7 +1382,7 @@ func (q *Queries) GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeBy
 
 const getPunishmentByUser = `-- name: GetPunishmentByUser :one
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -1399,6 +1405,7 @@ type GetPunishmentByUserRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -1417,6 +1424,7 @@ func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUs
 		&i.StudentID,
 		&i.PunishmentTypeID,
 		&i.TriggeringRuleID,
+		&i.Automated,
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,
@@ -2154,7 +2162,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -2182,6 +2190,7 @@ type ListDashboardPendingPunishmentsRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -2206,6 +2215,7 @@ func (q *Queries) ListDashboardPendingPunishments(ctx context.Context, arg ListD
 			&i.StudentID,
 			&i.PunishmentTypeID,
 			&i.TriggeringRuleID,
+			&i.Automated,
 			&i.CreatedAt,
 			&i.DueAt,
 			&i.ResolvedAt,
@@ -2586,7 +2596,7 @@ func (q *Queries) ListPunishmentTypesByUser(ctx context.Context, arg ListPunishm
 
 const listPunishmentsByStudent = `-- name: ListPunishmentsByStudent :many
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -2616,6 +2626,7 @@ type ListPunishmentsByStudentRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -2646,6 +2657,7 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 			&i.StudentID,
 			&i.PunishmentTypeID,
 			&i.TriggeringRuleID,
+			&i.Automated,
 			&i.CreatedAt,
 			&i.DueAt,
 			&i.ResolvedAt,
@@ -2666,7 +2678,7 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 
 const listPunishmentsByUser = `-- name: ListPunishmentsByUser :many
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -2699,6 +2711,7 @@ type ListPunishmentsByUserRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -2729,6 +2742,7 @@ func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishments
 			&i.StudentID,
 			&i.PunishmentTypeID,
 			&i.TriggeringRuleID,
+			&i.Automated,
 			&i.CreatedAt,
 			&i.DueAt,
 			&i.ResolvedAt,
@@ -2867,6 +2881,7 @@ SELECT
     history.punishment_type_name,
     history.triggering_rule_id,
     history.triggering_rule_name,
+    history.automated,
     history.due_at,
     history.resolved_at
 FROM (
@@ -2884,6 +2899,7 @@ FROM (
         pt.name AS punishment_type_name,
         COALESCE(p.triggering_rule_id, '00000000-0000-0000-0000-000000000000'::uuid) AS triggering_rule_id,
         COALESCE(r.name, ''::text) AS triggering_rule_name,
+        p.automated,
         p.due_at,
         COALESCE(p.resolved_at, '1970-01-01T00:00:00Z'::timestamptz) AS resolved_at
     FROM punishments p
@@ -2908,6 +2924,7 @@ FROM (
         ''::text AS punishment_type_name,
         '00000000-0000-0000-0000-000000000000'::uuid AS triggering_rule_id,
         ''::text AS triggering_rule_name,
+        FALSE AS automated,
         '1970-01-01T00:00:00Z'::timestamptz AS due_at,
         '1970-01-01T00:00:00Z'::timestamptz AS resolved_at
     FROM penalties p
@@ -2931,6 +2948,7 @@ FROM (
         ''::text AS punishment_type_name,
         '00000000-0000-0000-0000-000000000000'::uuid AS triggering_rule_id,
         ''::text AS triggering_rule_name,
+        FALSE AS automated,
         '1970-01-01T00:00:00Z'::timestamptz AS due_at,
         '1970-01-01T00:00:00Z'::timestamptz AS resolved_at
     FROM bonuses b
@@ -2963,6 +2981,7 @@ type ListStudentHistoryRow struct {
 	PunishmentTypeName string             `json:"punishment_type_name"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
 	TriggeringRuleName string             `json:"triggering_rule_name"`
+	Automated          bool               `json:"automated"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
 }
@@ -2995,6 +3014,7 @@ func (q *Queries) ListStudentHistory(ctx context.Context, arg ListStudentHistory
 			&i.PunishmentTypeName,
 			&i.TriggeringRuleID,
 			&i.TriggeringRuleName,
+			&i.Automated,
 			&i.DueAt,
 			&i.ResolvedAt,
 		); err != nil {
@@ -3251,10 +3271,10 @@ WITH resolved_punishment AS (
     UPDATE punishments
     SET resolved_at = NOW()
     WHERE punishments.id = $1 AND punishments.user_id = $2 AND punishments.resolved_at IS NULL
-    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.created_at, punishments.due_at, punishments.resolved_at
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.due_at, punishments.resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -3276,6 +3296,7 @@ type ResolvePunishmentRow struct {
 	StudentID          uuid.UUID          `json:"student_id"`
 	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
 	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
+	Automated          bool               `json:"automated"`
 	CreatedAt          time.Time          `json:"created_at"`
 	DueAt              time.Time          `json:"due_at"`
 	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
@@ -3294,6 +3315,7 @@ func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentPa
 		&i.StudentID,
 		&i.PunishmentTypeID,
 		&i.TriggeringRuleID,
+		&i.Automated,
 		&i.CreatedAt,
 		&i.DueAt,
 		&i.ResolvedAt,

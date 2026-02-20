@@ -42,6 +42,7 @@ type dashboardPunishmentResponse struct {
 	StudentID          uuid.UUID  `json:"student_id"`
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	TriggeringRuleName *string    `json:"triggering_rule_name"`
+	Automated          bool       `json:"automated"`
 }
 
 type dashboardResponse struct {
@@ -87,7 +88,7 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(2 * time.Hour)})
 
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: pgtype.UUID{Bytes: ruleID, Valid: true}, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: pgtype.UUID{Bytes: ruleID, Valid: true}, Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(2 * time.Hour), DueAt: base.Add(24 * time.Hour)})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: pgtype.Timestamptz{Time: base.Add(5 * time.Hour), Valid: true}})
 
@@ -120,14 +121,21 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 			t.Fatalf("expected bonuses sorted by created_at desc, got %+v", resp.RecentBonuses)
 		}
 
-		autoPunishmentFound := false
+		autoPunishmentCount := 0
 		for _, pendingPunishment := range resp.PendingPunishments {
 			if pendingPunishment.TriggeringRuleID != nil && pendingPunishment.TriggeringRuleName != nil && *pendingPunishment.TriggeringRuleName == "3 bavardages => retenue" {
-				autoPunishmentFound = true
+				if !pendingPunishment.Automated {
+					t.Fatalf("expected automated=true when triggering rule is present, got %+v", pendingPunishment)
+				}
+				autoPunishmentCount++
+				continue
+			}
+			if pendingPunishment.Automated {
+				t.Fatalf("expected automated=false when no triggering rule is present, got %+v", pendingPunishment)
 			}
 		}
-		if !autoPunishmentFound {
-			t.Fatalf("expected one pending punishment to include triggering rule details, got %+v", resp.PendingPunishments)
+		if autoPunishmentCount != 1 {
+			t.Fatalf("expected one pending automated punishment, got %+v", resp.PendingPunishments)
 		}
 	})
 

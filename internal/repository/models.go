@@ -64,6 +64,7 @@ type Punishment struct {
 	CreatedAt        time.Time          `json:"created_at"`
 	DueAt            time.Time          `json:"due_at"`
 	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
+	Automated        bool               `json:"automated"`
 }
 
 type PunishmentType struct {
