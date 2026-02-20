@@ -22,7 +22,7 @@ const (
 func (r *Repository) studentAggregateFieldsLocked(student repository.Student) (float64, int64) {
 	var availableBonusPoints float64
 	for _, bonus := range r.bonuses {
-		if bonus.StudentID == student.ID && bonus.UserID == student.UserID && !bonus.UsedAt.Valid {
+		if bonus.StudentID == student.ID && bonus.UserID == student.UserID && !hasTime(bonus.UsedAt) {
 			availableBonusPoints += bonus.Points
 		}
 	}
@@ -233,11 +233,11 @@ func (r *Repository) UpdateStudentByUser(_ context.Context, arg repository.Updat
 		return repository.UpdateStudentByUserRow{}, pgx.ErrNoRows
 	}
 
-	if arg.FirstName.Valid {
-		student.FirstName = arg.FirstName.String
+	if arg.FirstName != nil {
+		student.FirstName = *arg.FirstName
 	}
-	if arg.LastName.Valid {
-		student.LastName = arg.LastName.String
+	if arg.LastName != nil {
+		student.LastName = *arg.LastName
 	}
 
 	student.UpdatedAt = time.Now()

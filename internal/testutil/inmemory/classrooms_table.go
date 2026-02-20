@@ -40,7 +40,7 @@ func (r *Repository) classroomAggregateFieldsLocked(classroom repository.Classro
 
 	var totalBonusPoints float64
 	for _, bonus := range r.bonuses {
-		if bonus.UserID != classroom.UserID || bonus.UsedAt.Valid {
+		if bonus.UserID != classroom.UserID || hasTime(bonus.UsedAt) {
 			continue
 		}
 		if _, ok := studentIDs[bonus.StudentID]; ok {
@@ -260,13 +260,13 @@ func (r *Repository) UpdateClassroomByUser(_ context.Context, arg repository.Upd
 		return repository.UpdateClassroomByUserRow{}, pgx.ErrNoRows
 	}
 
-	if arg.Name.Valid {
-		classroom.Name = arg.Name.String
+	if arg.Name != nil {
+		classroom.Name = *arg.Name
 	}
-	if arg.Year.Valid {
+	if arg.Year != nil {
 		classroom.Year = arg.Year
 	}
-	if arg.MainTeacher.Valid {
+	if arg.MainTeacher != nil {
 		classroom.MainTeacher = arg.MainTeacher
 	}
 

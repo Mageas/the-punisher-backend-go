@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -21,10 +20,10 @@ func (s *classroomService) CreateClassroom(ctx context.Context, userID uuid.UUID
 	}
 
 	if req.Year != nil {
-		params.Year = pgtype.Text{String: *req.Year, Valid: true}
+		params.Year = req.Year
 	}
 	if req.MainTeacher != nil {
-		params.MainTeacher = pgtype.Text{String: *req.MainTeacher, Valid: true}
+		params.MainTeacher = req.MainTeacher
 	}
 
 	classroom, err := s.repo.CreateClassroom(ctx, params)
@@ -92,13 +91,13 @@ func (s *classroomService) UpdateClassroom(ctx context.Context, userID uuid.UUID
 	}
 
 	if req.Name != nil {
-		params.Name = pgtype.Text{String: *req.Name, Valid: true}
+		params.Name = req.Name
 	}
 	if req.Year != nil {
-		params.Year = pgtype.Text{String: *req.Year, Valid: true}
+		params.Year = req.Year
 	}
 	if req.MainTeacher != nil {
-		params.MainTeacher = pgtype.Text{String: *req.MainTeacher, Valid: true}
+		params.MainTeacher = req.MainTeacher
 	}
 
 	classroom, err := s.repo.UpdateClassroomByUser(ctx, params)

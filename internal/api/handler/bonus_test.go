@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
@@ -315,7 +314,7 @@ func TestBonusHandlerListSearch(t *testing.T) {
 	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
 
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, BonusTypeID: bonusTypeID, Points: 1.5, CreatedAt: now.Add(1 * time.Minute)})
-	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, BonusTypeID: bonusTypeID, Points: 2.5, CreatedAt: now.Add(2 * time.Minute), UsedAt: pgtype.Timestamptz{Time: now.Add(3 * time.Minute), Valid: true}})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, BonusTypeID: bonusTypeID, Points: 2.5, CreatedAt: now.Add(2 * time.Minute), UsedAt: doubleTimePtr(now.Add(3 * time.Minute))})
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentOtherID, BonusTypeID: bonusTypeID, Points: 3.5, CreatedAt: now.Add(4 * time.Minute)})
 
 	searchReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/bonuses/?search=%20%20jean%20%20%20dupont%20%20", userID, cfg)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
@@ -44,7 +43,7 @@ func TestBonusServiceUseBonus(t *testing.T) {
 			StudentID:   uuid.New(),
 			BonusTypeID: uuid.New(),
 			Points:      1,
-			UsedAt:      pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			UsedAt:      doubleTimePtr(time.Now()),
 		})
 
 		_, err := svc.UseBonus(context.Background(), userID, bonusID)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
@@ -657,21 +656,4 @@ func newClassroomRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Ha
 	})
 
 	return r
-}
-
-func classroomWithOptionalFields(id, userID uuid.UUID, name, year, mainTeacher string) repository.Classroom {
-	classroom := repository.Classroom{
-		ID:     id,
-		UserID: userID,
-		Name:   name,
-	}
-
-	if year != "" {
-		classroom.Year = pgtype.Text{String: year, Valid: true}
-	}
-	if mainTeacher != "" {
-		classroom.MainTeacher = pgtype.Text{String: mainTeacher, Valid: true}
-	}
-
-	return classroom
 }

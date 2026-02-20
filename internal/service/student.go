@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -73,14 +72,9 @@ func (s *studentService) GetStudent(ctx context.Context, userID uuid.UUID, stude
 }
 
 func (s *studentService) ListStudents(ctx context.Context, userID uuid.UUID, search *string, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error) {
-	searchParam := pgtype.Text{}
-	if search != nil {
-		searchParam = pgtype.Text{String: *search, Valid: true}
-	}
-
 	totalCount, err := s.repo.CountStudentsByUser(ctx, repository.CountStudentsByUserParams{
 		UserID: userID,
-		Search: searchParam,
+		Search: search,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count students: %w", err)
@@ -88,7 +82,7 @@ func (s *studentService) ListStudents(ctx context.Context, userID uuid.UUID, sea
 
 	students, err := s.repo.ListStudentsByUser(ctx, repository.ListStudentsByUserParams{
 		UserID:      userID,
-		Search:      searchParam,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
@@ -111,10 +105,10 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID uuid.UUID, st
 	}
 
 	if req.FirstName != nil {
-		params.FirstName = pgtype.Text{String: *req.FirstName, Valid: true}
+		params.FirstName = req.FirstName
 	}
 	if req.LastName != nil {
-		params.LastName = pgtype.Text{String: *req.LastName, Valid: true}
+		params.LastName = req.LastName
 	}
 
 	student, err := s.repo.UpdateStudentByUser(ctx, params)

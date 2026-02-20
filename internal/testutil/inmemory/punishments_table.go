@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -22,12 +21,12 @@ const (
 	OpDeletePunishmentByUser    = "DeletePunishmentByUser"
 )
 
-func (r *Repository) triggeringRuleNameForPunishmentLocked(triggeringRuleID pgtype.UUID) string {
-	if !triggeringRuleID.Valid {
+func (r *Repository) triggeringRuleNameForPunishmentLocked(triggeringRuleID *uuid.UUID) string {
+	if triggeringRuleID == nil {
 		return ""
 	}
 
-	ruleID := uuid.UUID(triggeringRuleID.Bytes)
+	ruleID := *triggeringRuleID
 	if rule, ok := r.rules[ruleID]; ok {
 		return rule.Name
 	}
@@ -35,12 +34,13 @@ func (r *Repository) triggeringRuleNameForPunishmentLocked(triggeringRuleID pgty
 	return ""
 }
 
-func triggeringRuleNameAsText(name string) pgtype.Text {
+func triggeringRuleNameAsText(name string) *string {
 	if name == "" {
-		return pgtype.Text{}
+		return nil
 	}
 
-	return pgtype.Text{String: name, Valid: true}
+	convertedName := name
+	return &convertedName
 }
 
 func (r *Repository) buildCreatePunishmentRowLocked(punishment repository.Punishment) repository.CreatePunishmentRow {
@@ -266,7 +266,7 @@ func (r *Repository) CountPunishmentsByUser(_ context.Context, arg repository.Co
 			continue
 		}
 
-		isResolved := punishment.ResolvedAt.Valid
+		isResolved := hasTime(punishment.ResolvedAt)
 		if matchesOptionalBool(arg.Resolved, isResolved) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			count++
 		}
@@ -293,7 +293,7 @@ func (r *Repository) ListPunishmentsByUser(_ context.Context, arg repository.Lis
 			continue
 		}
 
-		isResolved := punishment.ResolvedAt.Valid
+		isResolved := hasTime(punishment.ResolvedAt)
 		if matchesOptionalBool(arg.Resolved, isResolved) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			items = append(items, punishment)
 		}
@@ -324,7 +324,7 @@ func (r *Repository) CountPunishmentsByStudent(_ context.Context, arg repository
 			continue
 		}
 
-		isResolved := punishment.ResolvedAt.Valid
+		isResolved := hasTime(punishment.ResolvedAt)
 		if matchesOptionalBool(arg.Resolved, isResolved) {
 			count++
 		}
@@ -347,7 +347,7 @@ func (r *Repository) ListPunishmentsByStudent(_ context.Context, arg repository.
 			continue
 		}
 
-		isResolved := punishment.ResolvedAt.Valid
+		isResolved := hasTime(punishment.ResolvedAt)
 		if matchesOptionalBool(arg.Resolved, isResolved) {
 			items = append(items, punishment)
 		}
@@ -373,11 +373,11 @@ func (r *Repository) ResolvePunishment(_ context.Context, arg repository.Resolve
 	}
 
 	punishment, ok := r.punishments[arg.ID]
-	if !ok || punishment.UserID != arg.UserID || punishment.ResolvedAt.Valid {
+	if !ok || punishment.UserID != arg.UserID || hasTime(punishment.ResolvedAt) {
 		return repository.ResolvePunishmentRow{}, pgx.ErrNoRows
 	}
 
-	punishment.ResolvedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	punishment.ResolvedAt = doubleTimePtr(time.Now())
 	r.punishments[arg.ID] = punishment
 
 	return r.buildResolvePunishmentRowLocked(punishment), nil

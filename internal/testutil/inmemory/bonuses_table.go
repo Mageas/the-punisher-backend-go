@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -184,7 +183,7 @@ func (r *Repository) CountBonusesByUser(_ context.Context, arg repository.CountB
 			continue
 		}
 
-		isUsed := bonus.UsedAt.Valid
+		isUsed := hasTime(bonus.UsedAt)
 		if matchesOptionalBool(arg.Used, isUsed) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			count++
 		}
@@ -211,7 +210,7 @@ func (r *Repository) ListBonusesByUser(_ context.Context, arg repository.ListBon
 			continue
 		}
 
-		isUsed := bonus.UsedAt.Valid
+		isUsed := hasTime(bonus.UsedAt)
 		if matchesOptionalBool(arg.Used, isUsed) && matchesOptionalStudentSearch(arg.Search, student.FirstName, student.LastName) {
 			items = append(items, bonus)
 		}
@@ -242,7 +241,7 @@ func (r *Repository) CountBonusesByStudent(_ context.Context, arg repository.Cou
 			continue
 		}
 
-		isUsed := bonus.UsedAt.Valid
+		isUsed := hasTime(bonus.UsedAt)
 		if matchesOptionalBool(arg.Used, isUsed) {
 			count++
 		}
@@ -265,7 +264,7 @@ func (r *Repository) ListBonusesByStudent(_ context.Context, arg repository.List
 			continue
 		}
 
-		isUsed := bonus.UsedAt.Valid
+		isUsed := hasTime(bonus.UsedAt)
 		if matchesOptionalBool(arg.Used, isUsed) {
 			items = append(items, bonus)
 		}
@@ -291,11 +290,11 @@ func (r *Repository) UseBonus(_ context.Context, arg repository.UseBonusParams) 
 	}
 
 	bonus, ok := r.bonuses[arg.ID]
-	if !ok || bonus.UserID != arg.UserID || bonus.UsedAt.Valid {
+	if !ok || bonus.UserID != arg.UserID || hasTime(bonus.UsedAt) {
 		return repository.UseBonusRow{}, pgx.ErrNoRows
 	}
 
-	bonus.UsedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	bonus.UsedAt = doubleTimePtr(time.Now())
 	r.bonuses[arg.ID] = bonus
 
 	return r.buildUseBonusRowLocked(bonus), nil

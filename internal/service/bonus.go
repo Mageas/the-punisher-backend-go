@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -74,19 +73,10 @@ func (s *bonusService) GetBonus(ctx context.Context, userID uuid.UUID, bonusID u
 }
 
 func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *bool, search *string, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
-	usedParam := pgtype.Bool{}
-	if used != nil {
-		usedParam = pgtype.Bool{Bool: *used, Valid: true}
-	}
-	searchParam := pgtype.Text{}
-	if search != nil {
-		searchParam = pgtype.Text{String: *search, Valid: true}
-	}
-
 	totalCount, err := s.repo.CountBonusesByUser(ctx, repository.CountBonusesByUserParams{
 		UserID: userID,
-		Used:   usedParam,
-		Search: searchParam,
+		Used:   used,
+		Search: search,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count bonuses: %w", err)
@@ -94,8 +84,8 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *
 
 	bonuses, err := s.repo.ListBonusesByUser(ctx, repository.ListBonusesByUserParams{
 		UserID:      userID,
-		Used:        usedParam,
-		Search:      searchParam,
+		Used:        used,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
@@ -114,15 +104,10 @@ func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUI
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)
 	}
 
-	usedParam := pgtype.Bool{}
-	if used != nil {
-		usedParam = pgtype.Bool{Bool: *used, Valid: true}
-	}
-
 	totalCount, err := s.repo.CountBonusesByStudent(ctx, repository.CountBonusesByStudentParams{
 		StudentID: studentID,
 		UserID:    userID,
-		Used:      usedParam,
+		Used:      used,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count bonuses by student: %w", err)
@@ -131,7 +116,7 @@ func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUI
 	bonuses, err := s.repo.ListBonusesByStudent(ctx, repository.ListBonusesByStudentParams{
 		StudentID:   studentID,
 		UserID:      userID,
-		Used:        usedParam,
+		Used:        used,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})

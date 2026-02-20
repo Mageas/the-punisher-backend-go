@@ -103,7 +103,7 @@ func (r *Repository) GetRefreshToken(_ context.Context, arg repository.GetRefres
 	}
 
 	token, ok := r.refreshTokens[refreshTokenKey(arg.UserID, arg.Token)]
-	if !ok || token.RevokedAt.Valid {
+	if !ok || hasTime(token.RevokedAt) {
 		return repository.RefreshToken{}, pgx.ErrNoRows
 	}
 
