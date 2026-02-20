@@ -214,6 +214,7 @@ func (r *Repository) ListDashboardPendingPunishments(_ context.Context, arg repo
 			StudentID:          punishment.StudentID,
 			PunishmentTypeID:   punishment.PunishmentTypeID,
 			TriggeringRuleID:   punishment.TriggeringRuleID,
+			Automated:          punishment.Automated,
 			CreatedAt:          punishment.CreatedAt,
 			DueAt:              punishment.DueAt,
 			ResolvedAt:         punishment.ResolvedAt,
