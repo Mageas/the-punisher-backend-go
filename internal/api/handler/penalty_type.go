@@ -4,117 +4,42 @@ import (
 	"net/http"
 
 	"github.com/mageas/the-punisher-backend/internal/dto"
-	"github.com/mageas/the-punisher-backend/internal/platform/auth"
-	"github.com/mageas/the-punisher-backend/internal/platform/validator"
-	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
 )
 
 type PenaltyTypeHandler struct {
-	service service.PenaltyTypeService
+	managed managedTypeHandler[dto.RequestPenaltyTypeDto, dto.UpdatePenaltyTypeDto, dto.ReturnPenaltyTypeDto]
 }
 
 func NewPenaltyTypeHandler(service service.PenaltyTypeService) *PenaltyTypeHandler {
 	return &PenaltyTypeHandler{
-		service: service,
+		managed: managedTypeHandler[dto.RequestPenaltyTypeDto, dto.UpdatePenaltyTypeDto, dto.ReturnPenaltyTypeDto]{
+			idPathParam: "penalty_type_id",
+			create:      service.CreatePenaltyType,
+			list:        service.ListPenaltyTypes,
+			get:         service.GetPenaltyType,
+			update:      service.UpdatePenaltyType,
+			delete:      service.DeletePenaltyType,
+		},
 	}
 }
 
 func (h *PenaltyTypeHandler) CreatePenaltyType(w http.ResponseWriter, r *http.Request) {
-	userID := auth.MustUserIDFromContext(r.Context())
-
-	var req dto.RequestPenaltyTypeDto
-	if err := web.DecodeJSON(r, &req); err != nil {
-		web.WriteJSONDecodeError(w, err)
-		return
-	}
-
-	if err := validator.ValidateStruct(req); err != nil {
-		web.WriteValidationError(w, err)
-		return
-	}
-
-	res, err := h.service.CreatePenaltyType(r.Context(), userID, req)
-	if err != nil {
-		web.WriteFromError(w, err)
-		return
-	}
-
-	web.WriteJSON(w, http.StatusCreated, res, nil)
+	h.managed.handleCreate(w, r)
 }
 
 func (h *PenaltyTypeHandler) ListPenaltyTypes(w http.ResponseWriter, r *http.Request) {
-	userID := auth.MustUserIDFromContext(r.Context())
-
-	limit, offset, page := web.ParsePagination(r)
-
-	penaltyTypes, totalCount, err := h.service.ListPenaltyTypes(r.Context(), userID, limit, offset)
-	if err != nil {
-		web.WriteFromError(w, err)
-		return
-	}
-
-	response := web.NewPaginatedResponse(penaltyTypes, totalCount, page)
-	web.WriteJSON(w, http.StatusOK, response, nil)
+	h.managed.handleList(w, r)
 }
 
 func (h *PenaltyTypeHandler) GetPenaltyType(w http.ResponseWriter, r *http.Request) {
-	userID := auth.MustUserIDFromContext(r.Context())
-
-	penaltyTypeID, ok := parsePathUUID(w, r, "penalty_type_id", "penalty_type_id", "id")
-	if !ok {
-		return
-	}
-
-	res, err := h.service.GetPenaltyType(r.Context(), userID, penaltyTypeID)
-	if err != nil {
-		web.WriteFromError(w, err)
-		return
-	}
-
-	web.WriteJSON(w, http.StatusOK, res, nil)
+	h.managed.handleGet(w, r)
 }
 
 func (h *PenaltyTypeHandler) UpdatePenaltyType(w http.ResponseWriter, r *http.Request) {
-	userID := auth.MustUserIDFromContext(r.Context())
-
-	penaltyTypeID, ok := parsePathUUID(w, r, "penalty_type_id", "penalty_type_id", "id")
-	if !ok {
-		return
-	}
-
-	var req dto.UpdatePenaltyTypeDto
-	if err := web.DecodeJSON(r, &req); err != nil {
-		web.WriteJSONDecodeError(w, err)
-		return
-	}
-
-	if err := validator.ValidateStruct(req); err != nil {
-		web.WriteValidationError(w, err)
-		return
-	}
-
-	penaltyType, err := h.service.UpdatePenaltyType(r.Context(), userID, penaltyTypeID, req)
-	if err != nil {
-		web.WriteFromError(w, err)
-		return
-	}
-
-	web.WriteJSON(w, http.StatusOK, penaltyType, nil)
+	h.managed.handleUpdate(w, r)
 }
 
 func (h *PenaltyTypeHandler) DeletePenaltyType(w http.ResponseWriter, r *http.Request) {
-	userID := auth.MustUserIDFromContext(r.Context())
-
-	penaltyTypeID, ok := parsePathUUID(w, r, "penalty_type_id", "penalty_type_id", "id")
-	if !ok {
-		return
-	}
-
-	if err := h.service.DeletePenaltyType(r.Context(), userID, penaltyTypeID); err != nil {
-		web.WriteFromError(w, err)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
+	h.managed.handleDelete(w, r)
 }
