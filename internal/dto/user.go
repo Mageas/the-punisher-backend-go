@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
 type RequestUserDto struct {
@@ -21,46 +20,4 @@ type ReturnUserDto struct {
 	LastName  string    `json:"last_name"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-}
-
-func UserFromRepository(u *repository.CreateUserRow) *ReturnUserDto {
-	if u == nil {
-		return nil
-	}
-
-	return &ReturnUserDto{
-		ID:        u.ID,
-		Email:     u.Email,
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
-	}
-}
-
-func UserFromGetByIDRow(u *repository.GetUserByIDRow) *ReturnUserDto {
-	if u == nil {
-		return nil
-	}
-
-	return &ReturnUserDto{
-		ID:        u.ID,
-		Email:     u.Email,
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
-	}
-}
-
-func UserListFromRepository(users []*repository.CreateUserRow) []*ReturnUserDto {
-	dtos := make([]*ReturnUserDto, 0, len(users))
-
-	for _, u := range users {
-		if dto := UserFromRepository(u); dto != nil {
-			dtos = append(dtos, dto)
-		}
-	}
-
-	return dtos
 }

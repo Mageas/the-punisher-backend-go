@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -76,5 +77,5 @@ func (s *dashboardService) GetDashboard(ctx context.Context, userID uuid.UUID, c
 		return nil, fmt.Errorf("failed to list dashboard pending punishments: %w", err)
 	}
 
-	return dto.DashboardFromRows(&kpis, recentPenalties, recentBonuses, pendingPunishments), nil
+	return sqlcmapper.DashboardFromRows(&kpis, recentPenalties, recentBonuses, pendingPunishments), nil
 }

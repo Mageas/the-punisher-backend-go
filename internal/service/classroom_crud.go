@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -33,7 +34,7 @@ func (s *classroomService) CreateClassroom(ctx context.Context, userID uuid.UUID
 
 	slog.Info("classroom created", "classroom_id", classroom.ID, "user_id", userID)
 
-	response := dto.ClassroomFromCreateRow(&classroom)
+	response := sqlcmapper.ClassroomFromCreateRow(&classroom)
 	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, []*dto.ReturnClassroomDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list classroom students preview: %w", err)
 	}
@@ -53,7 +54,7 @@ func (s *classroomService) GetClassroom(ctx context.Context, userID uuid.UUID, c
 		return nil, fmt.Errorf("failed to get classroom: %w", err)
 	}
 
-	response := dto.ClassroomFromGetRow(&classroom)
+	response := sqlcmapper.ClassroomFromGetRow(&classroom)
 	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, []*dto.ReturnClassroomDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list classroom students preview: %w", err)
 	}
@@ -76,7 +77,7 @@ func (s *classroomService) ListClassrooms(ctx context.Context, userID uuid.UUID,
 		return nil, 0, fmt.Errorf("failed to list classrooms: %w", err)
 	}
 
-	response := dto.ClassroomListFromListByUserRows(classrooms)
+	response := sqlcmapper.ClassroomListFromListByUserRows(classrooms)
 	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, response); err != nil {
 		return nil, 0, fmt.Errorf("failed to list classroom students preview: %w", err)
 	}
@@ -108,7 +109,7 @@ func (s *classroomService) UpdateClassroom(ctx context.Context, userID uuid.UUID
 		return nil, fmt.Errorf("failed to update classroom: %w", err)
 	}
 
-	response := dto.ClassroomFromUpdateRow(&classroom)
+	response := sqlcmapper.ClassroomFromUpdateRow(&classroom)
 	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, []*dto.ReturnClassroomDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list classroom students preview: %w", err)
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -25,7 +26,7 @@ func (s *studentService) GetStudentKpis(ctx context.Context, userID uuid.UUID, s
 		return nil, fmt.Errorf("failed to get student kpis: %w", err)
 	}
 
-	return dto.StudentKpisFromRow(&kpis), nil
+	return sqlcmapper.StudentKpisFromRow(&kpis), nil
 }
 
 func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentHistoryItemDto, error) {
@@ -43,7 +44,7 @@ func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUI
 		return nil, fmt.Errorf("failed to list student history: %w", err)
 	}
 
-	return dto.StudentHistoryFromRows(history), nil
+	return sqlcmapper.StudentHistoryFromRows(history), nil
 }
 
 func (s *studentService) ensureStudentExists(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error {

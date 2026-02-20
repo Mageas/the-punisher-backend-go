@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -61,7 +62,7 @@ func NewPunishmentTypeService(repo repository.Querier) PunishmentTypeService {
 					return repo.DeletePunishmentTypeByUser(ctx, repository.DeletePunishmentTypeByUserParams{ID: resourceID, UserID: userID})
 				},
 			},
-			dto.PunishmentTypeFromRepository,
+			sqlcmapper.PunishmentTypeFromRepository,
 		),
 	}
 }
