@@ -225,26 +225,26 @@ func (r *Repository) UpdateRuleByUser(_ context.Context, arg repository.UpdateRu
 		return repository.UpdateRuleByUserRow{}, pgx.ErrNoRows
 	}
 
-	if arg.Name.Valid {
-		rule.Name = arg.Name.String
+	if arg.Name != nil {
+		rule.Name = *arg.Name
 	}
-	if arg.ResultingPunishmentTypeID.Valid {
-		rule.ResultingPunishmentTypeID = uuid.UUID(arg.ResultingPunishmentTypeID.Bytes)
+	if arg.ResultingPunishmentTypeID != nil {
+		rule.ResultingPunishmentTypeID = *arg.ResultingPunishmentTypeID
 	}
-	if arg.PenaltyTypeID.Valid {
-		rule.PenaltyTypeID = uuid.UUID(arg.PenaltyTypeID.Bytes)
+	if arg.PenaltyTypeID != nil {
+		rule.PenaltyTypeID = *arg.PenaltyTypeID
 	}
-	if arg.Threshold.Valid {
-		rule.Threshold = arg.Threshold.Int32
+	if arg.Threshold != nil {
+		rule.Threshold = *arg.Threshold
 	}
-	if arg.Mode.Valid {
-		rule.Mode = arg.Mode.String
+	if arg.Mode != nil {
+		rule.Mode = *arg.Mode
 	}
-	if arg.IsActive.Valid {
-		rule.IsActive = arg.IsActive.Bool
+	if arg.IsActive != nil {
+		rule.IsActive = *arg.IsActive
 	}
-	if arg.DueAtAfterDays.Valid {
-		rule.DueAtAfterDays = arg.DueAtAfterDays.Int32
+	if arg.DueAtAfterDays != nil {
+		rule.DueAtAfterDays = *arg.DueAtAfterDays
 	}
 
 	rule.UpdatedAt = time.Now()

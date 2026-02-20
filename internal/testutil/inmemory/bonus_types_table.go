@@ -123,8 +123,8 @@ func (r *Repository) UpdateBonusTypeByUser(_ context.Context, arg repository.Upd
 		return repository.BonusType{}, pgx.ErrNoRows
 	}
 
-	if arg.Name.Valid {
-		bt.Name = arg.Name.String
+	if arg.Name != nil {
+		bt.Name = *arg.Name
 	}
 	bt.UpdatedAt = time.Now()
 	r.bonusTypes[arg.ID] = bt

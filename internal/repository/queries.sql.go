@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addStudentToClassroom = `-- name: AddStudentToClassroom :execrows
@@ -59,9 +58,9 @@ WHERE student_id = $1
 `
 
 type CountBonusesByStudentParams struct {
-	StudentID uuid.UUID   `json:"student_id"`
-	UserID    uuid.UUID   `json:"user_id"`
-	Used      pgtype.Bool `json:"used"`
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Used      *bool     `json:"used"`
 }
 
 func (q *Queries) CountBonusesByStudent(ctx context.Context, arg CountBonusesByStudentParams) (int64, error) {
@@ -84,9 +83,9 @@ WHERE b.user_id = $1
 `
 
 type CountBonusesByUserParams struct {
-	UserID uuid.UUID   `json:"user_id"`
-	Used   pgtype.Bool `json:"used"`
-	Search pgtype.Text `json:"search"`
+	UserID uuid.UUID `json:"user_id"`
+	Used   *bool     `json:"used"`
+	Search *string   `json:"search"`
 }
 
 func (q *Queries) CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error) {
@@ -207,9 +206,9 @@ WHERE student_id = $1
 `
 
 type CountPunishmentsByStudentParams struct {
-	StudentID uuid.UUID   `json:"student_id"`
-	UserID    uuid.UUID   `json:"user_id"`
-	Resolved  pgtype.Bool `json:"resolved"`
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Resolved  *bool     `json:"resolved"`
 }
 
 func (q *Queries) CountPunishmentsByStudent(ctx context.Context, arg CountPunishmentsByStudentParams) (int64, error) {
@@ -232,9 +231,9 @@ WHERE p.user_id = $1
 `
 
 type CountPunishmentsByUserParams struct {
-	UserID   uuid.UUID   `json:"user_id"`
-	Resolved pgtype.Bool `json:"resolved"`
-	Search   pgtype.Text `json:"search"`
+	UserID   uuid.UUID `json:"user_id"`
+	Resolved *bool     `json:"resolved"`
+	Search   *string   `json:"search"`
 }
 
 func (q *Queries) CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error) {
@@ -285,8 +284,8 @@ WHERE s.user_id = $1
 `
 
 type CountStudentsByUserParams struct {
-	UserID uuid.UUID   `json:"user_id"`
-	Search pgtype.Text `json:"search"`
+	UserID uuid.UUID `json:"user_id"`
+	Search *string   `json:"search"`
 }
 
 func (q *Queries) CountStudentsByUser(ctx context.Context, arg CountStudentsByUserParams) (int64, error) {
@@ -318,16 +317,16 @@ type CreateBonusParams struct {
 }
 
 type CreateBonusRow struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
-	Points           float64            `json:"points"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UsedAt           pgtype.Timestamptz `json:"used_at"`
-	StudentFirstName string             `json:"student_first_name"`
-	StudentLastName  string             `json:"student_last_name"`
-	BonusTypeName    string             `json:"bonus_type_name"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	BonusTypeID      uuid.UUID   `json:"bonus_type_id"`
+	Points           float64     `json:"points"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UsedAt           **time.Time `json:"used_at"`
+	StudentFirstName string      `json:"student_first_name"`
+	StudentLastName  string      `json:"student_last_name"`
+	BonusTypeName    string      `json:"bonus_type_name"`
 }
 
 // ==================== Bonus ====================
@@ -417,23 +416,23 @@ RETURNING
 `
 
 type CreateClassroomParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	Name        string      `json:"name"`
-	Year        pgtype.Text `json:"year"`
-	MainTeacher pgtype.Text `json:"main_teacher"`
+	UserID      uuid.UUID `json:"user_id"`
+	Name        string    `json:"name"`
+	Year        *string   `json:"year"`
+	MainTeacher *string   `json:"main_teacher"`
 }
 
 type CreateClassroomRow struct {
-	ID                uuid.UUID   `json:"id"`
-	UserID            uuid.UUID   `json:"user_id"`
-	Name              string      `json:"name"`
-	Year              pgtype.Text `json:"year"`
-	MainTeacher       pgtype.Text `json:"main_teacher"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	StudentCount      int64       `json:"student_count"`
-	TotalBonusPoints  float64     `json:"total_bonus_points"`
-	TotalPenaltyCount int64       `json:"total_penalty_count"`
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	Name              string    `json:"name"`
+	Year              *string   `json:"year"`
+	MainTeacher       *string   `json:"main_teacher"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	StudentCount      int64     `json:"student_count"`
+	TotalBonusPoints  float64   `json:"total_bonus_points"`
+	TotalPenaltyCount int64     `json:"total_penalty_count"`
 }
 
 // ==================== Classroom ====================
@@ -567,19 +566,19 @@ type CreatePunishmentParams struct {
 }
 
 type CreatePunishmentRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 // ==================== Punishment ====================
@@ -631,28 +630,28 @@ LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
 type CreatePunishmentFromRuleParams struct {
-	UserID           uuid.UUID   `json:"user_id"`
-	StudentID        uuid.UUID   `json:"student_id"`
-	PunishmentTypeID uuid.UUID   `json:"punishment_type_id"`
-	TriggeringRuleID pgtype.UUID `json:"triggering_rule_id"`
-	Automated        bool        `json:"automated"`
-	DueAt            time.Time   `json:"due_at"`
+	UserID           uuid.UUID  `json:"user_id"`
+	StudentID        uuid.UUID  `json:"student_id"`
+	PunishmentTypeID uuid.UUID  `json:"punishment_type_id"`
+	TriggeringRuleID *uuid.UUID `json:"triggering_rule_id"`
+	Automated        bool       `json:"automated"`
+	DueAt            time.Time  `json:"due_at"`
 }
 
 type CreatePunishmentFromRuleRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunishmentFromRuleParams) (CreatePunishmentFromRuleRow, error) {
@@ -1118,16 +1117,16 @@ type GetBonusByUserParams struct {
 }
 
 type GetBonusByUserRow struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
-	Points           float64            `json:"points"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UsedAt           pgtype.Timestamptz `json:"used_at"`
-	StudentFirstName string             `json:"student_first_name"`
-	StudentLastName  string             `json:"student_last_name"`
-	BonusTypeName    string             `json:"bonus_type_name"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	BonusTypeID      uuid.UUID   `json:"bonus_type_id"`
+	Points           float64     `json:"points"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UsedAt           **time.Time `json:"used_at"`
+	StudentFirstName string      `json:"student_first_name"`
+	StudentLastName  string      `json:"student_last_name"`
+	BonusTypeName    string      `json:"bonus_type_name"`
 }
 
 func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error) {
@@ -1207,16 +1206,16 @@ type GetClassroomByUserParams struct {
 }
 
 type GetClassroomByUserRow struct {
-	ID                uuid.UUID   `json:"id"`
-	UserID            uuid.UUID   `json:"user_id"`
-	Name              string      `json:"name"`
-	Year              pgtype.Text `json:"year"`
-	MainTeacher       pgtype.Text `json:"main_teacher"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	StudentCount      int64       `json:"student_count"`
-	TotalBonusPoints  float64     `json:"total_bonus_points"`
-	TotalPenaltyCount int64       `json:"total_penalty_count"`
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	Name              string    `json:"name"`
+	Year              *string   `json:"year"`
+	MainTeacher       *string   `json:"main_teacher"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	StudentCount      int64     `json:"student_count"`
+	TotalBonusPoints  float64   `json:"total_bonus_points"`
+	TotalPenaltyCount int64     `json:"total_penalty_count"`
 }
 
 func (q *Queries) GetClassroomByUser(ctx context.Context, arg GetClassroomByUserParams) (GetClassroomByUserRow, error) {
@@ -1286,8 +1285,8 @@ FROM filtered_students
 `
 
 type GetDashboardKpisParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	ClassroomID pgtype.UUID `json:"classroom_id"`
+	UserID      uuid.UUID  `json:"user_id"`
+	ClassroomID *uuid.UUID `json:"classroom_id"`
 }
 
 type GetDashboardKpisRow struct {
@@ -1400,19 +1399,19 @@ type GetPunishmentByUserParams struct {
 }
 
 type GetPunishmentByUserRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (GetPunishmentByUserRow, error) {
@@ -1798,24 +1797,24 @@ LIMIT $5 OFFSET $4
 `
 
 type ListBonusesByStudentParams struct {
-	StudentID   uuid.UUID   `json:"student_id"`
-	UserID      uuid.UUID   `json:"user_id"`
-	Used        pgtype.Bool `json:"used"`
-	QueryOffset int32       `json:"query_offset"`
-	QueryLimit  int32       `json:"query_limit"`
+	StudentID   uuid.UUID `json:"student_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	Used        *bool     `json:"used"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
 }
 
 type ListBonusesByStudentRow struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
-	Points           float64            `json:"points"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UsedAt           pgtype.Timestamptz `json:"used_at"`
-	StudentFirstName string             `json:"student_first_name"`
-	StudentLastName  string             `json:"student_last_name"`
-	BonusTypeName    string             `json:"bonus_type_name"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	BonusTypeID      uuid.UUID   `json:"bonus_type_id"`
+	Points           float64     `json:"points"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UsedAt           **time.Time `json:"used_at"`
+	StudentFirstName string      `json:"student_first_name"`
+	StudentLastName  string      `json:"student_last_name"`
+	BonusTypeName    string      `json:"bonus_type_name"`
 }
 
 func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]ListBonusesByStudentRow, error) {
@@ -1875,24 +1874,24 @@ LIMIT $5 OFFSET $4
 `
 
 type ListBonusesByUserParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	Used        pgtype.Bool `json:"used"`
-	Search      pgtype.Text `json:"search"`
-	QueryOffset int32       `json:"query_offset"`
-	QueryLimit  int32       `json:"query_limit"`
+	UserID      uuid.UUID `json:"user_id"`
+	Used        *bool     `json:"used"`
+	Search      *string   `json:"search"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
 }
 
 type ListBonusesByUserRow struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
-	Points           float64            `json:"points"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UsedAt           pgtype.Timestamptz `json:"used_at"`
-	StudentFirstName string             `json:"student_first_name"`
-	StudentLastName  string             `json:"student_last_name"`
-	BonusTypeName    string             `json:"bonus_type_name"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	BonusTypeID      uuid.UUID   `json:"bonus_type_id"`
+	Points           float64     `json:"points"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UsedAt           **time.Time `json:"used_at"`
+	StudentFirstName string      `json:"student_first_name"`
+	StudentLastName  string      `json:"student_last_name"`
+	BonusTypeName    string      `json:"bonus_type_name"`
 }
 
 func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]ListBonusesByUserRow, error) {
@@ -2017,16 +2016,16 @@ type ListClassroomsByStudentParams struct {
 }
 
 type ListClassroomsByStudentRow struct {
-	ID                uuid.UUID   `json:"id"`
-	UserID            uuid.UUID   `json:"user_id"`
-	Name              string      `json:"name"`
-	Year              pgtype.Text `json:"year"`
-	MainTeacher       pgtype.Text `json:"main_teacher"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	StudentCount      int64       `json:"student_count"`
-	TotalBonusPoints  float64     `json:"total_bonus_points"`
-	TotalPenaltyCount int64       `json:"total_penalty_count"`
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	Name              string    `json:"name"`
+	Year              *string   `json:"year"`
+	MainTeacher       *string   `json:"main_teacher"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	StudentCount      int64     `json:"student_count"`
+	TotalBonusPoints  float64   `json:"total_bonus_points"`
+	TotalPenaltyCount int64     `json:"total_penalty_count"`
 }
 
 func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]ListClassroomsByStudentRow, error) {
@@ -2103,16 +2102,16 @@ type ListClassroomsByUserParams struct {
 }
 
 type ListClassroomsByUserRow struct {
-	ID                uuid.UUID   `json:"id"`
-	UserID            uuid.UUID   `json:"user_id"`
-	Name              string      `json:"name"`
-	Year              pgtype.Text `json:"year"`
-	MainTeacher       pgtype.Text `json:"main_teacher"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	StudentCount      int64       `json:"student_count"`
-	TotalBonusPoints  float64     `json:"total_bonus_points"`
-	TotalPenaltyCount int64       `json:"total_penalty_count"`
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	Name              string    `json:"name"`
+	Year              *string   `json:"year"`
+	MainTeacher       *string   `json:"main_teacher"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	StudentCount      int64     `json:"student_count"`
+	TotalBonusPoints  float64   `json:"total_bonus_points"`
+	TotalPenaltyCount int64     `json:"total_penalty_count"`
 }
 
 func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]ListClassroomsByUserRow, error) {
@@ -2179,25 +2178,25 @@ LIMIT $2
 `
 
 type ListDashboardPendingPunishmentsParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	QueryLimit  int32       `json:"query_limit"`
-	ClassroomID pgtype.UUID `json:"classroom_id"`
+	UserID      uuid.UUID  `json:"user_id"`
+	QueryLimit  int32      `json:"query_limit"`
+	ClassroomID *uuid.UUID `json:"classroom_id"`
 }
 
 type ListDashboardPendingPunishmentsRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 func (q *Queries) ListDashboardPendingPunishments(ctx context.Context, arg ListDashboardPendingPunishmentsParams) ([]ListDashboardPendingPunishmentsRow, error) {
@@ -2264,22 +2263,22 @@ LIMIT $2
 `
 
 type ListDashboardRecentBonusesParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	QueryLimit  int32       `json:"query_limit"`
-	ClassroomID pgtype.UUID `json:"classroom_id"`
+	UserID      uuid.UUID  `json:"user_id"`
+	QueryLimit  int32      `json:"query_limit"`
+	ClassroomID *uuid.UUID `json:"classroom_id"`
 }
 
 type ListDashboardRecentBonusesRow struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
-	Points           float64            `json:"points"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UsedAt           pgtype.Timestamptz `json:"used_at"`
-	StudentFirstName string             `json:"student_first_name"`
-	StudentLastName  string             `json:"student_last_name"`
-	BonusTypeName    string             `json:"bonus_type_name"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	BonusTypeID      uuid.UUID   `json:"bonus_type_id"`
+	Points           float64     `json:"points"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UsedAt           **time.Time `json:"used_at"`
+	StudentFirstName string      `json:"student_first_name"`
+	StudentLastName  string      `json:"student_last_name"`
+	BonusTypeName    string      `json:"bonus_type_name"`
 }
 
 func (q *Queries) ListDashboardRecentBonuses(ctx context.Context, arg ListDashboardRecentBonusesParams) ([]ListDashboardRecentBonusesRow, error) {
@@ -2343,9 +2342,9 @@ LIMIT $2
 `
 
 type ListDashboardRecentPenaltiesParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	QueryLimit  int32       `json:"query_limit"`
-	ClassroomID pgtype.UUID `json:"classroom_id"`
+	UserID      uuid.UUID  `json:"user_id"`
+	QueryLimit  int32      `json:"query_limit"`
+	ClassroomID *uuid.UUID `json:"classroom_id"`
 }
 
 type ListDashboardRecentPenaltiesRow struct {
@@ -2613,27 +2612,27 @@ LIMIT $5 OFFSET $4
 `
 
 type ListPunishmentsByStudentParams struct {
-	StudentID   uuid.UUID   `json:"student_id"`
-	UserID      uuid.UUID   `json:"user_id"`
-	Resolved    pgtype.Bool `json:"resolved"`
-	QueryOffset int32       `json:"query_offset"`
-	QueryLimit  int32       `json:"query_limit"`
+	StudentID   uuid.UUID `json:"student_id"`
+	UserID      uuid.UUID `json:"user_id"`
+	Resolved    *bool     `json:"resolved"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
 }
 
 type ListPunishmentsByStudentRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishmentsByStudentParams) ([]ListPunishmentsByStudentRow, error) {
@@ -2698,27 +2697,27 @@ LIMIT $5 OFFSET $4
 `
 
 type ListPunishmentsByUserParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	Resolved    pgtype.Bool `json:"resolved"`
-	Search      pgtype.Text `json:"search"`
-	QueryOffset int32       `json:"query_offset"`
-	QueryLimit  int32       `json:"query_limit"`
+	UserID      uuid.UUID `json:"user_id"`
+	Resolved    *bool     `json:"resolved"`
+	Search      *string   `json:"search"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
 }
 
 type ListPunishmentsByUserRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]ListPunishmentsByUserRow, error) {
@@ -2968,22 +2967,22 @@ type ListStudentHistoryParams struct {
 }
 
 type ListStudentHistoryRow struct {
-	Type               string             `json:"type"`
-	ID                 uuid.UUID          `json:"id"`
-	CreatedAt          time.Time          `json:"created_at"`
-	PenaltyTypeID      uuid.UUID          `json:"penalty_type_id"`
-	PenaltyTypeName    string             `json:"penalty_type_name"`
-	BonusTypeID        uuid.UUID          `json:"bonus_type_id"`
-	BonusTypeName      string             `json:"bonus_type_name"`
-	Points             float64            `json:"points"`
-	UsedAt             time.Time          `json:"used_at"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	TriggeringRuleName string             `json:"triggering_rule_name"`
-	Automated          bool               `json:"automated"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
+	Type               string      `json:"type"`
+	ID                 uuid.UUID   `json:"id"`
+	CreatedAt          time.Time   `json:"created_at"`
+	PenaltyTypeID      uuid.UUID   `json:"penalty_type_id"`
+	PenaltyTypeName    string      `json:"penalty_type_name"`
+	BonusTypeID        uuid.UUID   `json:"bonus_type_id"`
+	BonusTypeName      string      `json:"bonus_type_name"`
+	Points             float64     `json:"points"`
+	UsedAt             time.Time   `json:"used_at"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	TriggeringRuleName string      `json:"triggering_rule_name"`
+	Automated          bool        `json:"automated"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
 }
 
 func (q *Queries) ListStudentHistory(ctx context.Context, arg ListStudentHistoryParams) ([]ListStudentHistoryRow, error) {
@@ -3131,10 +3130,10 @@ LIMIT $4 OFFSET $3
 `
 
 type ListStudentsByUserParams struct {
-	UserID      uuid.UUID   `json:"user_id"`
-	Search      pgtype.Text `json:"search"`
-	QueryOffset int32       `json:"query_offset"`
-	QueryLimit  int32       `json:"query_limit"`
+	UserID      uuid.UUID `json:"user_id"`
+	Search      *string   `json:"search"`
+	QueryOffset int32     `json:"query_offset"`
+	QueryLimit  int32     `json:"query_limit"`
 }
 
 type ListStudentsByUserRow struct {
@@ -3291,19 +3290,19 @@ type ResolvePunishmentParams struct {
 }
 
 type ResolvePunishmentRow struct {
-	ID                 uuid.UUID          `json:"id"`
-	UserID             uuid.UUID          `json:"user_id"`
-	StudentID          uuid.UUID          `json:"student_id"`
-	PunishmentTypeID   uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID   pgtype.UUID        `json:"triggering_rule_id"`
-	Automated          bool               `json:"automated"`
-	CreatedAt          time.Time          `json:"created_at"`
-	DueAt              time.Time          `json:"due_at"`
-	ResolvedAt         pgtype.Timestamptz `json:"resolved_at"`
-	StudentFirstName   string             `json:"student_first_name"`
-	StudentLastName    string             `json:"student_last_name"`
-	PunishmentTypeName string             `json:"punishment_type_name"`
-	TriggeringRuleName pgtype.Text        `json:"triggering_rule_name"`
+	ID                 uuid.UUID   `json:"id"`
+	UserID             uuid.UUID   `json:"user_id"`
+	StudentID          uuid.UUID   `json:"student_id"`
+	PunishmentTypeID   uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID  `json:"triggering_rule_id"`
+	Automated          bool        `json:"automated"`
+	CreatedAt          time.Time   `json:"created_at"`
+	DueAt              time.Time   `json:"due_at"`
+	ResolvedAt         **time.Time `json:"resolved_at"`
+	StudentFirstName   string      `json:"student_first_name"`
+	StudentLastName    string      `json:"student_last_name"`
+	PunishmentTypeName string      `json:"punishment_type_name"`
+	TriggeringRuleName *string     `json:"triggering_rule_name"`
 }
 
 func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentParams) (ResolvePunishmentRow, error) {
@@ -3335,11 +3334,11 @@ RETURNING id, user_id, token, revoked_at, expires_at
 `
 
 type RevokeRefreshTokenRow struct {
-	ID        uuid.UUID          `json:"id"`
-	UserID    uuid.UUID          `json:"user_id"`
-	Token     string             `json:"token"`
-	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
-	ExpiresAt time.Time          `json:"expires_at"`
+	ID        uuid.UUID   `json:"id"`
+	UserID    uuid.UUID   `json:"user_id"`
+	Token     string      `json:"token"`
+	RevokedAt **time.Time `json:"revoked_at"`
+	ExpiresAt time.Time   `json:"expires_at"`
 }
 
 func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (RevokeRefreshTokenRow, error) {
@@ -3365,9 +3364,9 @@ RETURNING id, user_id, name, created_at, updated_at
 `
 
 type UpdateBonusTypeByUserParams struct {
-	Name   pgtype.Text `json:"name"`
-	ID     uuid.UUID   `json:"id"`
-	UserID uuid.UUID   `json:"user_id"`
+	Name   *string   `json:"name"`
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) UpdateBonusTypeByUser(ctx context.Context, arg UpdateBonusTypeByUserParams) (BonusType, error) {
@@ -3418,24 +3417,24 @@ RETURNING
 `
 
 type UpdateClassroomByUserParams struct {
-	Name        pgtype.Text `json:"name"`
-	Year        pgtype.Text `json:"year"`
-	MainTeacher pgtype.Text `json:"main_teacher"`
-	ID          uuid.UUID   `json:"id"`
-	UserID      uuid.UUID   `json:"user_id"`
+	Name        *string   `json:"name"`
+	Year        *string   `json:"year"`
+	MainTeacher *string   `json:"main_teacher"`
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
 }
 
 type UpdateClassroomByUserRow struct {
-	ID                uuid.UUID   `json:"id"`
-	UserID            uuid.UUID   `json:"user_id"`
-	Name              string      `json:"name"`
-	Year              pgtype.Text `json:"year"`
-	MainTeacher       pgtype.Text `json:"main_teacher"`
-	CreatedAt         time.Time   `json:"created_at"`
-	UpdatedAt         time.Time   `json:"updated_at"`
-	StudentCount      int64       `json:"student_count"`
-	TotalBonusPoints  float64     `json:"total_bonus_points"`
-	TotalPenaltyCount int64       `json:"total_penalty_count"`
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	Name              string    `json:"name"`
+	Year              *string   `json:"year"`
+	MainTeacher       *string   `json:"main_teacher"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	StudentCount      int64     `json:"student_count"`
+	TotalBonusPoints  float64   `json:"total_bonus_points"`
+	TotalPenaltyCount int64     `json:"total_penalty_count"`
 }
 
 func (q *Queries) UpdateClassroomByUser(ctx context.Context, arg UpdateClassroomByUserParams) (UpdateClassroomByUserRow, error) {
@@ -3472,9 +3471,9 @@ RETURNING id, user_id, name, created_at, updated_at
 `
 
 type UpdatePenaltyTypeByUserParams struct {
-	Name   pgtype.Text `json:"name"`
-	ID     uuid.UUID   `json:"id"`
-	UserID uuid.UUID   `json:"user_id"`
+	Name   *string   `json:"name"`
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) UpdatePenaltyTypeByUser(ctx context.Context, arg UpdatePenaltyTypeByUserParams) (PenaltyType, error) {
@@ -3500,9 +3499,9 @@ RETURNING id, user_id, name, created_at, updated_at
 `
 
 type UpdatePunishmentTypeByUserParams struct {
-	Name   pgtype.Text `json:"name"`
-	ID     uuid.UUID   `json:"id"`
-	UserID uuid.UUID   `json:"user_id"`
+	Name   *string   `json:"name"`
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) UpdatePunishmentTypeByUser(ctx context.Context, arg UpdatePunishmentTypeByUserParams) (PunishmentType, error) {
@@ -3537,15 +3536,15 @@ RETURNING
 `
 
 type UpdateRuleByUserParams struct {
-	Name                      pgtype.Text `json:"name"`
-	ResultingPunishmentTypeID pgtype.UUID `json:"resulting_punishment_type_id"`
-	PenaltyTypeID             pgtype.UUID `json:"penalty_type_id"`
-	Threshold                 pgtype.Int4 `json:"threshold"`
-	Mode                      pgtype.Text `json:"mode"`
-	IsActive                  pgtype.Bool `json:"is_active"`
-	DueAtAfterDays            pgtype.Int4 `json:"due_at_after_days"`
-	ID                        uuid.UUID   `json:"id"`
-	UserID                    uuid.UUID   `json:"user_id"`
+	Name                      *string    `json:"name"`
+	ResultingPunishmentTypeID *uuid.UUID `json:"resulting_punishment_type_id"`
+	PenaltyTypeID             *uuid.UUID `json:"penalty_type_id"`
+	Threshold                 *int32     `json:"threshold"`
+	Mode                      *string    `json:"mode"`
+	IsActive                  *bool      `json:"is_active"`
+	DueAtAfterDays            *int32     `json:"due_at_after_days"`
+	ID                        uuid.UUID  `json:"id"`
+	UserID                    uuid.UUID  `json:"user_id"`
 }
 
 type UpdateRuleByUserRow struct {
@@ -3620,10 +3619,10 @@ RETURNING
 `
 
 type UpdateStudentByUserParams struct {
-	FirstName pgtype.Text `json:"first_name"`
-	LastName  pgtype.Text `json:"last_name"`
-	ID        uuid.UUID   `json:"id"`
-	UserID    uuid.UUID   `json:"user_id"`
+	FirstName *string   `json:"first_name"`
+	LastName  *string   `json:"last_name"`
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 type UpdateStudentByUserRow struct {
@@ -3675,16 +3674,16 @@ type UseBonusParams struct {
 }
 
 type UseBonusRow struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	BonusTypeID      uuid.UUID          `json:"bonus_type_id"`
-	Points           float64            `json:"points"`
-	CreatedAt        time.Time          `json:"created_at"`
-	UsedAt           pgtype.Timestamptz `json:"used_at"`
-	StudentFirstName string             `json:"student_first_name"`
-	StudentLastName  string             `json:"student_last_name"`
-	BonusTypeName    string             `json:"bonus_type_name"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	BonusTypeID      uuid.UUID   `json:"bonus_type_id"`
+	Points           float64     `json:"points"`
+	CreatedAt        time.Time   `json:"created_at"`
+	UsedAt           **time.Time `json:"used_at"`
+	StudentFirstName string      `json:"student_first_name"`
+	StudentLastName  string      `json:"student_last_name"`
+	BonusTypeName    string      `json:"bonus_type_name"`
 }
 
 func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (UseBonusRow, error) {

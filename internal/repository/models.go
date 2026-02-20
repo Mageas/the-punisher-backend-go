@@ -8,17 +8,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Bonus struct {
-	ID          uuid.UUID          `json:"id"`
-	UserID      uuid.UUID          `json:"user_id"`
-	StudentID   uuid.UUID          `json:"student_id"`
-	BonusTypeID uuid.UUID          `json:"bonus_type_id"`
-	Points      float64            `json:"points"`
-	CreatedAt   time.Time          `json:"created_at"`
-	UsedAt      pgtype.Timestamptz `json:"used_at"`
+	ID          uuid.UUID   `json:"id"`
+	UserID      uuid.UUID   `json:"user_id"`
+	StudentID   uuid.UUID   `json:"student_id"`
+	BonusTypeID uuid.UUID   `json:"bonus_type_id"`
+	Points      float64     `json:"points"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UsedAt      **time.Time `json:"used_at"`
 }
 
 type BonusType struct {
@@ -30,13 +29,13 @@ type BonusType struct {
 }
 
 type Classroom struct {
-	ID          uuid.UUID   `json:"id"`
-	UserID      uuid.UUID   `json:"user_id"`
-	Name        string      `json:"name"`
-	Year        pgtype.Text `json:"year"`
-	MainTeacher pgtype.Text `json:"main_teacher"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	Name        string    `json:"name"`
+	Year        *string   `json:"year"`
+	MainTeacher *string   `json:"main_teacher"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type Penalty struct {
@@ -56,15 +55,15 @@ type PenaltyType struct {
 }
 
 type Punishment struct {
-	ID               uuid.UUID          `json:"id"`
-	UserID           uuid.UUID          `json:"user_id"`
-	StudentID        uuid.UUID          `json:"student_id"`
-	PunishmentTypeID uuid.UUID          `json:"punishment_type_id"`
-	TriggeringRuleID pgtype.UUID        `json:"triggering_rule_id"`
-	CreatedAt        time.Time          `json:"created_at"`
-	DueAt            time.Time          `json:"due_at"`
-	ResolvedAt       pgtype.Timestamptz `json:"resolved_at"`
-	Automated        bool               `json:"automated"`
+	ID               uuid.UUID   `json:"id"`
+	UserID           uuid.UUID   `json:"user_id"`
+	StudentID        uuid.UUID   `json:"student_id"`
+	PunishmentTypeID uuid.UUID   `json:"punishment_type_id"`
+	TriggeringRuleID *uuid.UUID  `json:"triggering_rule_id"`
+	CreatedAt        time.Time   `json:"created_at"`
+	DueAt            time.Time   `json:"due_at"`
+	ResolvedAt       **time.Time `json:"resolved_at"`
+	Automated        bool        `json:"automated"`
 }
 
 type PunishmentType struct {
@@ -76,14 +75,14 @@ type PunishmentType struct {
 }
 
 type RefreshToken struct {
-	ID        uuid.UUID          `json:"id"`
-	UserID    uuid.UUID          `json:"user_id"`
-	Token     string             `json:"token"`
-	UserAgent string             `json:"user_agent"`
-	ClientIp  string             `json:"client_ip"`
-	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
-	ExpiresAt time.Time          `json:"expires_at"`
-	CreatedAt time.Time          `json:"created_at"`
+	ID        uuid.UUID   `json:"id"`
+	UserID    uuid.UUID   `json:"user_id"`
+	Token     string      `json:"token"`
+	UserAgent string      `json:"user_agent"`
+	ClientIp  string      `json:"client_ip"`
+	RevokedAt **time.Time `json:"revoked_at"`
+	ExpiresAt time.Time   `json:"expires_at"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 type Rule struct {

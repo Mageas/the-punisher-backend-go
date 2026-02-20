@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -35,7 +34,7 @@ func buildReturnBonusDto(
 	bonusTypeName string,
 	points float64,
 	createdAt time.Time,
-	usedAt pgtype.Timestamptz,
+	usedAt **time.Time,
 ) *ReturnBonusDto {
 	dto := &ReturnBonusDto{
 		ID:               id,
@@ -155,10 +154,10 @@ func BonusFromUseRow(b *repository.UseBonusRow) *ReturnBonusDto {
 	)
 }
 
-func bonusUsedAt(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
+func bonusUsedAt(value **time.Time) *time.Time {
+	if value == nil || *value == nil {
 		return nil
 	}
 
-	return &value.Time
+	return *value
 }

@@ -4,7 +4,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -81,20 +80,20 @@ func paginate[T any](items []T, offset, limit int32) []T {
 	return items[int(offset):end]
 }
 
-func matchesOptionalBool(filter pgtype.Bool, value bool) bool {
-	if !filter.Valid {
+func matchesOptionalBool(filter *bool, value bool) bool {
+	if filter == nil {
 		return true
 	}
 
-	return filter.Bool == value
+	return *filter == value
 }
 
-func matchesOptionalStudentSearch(filter pgtype.Text, firstName, lastName string) bool {
-	if !filter.Valid {
+func matchesOptionalStudentSearch(filter *string, firstName, lastName string) bool {
+	if filter == nil {
 		return true
 	}
 
-	normalizedSearch := strings.ToLower(strings.Join(strings.Fields(filter.String), " "))
+	normalizedSearch := strings.ToLower(strings.Join(strings.Fields(*filter), " "))
 	if normalizedSearch == "" {
 		return true
 	}

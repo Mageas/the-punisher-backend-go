@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -28,7 +27,7 @@ func NewDashboardService(repo repository.Querier) DashboardService {
 }
 
 func (s *dashboardService) GetDashboard(ctx context.Context, userID uuid.UUID, classroomID *uuid.UUID) (*dto.ReturnDashboardDto, error) {
-	classroomIDParam := pgtype.UUID{}
+	classroomIDParam := classroomID
 	if classroomID != nil {
 		if _, err := s.repo.GetClassroomByUser(ctx, repository.GetClassroomByUserParams{
 			ID:     *classroomID,
@@ -40,7 +39,6 @@ func (s *dashboardService) GetDashboard(ctx context.Context, userID uuid.UUID, c
 			return nil, fmt.Errorf("failed to get classroom: %w", err)
 		}
 
-		classroomIDParam = pgtype.UUID{Bytes: *classroomID, Valid: true}
 	}
 
 	kpis, err := s.repo.GetDashboardKpis(ctx, repository.GetDashboardKpisParams{

@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
@@ -83,14 +82,14 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, BonusTypeID: bonusTypeID, Points: 3, CreatedAt: base.Add(2 * time.Hour)})
-	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, BonusTypeID: bonusTypeID, Points: 4, CreatedAt: base.Add(3 * time.Hour), UsedAt: pgtype.Timestamptz{Time: base.Add(4 * time.Hour), Valid: true}})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, BonusTypeID: bonusTypeID, Points: 4, CreatedAt: base.Add(3 * time.Hour), UsedAt: doubleTimePtr(base.Add(4 * time.Hour))})
 
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(2 * time.Hour)})
 
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: pgtype.UUID{Bytes: ruleID, Valid: true}, Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: uuidPtr(ruleID), Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(2 * time.Hour), DueAt: base.Add(24 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: pgtype.Timestamptz{Time: base.Add(5 * time.Hour), Valid: true}})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: doubleTimePtr(base.Add(5 * time.Hour))})
 
 	t.Run("without_classroom_filter", func(t *testing.T) {
 		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/dashboard/", userID, cfg)

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -46,8 +45,8 @@ type ClassroomStudentPreviewDto struct {
 func buildReturnClassroomDto(
 	id uuid.UUID,
 	name string,
-	year pgtype.Text,
-	mainTeacher pgtype.Text,
+	year *string,
+	mainTeacher *string,
 	studentCount int64,
 	totalBonusPoints float64,
 	totalPenaltyCount int64,
@@ -189,11 +188,11 @@ func ClassroomStudentsPreviewByClassroomFromRows(rows []repository.ListStudentsP
 	return previewByClassroom
 }
 
-func classroomTextPtr(value pgtype.Text) *string {
-	if !value.Valid {
+func classroomTextPtr(value *string) *string {
+	if value == nil {
 		return nil
 	}
 
-	converted := value.String
+	converted := *value
 	return &converted
 }
