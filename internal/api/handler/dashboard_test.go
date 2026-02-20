@@ -80,16 +80,18 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Retenue"})
 	repo.SeedRule(repository.Rule{ID: ruleID, UserID: userID, Name: "3 bavardages => retenue", PenaltyTypeID: penaltyTypeID, ResultingPunishmentTypeID: punishmentTypeID, Mode: "every", Threshold: 3, IsActive: true, DueAtAfterDays: 7})
 
+	usedAt := base.Add(4 * time.Hour)
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, BonusTypeID: bonusTypeID, Points: 3, CreatedAt: base.Add(2 * time.Hour)})
-	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, BonusTypeID: bonusTypeID, Points: 4, CreatedAt: base.Add(3 * time.Hour), UsedAt: doubleTimePtr(base.Add(4 * time.Hour))})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, BonusTypeID: bonusTypeID, Points: 4, CreatedAt: base.Add(3 * time.Hour), UsedAt: &usedAt})
 
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(2 * time.Hour)})
 
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: uuidPtr(ruleID), Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	usedAt = base.Add(5 * time.Hour)
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: &ruleID, Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(2 * time.Hour), DueAt: base.Add(24 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: doubleTimePtr(base.Add(5 * time.Hour))})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &usedAt})
 
 	t.Run("without_classroom_filter", func(t *testing.T) {
 		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/dashboard/", userID, cfg)

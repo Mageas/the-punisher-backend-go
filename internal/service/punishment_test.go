@@ -37,13 +37,14 @@ func TestPunishmentServiceResolvePunishment(t *testing.T) {
 
 		userID := uuid.New()
 		punishmentID := uuid.New()
+		now := time.Now()
 		repo.SeedPunishment(repository.Punishment{
 			ID:               punishmentID,
 			UserID:           userID,
 			StudentID:        uuid.New(),
 			PunishmentTypeID: uuid.New(),
 			DueAt:            time.Now().Add(24 * time.Hour),
-			ResolvedAt:       doubleTimePtr(time.Now()),
+			ResolvedAt:       &now,
 		})
 
 		_, err := svc.ResolvePunishment(context.Background(), userID, punishmentID)
