@@ -336,8 +336,9 @@ func TestPunishmentHandlerListSearch(t *testing.T) {
 	repo.SeedStudent(repository.Student{ID: studentOtherID, UserID: userID, FirstName: "Lucas", LastName: "Martin"})
 	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Heure de colle"})
 
+	usedAt := now.Add(3 * time.Minute)
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(1 * time.Minute), DueAt: now.Add(2 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(2 * time.Minute), DueAt: now.Add(2 * time.Hour), ResolvedAt: doubleTimePtr(now.Add(3 * time.Minute))})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(2 * time.Minute), DueAt: now.Add(2 * time.Hour), ResolvedAt: &usedAt})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOtherID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(4 * time.Minute), DueAt: now.Add(2 * time.Hour)})
 
 	searchReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/?search=%20%20jean%20%20dupont%20%20", userID, cfg)

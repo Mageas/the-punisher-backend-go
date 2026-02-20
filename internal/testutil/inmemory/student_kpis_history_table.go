@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -75,14 +74,14 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			UsedAt:             nil,
 			PunishmentTypeID:   punishment.PunishmentTypeID,
 			PunishmentTypeName: r.punishmentTypeNameLocked(punishment.PunishmentTypeID),
-			TriggeringRuleID:   cloneUUIDPtr(punishment.TriggeringRuleID),
+			TriggeringRuleID:   punishment.TriggeringRuleID,
 			TriggeringRuleName: nil,
 			Automated:          punishment.Automated,
 			DueAt:              punishment.DueAt,
 			ResolvedAt:         punishment.ResolvedAt,
 		}
 		if item.TriggeringRuleID != nil && triggeringRuleName != "" {
-			item.TriggeringRuleName = stringPtr(triggeringRuleName)
+			item.TriggeringRuleName = &triggeringRuleName
 		}
 
 		items = append(items, item)
@@ -98,8 +97,8 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			Type:               "penalty",
 			ID:                 penalty.ID,
 			CreatedAt:          penalty.CreatedAt,
-			PenaltyTypeID:      uuidPtr(penalty.PenaltyTypeID),
-			PenaltyTypeName:    stringPtr(penaltyTypeName),
+			PenaltyTypeID:      &penalty.PenaltyTypeID,
+			PenaltyTypeName:    &penaltyTypeName,
 			BonusTypeID:        nil,
 			BonusTypeName:      nil,
 			Points:             nil,
@@ -126,9 +125,9 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			CreatedAt:          bonus.CreatedAt,
 			PenaltyTypeID:      nil,
 			PenaltyTypeName:    nil,
-			BonusTypeID:        uuidPtr(bonus.BonusTypeID),
-			BonusTypeName:      stringPtr(bonusTypeName),
-			Points:             float64Ptr(bonus.Points),
+			BonusTypeID:        &bonus.BonusTypeID,
+			BonusTypeName:      &bonusTypeName,
+			Points:             &bonus.Points,
 			UsedAt:             bonus.UsedAt,
 			PunishmentTypeID:   bonus.BonusTypeID,
 			PunishmentTypeName: bonusTypeName,
@@ -149,28 +148,4 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 
 	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
 	return paginated, nil
-}
-
-func cloneUUIDPtr(value *uuid.UUID) *uuid.UUID {
-	if value == nil {
-		return nil
-	}
-
-	id := *value
-	return &id
-}
-
-func uuidPtr(value uuid.UUID) *uuid.UUID {
-	id := value
-	return &id
-}
-
-func stringPtr(value string) *string {
-	v := value
-	return &v
-}
-
-func float64Ptr(value float64) *float64 {
-	v := value
-	return &v
 }

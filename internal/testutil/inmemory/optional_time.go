@@ -5,8 +5,3 @@ import "time"
 func hasTime(value *time.Time) bool {
 	return value != nil
 }
-
-func doubleTimePtr(value time.Time) *time.Time {
-	timeValue := value
-	return &timeValue
-}

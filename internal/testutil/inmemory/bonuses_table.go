@@ -294,7 +294,8 @@ func (r *Repository) UseBonus(_ context.Context, arg repository.UseBonusParams) 
 		return repository.UseBonusRow{}, pgx.ErrNoRows
 	}
 
-	bonus.UsedAt = doubleTimePtr(time.Now())
+	now := time.Now()
+	bonus.UsedAt = &now
 	r.bonuses[arg.ID] = bonus
 
 	return r.buildUseBonusRowLocked(bonus), nil
