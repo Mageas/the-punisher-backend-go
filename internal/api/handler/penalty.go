@@ -3,9 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
@@ -35,15 +32,13 @@ func (h *PenaltyHandler) CreatePenalty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, nil)
+	studentID, ok := parseBodyUUID(w, req.StudentID, "student_id")
+	if !ok {
 		return
 	}
 
-	penaltyTypeID, err := uuid.Parse(req.PenaltyTypeID)
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, nil)
+	penaltyTypeID, ok := parseBodyUUID(w, req.PenaltyTypeID, "penalty_type_id")
+	if !ok {
 		return
 	}
 
@@ -74,9 +69,8 @@ func (h *PenaltyHandler) ListPenalties(w http.ResponseWriter, r *http.Request) {
 func (h *PenaltyHandler) GetPenalty(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	penaltyID, ok := parsePathUUID(w, r, "penalty_id", "penalty_id", "id")
+	if !ok {
 		return
 	}
 
@@ -92,9 +86,8 @@ func (h *PenaltyHandler) GetPenalty(w http.ResponseWriter, r *http.Request) {
 func (h *PenaltyHandler) DeletePenalty(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	penaltyID, ok := parsePathUUID(w, r, "penalty_id", "penalty_id", "id")
+	if !ok {
 		return
 	}
 
@@ -109,9 +102,8 @@ func (h *PenaltyHandler) DeletePenalty(w http.ResponseWriter, r *http.Request) {
 func (h *PenaltyHandler) ListPenaltiesByStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 

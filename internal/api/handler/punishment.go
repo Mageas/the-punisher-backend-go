@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
@@ -36,15 +34,13 @@ func (h *PunishmentHandler) CreatePunishment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, nil)
+	studentID, ok := parseBodyUUID(w, req.StudentID, "student_id")
+	if !ok {
 		return
 	}
 
-	punishmentTypeID, err := uuid.Parse(req.PunishmentTypeID)
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, nil)
+	punishmentTypeID, ok := parseBodyUUID(w, req.PunishmentTypeID, "punishment_type_id")
+	if !ok {
 		return
 	}
 
@@ -88,9 +84,8 @@ func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Reque
 func (h *PunishmentHandler) GetPunishment(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	punishmentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id", "punishment_id", "id")
+	if !ok {
 		return
 	}
 
@@ -106,9 +101,8 @@ func (h *PunishmentHandler) GetPunishment(w http.ResponseWriter, r *http.Request
 func (h *PunishmentHandler) ResolvePunishment(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	punishmentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id", "punishment_id", "id")
+	if !ok {
 		return
 	}
 
@@ -124,9 +118,8 @@ func (h *PunishmentHandler) ResolvePunishment(w http.ResponseWriter, r *http.Req
 func (h *PunishmentHandler) DeletePunishment(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	punishmentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id", "punishment_id", "id")
+	if !ok {
 		return
 	}
 
@@ -141,9 +134,8 @@ func (h *PunishmentHandler) DeletePunishment(w http.ResponseWriter, r *http.Requ
 func (h *PunishmentHandler) ListPunishmentsByStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 

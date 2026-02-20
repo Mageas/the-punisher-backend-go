@@ -426,12 +426,13 @@ func RunTypeHandlerNotFoundAndInternalErrors(t *testing.T, suite ManagedTypeSuit
 
 func TestJWTConfig() config.JWTConfig {
 	return config.JWTConfig{
-		AccessSecret:      "test-access-secret",
-		AccessExpiration:  15 * time.Minute,
-		RefreshSecret:     "test-refresh-secret",
-		RefreshExpiration: 7 * 24 * time.Hour,
-		Issuer:            "the-punisher-tests",
-		Audience:          "the-punisher-tests",
+		AccessSecret:        "test-access-secret",
+		AccessExpiration:    15 * time.Minute,
+		RefreshSecret:       "test-refresh-secret",
+		RefreshExpiration:   7 * 24 * time.Hour,
+		RefreshCookieSecure: false,
+		Issuer:              "the-punisher-tests",
+		Audience:            "the-punisher-tests",
 	}
 }
 

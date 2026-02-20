@@ -464,6 +464,7 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 		if resp.Error != api.ErrMalformedParameter.Error() {
 			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
 		}
+		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "classroom_id", "validation_malformed_parameter:expected_uuid")
 	}
 
 	addBadClassroomReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPost, "/v1/classrooms/not-a-uuid/students", map[string]any{
@@ -475,6 +476,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	if addBadClassroomRR.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, addBadClassroomRR.Code)
 	}
+	addBadClassroomResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, addBadClassroomRR)
+	shared.AssertHasErrorDetail(t, addBadClassroomResp.ErrorDetails, "classroom_id", "validation_malformed_parameter:expected_uuid")
 
 	removeBadStudentReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/classrooms/"+uuid.New().String()+"/students/not-a-uuid", userID, cfg)
 	removeBadStudentRR := httptest.NewRecorder()
@@ -483,6 +486,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	if removeBadStudentRR.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, removeBadStudentRR.Code)
 	}
+	removeBadStudentResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, removeBadStudentRR)
+	shared.AssertHasErrorDetail(t, removeBadStudentResp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
 
 	listByBadStudentReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/not-a-uuid/classrooms", userID, cfg)
 	listByBadStudentRR := httptest.NewRecorder()
@@ -491,6 +496,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	if listByBadStudentRR.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, listByBadStudentRR.Code)
 	}
+	listByBadStudentResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, listByBadStudentRR)
+	shared.AssertHasErrorDetail(t, listByBadStudentResp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
 }
 
 func TestClassroomHandlerBusinessAndInternalErrors(t *testing.T) {
@@ -637,16 +644,16 @@ func newClassroomRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Ha
 	r.Route("/v1/classrooms", func(r chi.Router) {
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
-		r.Get("/{id}", classroomHandler.GetClassroom)
-		r.Put("/{id}", classroomHandler.UpdateClassroom)
-		r.Delete("/{id}", classroomHandler.DeleteClassroom)
-		r.Post("/{id}/students", classroomHandler.AddStudentToClassroom)
-		r.Delete("/{id}/students/{studentId}", classroomHandler.RemoveStudentFromClassroom)
-		r.Get("/{id}/students", classroomHandler.ListStudentsByClassroom)
+		r.Get("/{classroom_id}", classroomHandler.GetClassroom)
+		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
+		r.Delete("/{classroom_id}", classroomHandler.DeleteClassroom)
+		r.Post("/{classroom_id}/students", classroomHandler.AddStudentToClassroom)
+		r.Delete("/{classroom_id}/students/{student_id}", classroomHandler.RemoveStudentFromClassroom)
+		r.Get("/{classroom_id}/students", classroomHandler.ListStudentsByClassroom)
 	})
 
 	r.Route("/v1/students", func(r chi.Router) {
-		r.Get("/{id}/classrooms", classroomHandler.ListClassroomsByStudent)
+		r.Get("/{student_id}/classrooms", classroomHandler.ListClassroomsByStudent)
 	})
 
 	return r

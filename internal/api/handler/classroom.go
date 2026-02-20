@@ -3,9 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
@@ -47,9 +44,8 @@ func (h *ClassroomHandler) CreateClassroom(w http.ResponseWriter, r *http.Reques
 func (h *ClassroomHandler) GetClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	if !ok {
 		return
 	}
 
@@ -80,9 +76,8 @@ func (h *ClassroomHandler) ListClassrooms(w http.ResponseWriter, r *http.Request
 func (h *ClassroomHandler) UpdateClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	if !ok {
 		return
 	}
 
@@ -109,9 +104,8 @@ func (h *ClassroomHandler) UpdateClassroom(w http.ResponseWriter, r *http.Reques
 func (h *ClassroomHandler) DeleteClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	if !ok {
 		return
 	}
 
@@ -126,9 +120,8 @@ func (h *ClassroomHandler) DeleteClassroom(w http.ResponseWriter, r *http.Reques
 func (h *ClassroomHandler) AddStudentToClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	if !ok {
 		return
 	}
 
@@ -143,9 +136,8 @@ func (h *ClassroomHandler) AddStudentToClassroom(w http.ResponseWriter, r *http.
 		return
 	}
 
-	studentID, err := uuid.Parse(req.StudentID)
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, nil)
+	studentID, ok := parseBodyUUID(w, req.StudentID, "student_id")
+	if !ok {
 		return
 	}
 
@@ -160,15 +152,13 @@ func (h *ClassroomHandler) AddStudentToClassroom(w http.ResponseWriter, r *http.
 func (h *ClassroomHandler) RemoveStudentFromClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	if !ok {
 		return
 	}
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "studentId"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "studentId")
+	if !ok {
 		return
 	}
 
@@ -183,9 +173,8 @@ func (h *ClassroomHandler) RemoveStudentFromClassroom(w http.ResponseWriter, r *
 func (h *ClassroomHandler) ListStudentsByClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	if !ok {
 		return
 	}
 
@@ -204,9 +193,8 @@ func (h *ClassroomHandler) ListStudentsByClassroom(w http.ResponseWriter, r *htt
 func (h *ClassroomHandler) ListClassroomsByStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 

@@ -362,6 +362,7 @@ func TestStudentHandlerDecodeAndIDErrors(t *testing.T) {
 		if resp.Error != api.ErrMalformedParameter.Error() {
 			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
 		}
+		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
 	}
 }
 
@@ -496,11 +497,11 @@ func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Post("/", h.CreateStudent)
 		r.Get("/", h.ListStudents)
-		r.Get("/{id}", h.GetStudent)
-		r.Get("/{id}/kpis", h.GetStudentKpis)
-		r.Get("/{id}/history", h.GetStudentHistory)
-		r.Put("/{id}", h.UpdateStudent)
-		r.Delete("/{id}", h.DeleteStudent)
+		r.Get("/{student_id}", h.GetStudent)
+		r.Get("/{student_id}/kpis", h.GetStudentKpis)
+		r.Get("/{student_id}/history", h.GetStudentHistory)
+		r.Put("/{student_id}", h.UpdateStudent)
+		r.Delete("/{student_id}", h.DeleteStudent)
 	})
 
 	return r
