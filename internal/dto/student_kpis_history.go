@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -91,12 +90,12 @@ func studentHistoryFromRows(rows []repository.ListStudentHistoryRow) []StudentHi
 	return history
 }
 
-func studentHistoryUUIDPtr(value pgtype.UUID) *uuid.UUID {
-	if !value.Valid {
+func studentHistoryUUIDPtr(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
 		return nil
 	}
 
-	id := uuid.UUID(value.Bytes)
+	id := *value
 	if id == uuid.Nil {
 		return nil
 	}
@@ -131,12 +130,12 @@ func studentHistoryTimePtrFromSentinel(value time.Time) *time.Time {
 	return &timeValue
 }
 
-func studentHistoryTimePtrFromSentinelPg(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid || value.Time.Equal(studentHistoryTimeSentinel) {
+func studentHistoryTimePtrFromSentinelPg(value **time.Time) *time.Time {
+	if value == nil || *value == nil || (*value).Equal(studentHistoryTimeSentinel) {
 		return nil
 	}
 
-	timeValue := value.Time
+	timeValue := **value
 	return &timeValue
 }
 

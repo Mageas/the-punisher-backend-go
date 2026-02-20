@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -15,10 +14,10 @@ const (
 	OpListDashboardPendingPunishments = "ListDashboardPendingPunishments"
 )
 
-func (r *Repository) dashboardStudentIDsLocked(userID uuid.UUID, classroomID pgtype.UUID) map[uuid.UUID]struct{} {
+func (r *Repository) dashboardStudentIDsLocked(userID uuid.UUID, classroomID *uuid.UUID) map[uuid.UUID]struct{} {
 	studentIDs := make(map[uuid.UUID]struct{})
 
-	if !classroomID.Valid {
+	if classroomID == nil {
 		for _, student := range r.students {
 			if student.UserID == userID {
 				studentIDs[student.ID] = struct{}{}
@@ -28,7 +27,7 @@ func (r *Repository) dashboardStudentIDsLocked(userID uuid.UUID, classroomID pgt
 		return studentIDs
 	}
 
-	filteredClassroomID := uuid.UUID(classroomID.Bytes)
+	filteredClassroomID := *classroomID
 	classroom, classroomExists := r.classrooms[filteredClassroomID]
 	if !classroomExists || classroom.UserID != userID {
 		return studentIDs
@@ -70,7 +69,7 @@ func (r *Repository) GetDashboardKpis(_ context.Context, arg repository.GetDashb
 		if _, ok := studentIDs[bonus.StudentID]; !ok {
 			continue
 		}
-		if !bonus.UsedAt.Valid {
+		if !hasTime(bonus.UsedAt) {
 			row.AvailableBonusPoints += bonus.Points
 			row.UnusedBonusCount++
 		}
@@ -92,7 +91,7 @@ func (r *Repository) GetDashboardKpis(_ context.Context, arg repository.GetDashb
 		if _, ok := studentIDs[punishment.StudentID]; !ok {
 			continue
 		}
-		if !punishment.ResolvedAt.Valid {
+		if !hasTime(punishment.ResolvedAt) {
 			row.PendingPunishmentCount++
 		}
 	}
@@ -193,7 +192,7 @@ func (r *Repository) ListDashboardPendingPunishments(_ context.Context, arg repo
 	studentIDs := r.dashboardStudentIDsLocked(arg.UserID, arg.ClassroomID)
 	items := make([]repository.Punishment, 0)
 	for _, punishment := range r.punishments {
-		if punishment.UserID != arg.UserID || punishment.ResolvedAt.Valid {
+		if punishment.UserID != arg.UserID || hasTime(punishment.ResolvedAt) {
 			continue
 		}
 		if _, ok := studentIDs[punishment.StudentID]; ok {

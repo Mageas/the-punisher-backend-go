@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -54,7 +53,7 @@ func NewPunishmentTypeService(repo repository.Querier) PunishmentTypeService {
 				update: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID, req dto.UpdatePunishmentTypeDto) (repository.PunishmentType, error) {
 					params := repository.UpdatePunishmentTypeByUserParams{ID: resourceID, UserID: userID}
 					if req.Name != nil {
-						params.Name = pgtype.Text{String: *req.Name, Valid: true}
+						params.Name = req.Name
 					}
 					return repo.UpdatePunishmentTypeByUser(ctx, params)
 				},

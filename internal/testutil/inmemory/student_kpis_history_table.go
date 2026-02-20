@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -28,7 +27,7 @@ func (r *Repository) GetStudentKpis(_ context.Context, arg repository.GetStudent
 	row := repository.GetStudentKpisRow{}
 
 	for _, bonus := range r.bonuses {
-		if bonus.StudentID != arg.StudentID || bonus.UserID != arg.UserID || bonus.UsedAt.Valid {
+		if bonus.StudentID != arg.StudentID || bonus.UserID != arg.UserID || hasTime(bonus.UsedAt) {
 			continue
 		}
 		row.AvailableBonusPoints += bonus.Points
@@ -42,7 +41,7 @@ func (r *Repository) GetStudentKpis(_ context.Context, arg repository.GetStudent
 	}
 
 	for _, punishment := range r.punishments {
-		if punishment.StudentID != arg.StudentID || punishment.UserID != arg.UserID || punishment.ResolvedAt.Valid {
+		if punishment.StudentID != arg.StudentID || punishment.UserID != arg.UserID || hasTime(punishment.ResolvedAt) {
 			continue
 		}
 		row.PendingPunishmentCount++
@@ -79,17 +78,17 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			UsedAt:             studentHistoryFallbackDueAt,
 			PunishmentTypeID:   punishment.PunishmentTypeID,
 			PunishmentTypeName: r.punishmentTypeNameLocked(punishment.PunishmentTypeID),
-			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
+			TriggeringRuleID:   nil,
 			TriggeringRuleName: "",
 			Automated:          punishment.Automated,
 			DueAt:              punishment.DueAt,
-			ResolvedAt:         pgtype.Timestamptz{Time: studentHistoryFallbackDueAt, Valid: true},
+			ResolvedAt:         doubleTimePtr(studentHistoryFallbackDueAt),
 		})
-		if punishment.TriggeringRuleID.Valid {
+		if punishment.TriggeringRuleID != nil {
 			items[len(items)-1].TriggeringRuleID = punishment.TriggeringRuleID
 			items[len(items)-1].TriggeringRuleName = triggeringRuleName
 		}
-		if punishment.ResolvedAt.Valid {
+		if hasTime(punishment.ResolvedAt) {
 			items[len(items)-1].ResolvedAt = punishment.ResolvedAt
 		}
 	}
@@ -111,11 +110,11 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			UsedAt:             studentHistoryFallbackDueAt,
 			PunishmentTypeID:   uuid.Nil,
 			PunishmentTypeName: "",
-			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
+			TriggeringRuleID:   nil,
 			TriggeringRuleName: "",
 			Automated:          false,
 			DueAt:              studentHistoryFallbackDueAt,
-			ResolvedAt:         pgtype.Timestamptz{Time: studentHistoryFallbackDueAt, Valid: true},
+			ResolvedAt:         doubleTimePtr(studentHistoryFallbackDueAt),
 		})
 	}
 
@@ -136,14 +135,14 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			UsedAt:             studentHistoryFallbackDueAt,
 			PunishmentTypeID:   uuid.Nil,
 			PunishmentTypeName: "",
-			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
+			TriggeringRuleID:   nil,
 			TriggeringRuleName: "",
 			Automated:          false,
 			DueAt:              studentHistoryFallbackDueAt,
-			ResolvedAt:         pgtype.Timestamptz{Time: studentHistoryFallbackDueAt, Valid: true},
+			ResolvedAt:         doubleTimePtr(studentHistoryFallbackDueAt),
 		})
-		if bonus.UsedAt.Valid {
-			items[len(items)-1].UsedAt = bonus.UsedAt.Time
+		if hasTime(bonus.UsedAt) {
+			items[len(items)-1].UsedAt = **bonus.UsedAt
 		}
 	}
 

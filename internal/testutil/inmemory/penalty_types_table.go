@@ -123,8 +123,8 @@ func (r *Repository) UpdatePenaltyTypeByUser(_ context.Context, arg repository.U
 		return repository.PenaltyType{}, pgx.ErrNoRows
 	}
 
-	if arg.Name.Valid {
-		pt.Name = arg.Name.String
+	if arg.Name != nil {
+		pt.Name = *arg.Name
 	}
 	pt.UpdatedAt = time.Now()
 	r.penaltyTypes[arg.ID] = pt

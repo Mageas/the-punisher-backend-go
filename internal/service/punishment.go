@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -75,19 +74,10 @@ func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID,
 }
 
 func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, search *string, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
-	resolvedParam := pgtype.Bool{}
-	if resolved != nil {
-		resolvedParam = pgtype.Bool{Bool: *resolved, Valid: true}
-	}
-	searchParam := pgtype.Text{}
-	if search != nil {
-		searchParam = pgtype.Text{String: *search, Valid: true}
-	}
-
 	totalCount, err := s.repo.CountPunishmentsByUser(ctx, repository.CountPunishmentsByUserParams{
 		UserID:   userID,
-		Resolved: resolvedParam,
-		Search:   searchParam,
+		Resolved: resolved,
+		Search:   search,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count punishments: %w", err)
@@ -95,8 +85,8 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 
 	punishments, err := s.repo.ListPunishmentsByUser(ctx, repository.ListPunishmentsByUserParams{
 		UserID:      userID,
-		Resolved:    resolvedParam,
-		Search:      searchParam,
+		Resolved:    resolved,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
@@ -115,15 +105,10 @@ func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)
 	}
 
-	resolvedParam := pgtype.Bool{}
-	if resolved != nil {
-		resolvedParam = pgtype.Bool{Bool: *resolved, Valid: true}
-	}
-
 	totalCount, err := s.repo.CountPunishmentsByStudent(ctx, repository.CountPunishmentsByStudentParams{
 		StudentID: studentID,
 		UserID:    userID,
-		Resolved:  resolvedParam,
+		Resolved:  resolved,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count punishments by student: %w", err)
@@ -132,7 +117,7 @@ func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID
 	punishments, err := s.repo.ListPunishmentsByStudent(ctx, repository.ListPunishmentsByStudentParams{
 		StudentID:   studentID,
 		UserID:      userID,
-		Resolved:    resolvedParam,
+		Resolved:    resolved,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
@@ -154,7 +139,7 @@ func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.U
 				}
 				return nil, fmt.Errorf("failed to get punishment: %w", getErr)
 			}
-			if existing.ResolvedAt.Valid {
+			if existing.ResolvedAt != nil && *existing.ResolvedAt != nil {
 				return nil, api.ErrPunishmentAlreadyResolved
 			}
 			return nil, fmt.Errorf("failed to resolve punishment: %w", err)

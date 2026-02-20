@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
@@ -44,7 +43,7 @@ func TestPunishmentServiceResolvePunishment(t *testing.T) {
 			StudentID:        uuid.New(),
 			PunishmentTypeID: uuid.New(),
 			DueAt:            time.Now().Add(24 * time.Hour),
-			ResolvedAt:       pgtype.Timestamptz{Time: time.Now(), Valid: true},
+			ResolvedAt:       doubleTimePtr(time.Now()),
 		})
 
 		_, err := svc.ResolvePunishment(context.Background(), userID, punishmentID)

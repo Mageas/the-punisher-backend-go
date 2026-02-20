@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -127,12 +126,13 @@ func (s *penaltyService) evaluateRulesForPenalty(ctx context.Context, repo repos
 		}
 
 		dueAt := time.Now().UTC().Add(time.Duration(rule.DueAtAfterDays) * 24 * time.Hour)
+		triggeringRuleID := rule.ID
 
 		_, err := repo.CreatePunishmentFromRule(ctx, repository.CreatePunishmentFromRuleParams{
 			UserID:           userID,
 			StudentID:        studentID,
 			PunishmentTypeID: rule.ResultingPunishmentTypeID,
-			TriggeringRuleID: pgtype.UUID{Bytes: rule.ID, Valid: true},
+			TriggeringRuleID: &triggeringRuleID,
 			Automated:        true,
 			DueAt:            dueAt,
 		})

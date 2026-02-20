@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -127,7 +126,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 	}
 
 	if req.Name != nil {
-		arg.Name = pgtype.Text{String: *req.Name, Valid: true}
+		arg.Name = req.Name
 	}
 
 	if req.ResultingPunishmentTypeID != nil {
@@ -146,7 +145,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 			return nil, fmt.Errorf("failed to get punishment type: %w", err)
 		}
 
-		arg.ResultingPunishmentTypeID = pgtype.UUID{Bytes: resultingPunishmentTypeID, Valid: true}
+		arg.ResultingPunishmentTypeID = &resultingPunishmentTypeID
 	}
 
 	if req.PenaltyTypeID != nil {
@@ -165,23 +164,23 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 			return nil, fmt.Errorf("failed to get penalty type: %w", err)
 		}
 
-		arg.PenaltyTypeID = pgtype.UUID{Bytes: penaltyTypeID, Valid: true}
+		arg.PenaltyTypeID = &penaltyTypeID
 	}
 
 	if req.Threshold != nil {
-		arg.Threshold = pgtype.Int4{Int32: *req.Threshold, Valid: true}
+		arg.Threshold = req.Threshold
 	}
 
 	if req.DueAtAfterDays != nil {
-		arg.DueAtAfterDays = pgtype.Int4{Int32: *req.DueAtAfterDays, Valid: true}
+		arg.DueAtAfterDays = req.DueAtAfterDays
 	}
 
 	if req.Mode != nil {
-		arg.Mode = pgtype.Text{String: *req.Mode, Valid: true}
+		arg.Mode = req.Mode
 	}
 
 	if req.IsActive != nil {
-		arg.IsActive = pgtype.Bool{Bool: *req.IsActive, Valid: true}
+		arg.IsActive = req.IsActive
 	}
 
 	rule, err := s.repo.UpdateRuleByUser(ctx, arg)

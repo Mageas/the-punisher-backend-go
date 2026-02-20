@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 )
@@ -69,7 +68,7 @@ func TestPenaltyServiceCreatePenalty(t *testing.T) {
 		punishments, err := repo.ListPunishmentsByStudent(context.Background(), repository.ListPunishmentsByStudentParams{
 			StudentID:   studentID,
 			UserID:      userID,
-			Resolved:    pgtype.Bool{},
+			Resolved:    nil,
 			QueryLimit:  10,
 			QueryOffset: 0,
 		})
@@ -84,11 +83,11 @@ func TestPenaltyServiceCreatePenalty(t *testing.T) {
 		if !punishment.Automated {
 			t.Fatal("expected punishment to be automated")
 		}
-		if !punishment.TriggeringRuleID.Valid {
+		if punishment.TriggeringRuleID == nil {
 			t.Fatal("expected triggering_rule_id to be set")
 		}
-		if uuid.UUID(punishment.TriggeringRuleID.Bytes) != ruleID {
-			t.Fatalf("expected triggering_rule_id=%s, got=%s", ruleID, uuid.UUID(punishment.TriggeringRuleID.Bytes))
+		if *punishment.TriggeringRuleID != ruleID {
+			t.Fatalf("expected triggering_rule_id=%s, got=%s", ruleID, *punishment.TriggeringRuleID)
 		}
 
 		dueAt := punishment.DueAt.UTC()
@@ -149,7 +148,7 @@ func TestPenaltyServiceCreatePenalty(t *testing.T) {
 		punishmentsCount, err := repo.CountPunishmentsByStudent(context.Background(), repository.CountPunishmentsByStudentParams{
 			StudentID: studentID,
 			UserID:    userID,
-			Resolved:  pgtype.Bool{},
+			Resolved:  nil,
 		})
 		if err != nil {
 			t.Fatalf("expected no error counting punishments, got=%v", err)

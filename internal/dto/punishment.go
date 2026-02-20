@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
@@ -36,12 +35,12 @@ func buildReturnPunishmentDto(
 	studentLastName string,
 	punishmentTypeID uuid.UUID,
 	punishmentTypeName string,
-	triggeringRuleID pgtype.UUID,
+	triggeringRuleID *uuid.UUID,
 	triggeringRuleName *string,
 	automated bool,
 	createdAt time.Time,
 	dueAt time.Time,
-	resolvedAt pgtype.Timestamptz,
+	resolvedAt **time.Time,
 ) *ReturnPunishmentDto {
 	dto := &ReturnPunishmentDto{
 		ID:                 id,
@@ -179,28 +178,28 @@ func PunishmentFromResolveRow(p *repository.ResolvePunishmentRow) *ReturnPunishm
 	)
 }
 
-func punishmentResolvedAt(value pgtype.Timestamptz) *time.Time {
-	if !value.Valid {
+func punishmentResolvedAt(value **time.Time) *time.Time {
+	if value == nil || *value == nil {
 		return nil
 	}
 
-	return &value.Time
+	return *value
 }
 
-func punishmentTriggeringRuleID(value pgtype.UUID) *uuid.UUID {
-	if !value.Valid {
+func punishmentTriggeringRuleID(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
 		return nil
 	}
 
-	id := uuid.UUID(value.Bytes)
+	id := *value
 	return &id
 }
 
-func punishmentTriggeringRuleNameFromText(value pgtype.Text) *string {
-	if !value.Valid || value.String == "" {
+func punishmentTriggeringRuleNameFromText(value *string) *string {
+	if value == nil || *value == "" {
 		return nil
 	}
 
-	name := value.String
+	name := *value
 	return &name
 }

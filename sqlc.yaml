@@ -10,47 +10,59 @@ sql:
         sql_package: "pgx/v5"
         emit_json_tags: true
         emit_interface: true
-        # emit_pointers_for_null_types: true
+        emit_pointers_for_null_types: true
         rename:
           bonuses: "Bonus"
           bonuse: "Bonus"
           penalties: "Penalty"
           penaltie: "Penalty"
         overrides:
-          - db_type: "uuid"
-            go_type: "github.com/google/uuid.UUID"
-          - db_type: "timestamptz"
-            go_type: "time.Time"
-          - db_type: "timestamp"
-            go_type: "time.Time"
           # --- Identifiants ---
           - db_type: "uuid"
+            nullable: false
             go_type: "github.com/google/uuid.UUID"
+          - db_type: "uuid"
+            nullable: true
+            go_type: "*github.com/google/uuid.UUID"
 
-          # # --- Dates et Heures ---
-          # - db_type: "timestamptz"
-          #   go_type: "time.Time"
-          # - db_type: "timestamp"
-          #   go_type: "time.Time"
-          # - db_type: "date"
-          #   go_type: "time.Time"
+          # --- Dates et Heures ---
+          - db_type: "timestamptz"
+            nullable: false
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type: "*time.Time"
 
-          # # --- Chaînes de caractères ---
-          # - db_type: "text"
-          #   go_type: "string"
-          # - db_type: "varchar"
-          #   go_type: "string"
+          - db_type: "timestamp"
+            nullable: false
+            go_type: "time.Time"
+          - db_type: "timestamp"
+            nullable: true
+            go_type: "*time.Time"
 
-          # # --- Nombres ---
-          # - db_type: "integer"
-          #   go_type: "int32"
-          # - db_type: "bigint"
-          #   go_type: "int64"
-          # - db_type: "double precision"
-          #   go_type: "float64"
-          # - db_type: "numeric"
-          #   go_type: "float64" # ou "github.com/shopspring/decimal.Decimal" si tu as besoin d'une précision financière absolue
+          - db_type: "date"
+            nullable: false
+            go_type: "time.Time"
+          - db_type: "date"
+            nullable: true
+            go_type: "*time.Time"
 
-          # # --- Booléens ---
-          # - db_type: "boolean"
-          #   go_type: "bool"
+          # --- Chaînes de caractères ---
+          - db_type: "text"
+            go_type: "string"
+          - db_type: "varchar"
+            go_type: "string"
+
+          # --- Nombres ---
+          - db_type: "integer"
+            go_type: "int32"
+          - db_type: "bigint"
+            go_type: "int64"
+          - db_type: "double precision"
+            go_type: "float64"
+          - db_type: "numeric"
+            go_type: "float64"
+
+          # --- Booléens ---
+          - db_type: "boolean"
+            go_type: "bool"
