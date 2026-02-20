@@ -2,53 +2,44 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type txBeginner interface {
-	Begin(ctx context.Context) (pgx.Tx, error)
-}
-
-// Begin starts a transaction from the underlying DB handle used by sqlc queries.
-func (q *Queries) Begin(ctx context.Context) (pgx.Tx, error) {
-	beginner, ok := q.db.(txBeginner)
-	if !ok {
-		return nil, fmt.Errorf("underlying db does not support transactions")
-	}
-
-	return beginner.Begin(ctx)
-}
-
-// WithTxQuerier binds a transaction and returns a querier scoped to it.
-func (q *Queries) WithTxQuerier(tx pgx.Tx) Querier {
-	return q.WithTx(tx)
-}
-
-// WithinTransaction executes fn atomically with a transaction-scoped querier.
+// WithinTransaction executes a function within a database transaction.
+// It supports nested transactions if the underlying DB connection supports it (e.g. savepoints),
+// but for simplicity here we just check if we are already in a transaction.
+// If q.db is a *pgxpool.Pool, it starts a new transaction.
+// If q.db is a pgx.Tx, it uses the existing transaction.
 func (q *Queries) WithinTransaction(ctx context.Context, fn func(Querier) error) error {
-	tx, err := q.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	defer func() {
-		rollbackErr := tx.Rollback(ctx)
-		if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
-			slog.Error("failed to rollback transaction", "error", rollbackErr)
+	// Check if the underlying DB connection is a pool
+	pool, ok := q.db.(*pgxpool.Pool)
+	if ok {
+		tx, err := pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to begin transaction: %w", err)
 		}
-	}()
+		defer tx.Rollback(ctx)
 
-	if err := fn(q.WithTxQuerier(tx)); err != nil {
-		return err
+		qTx := q.WithTx(tx)
+		if err := fn(qTx); err != nil {
+			return err
+		}
+
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("failed to commit transaction: %w", err)
+		}
+		return nil
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	// Check if it's already a transaction
+	_, ok = q.db.(pgx.Tx)
+	if ok {
+		// Already in a transaction, just execute the function
+		return fn(q)
 	}
 
-	return nil
+	return fmt.Errorf("database connection is neither *pgxpool.Pool nor pgx.Tx")
 }

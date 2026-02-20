@@ -45,11 +45,7 @@ func (app *application) mount() http.Handler {
 	authHandler := handler.NewAuthHandler(authService, app.config.JWT, "/v1/auth/refresh")
 	authMiddleware := auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience)
 
-	r.Route("/v1/auth", func(r chi.Router) {
-		r.Post("/register", userHandler.CreateUser)
-		r.Post("/login", authHandler.Login)
-		r.Post("/refresh", authHandler.Refresh)
-	})
+	app.mountAuthRoutes(r, userHandler, authHandler)
 
 	studentService := service.NewStudentService(repo)
 	studentHandler := handler.NewStudentHandler(studentService)
@@ -84,93 +80,14 @@ func (app *application) mount() http.Handler {
 	r.Route("/v1", func(r chi.Router) {
 		r.Use(authMiddleware)
 
-		r.Route("/user", func(r chi.Router) {
-			r.Get("/me", userHandler.GetMe)
-		})
-
-		r.Route("/students", func(r chi.Router) {
-			r.Post("/", studentHandler.CreateStudent)
-			r.Get("/", studentHandler.ListStudents)
-			r.Get("/{student_id}", studentHandler.GetStudent)
-			r.Get("/{student_id}/kpis", studentHandler.GetStudentKpis)
-			r.Get("/{student_id}/history", studentHandler.GetStudentHistory)
-			r.Put("/{student_id}", studentHandler.UpdateStudent)
-			r.Delete("/{student_id}", studentHandler.DeleteStudent)
-			r.Get("/{student_id}/classrooms", classroomHandler.ListClassroomsByStudent)
-			r.Get("/{student_id}/bonuses", bonusHandler.ListBonusesByStudent)
-			r.Get("/{student_id}/penalties", penaltyHandler.ListPenaltiesByStudent)
-			r.Get("/{student_id}/punishments", punishmentHandler.ListPunishmentsByStudent)
-		})
-
-		r.Route("/classrooms", func(r chi.Router) {
-			r.Post("/", classroomHandler.CreateClassroom)
-			r.Get("/", classroomHandler.ListClassrooms)
-			r.Get("/{classroom_id}", classroomHandler.GetClassroom)
-			r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
-			r.Delete("/{classroom_id}", classroomHandler.DeleteClassroom)
-			r.Post("/{classroom_id}/students", classroomHandler.AddStudentToClassroom)
-			r.Delete("/{classroom_id}/students/{student_id}", classroomHandler.RemoveStudentFromClassroom)
-			r.Get("/{classroom_id}/students", classroomHandler.ListStudentsByClassroom)
-		})
-
-		r.Route("/bonus-types", func(r chi.Router) {
-			r.Post("/", bonusTypeHandler.CreateBonusType)
-			r.Get("/", bonusTypeHandler.ListBonusTypes)
-			r.Get("/{bonus_type_id}", bonusTypeHandler.GetBonusType)
-			r.Put("/{bonus_type_id}", bonusTypeHandler.UpdateBonusType)
-			r.Delete("/{bonus_type_id}", bonusTypeHandler.DeleteBonusType)
-		})
-
-		r.Route("/penalty-types", func(r chi.Router) {
-			r.Post("/", penaltyTypeHandler.CreatePenaltyType)
-			r.Get("/", penaltyTypeHandler.ListPenaltyTypes)
-			r.Get("/{penalty_type_id}", penaltyTypeHandler.GetPenaltyType)
-			r.Put("/{penalty_type_id}", penaltyTypeHandler.UpdatePenaltyType)
-			r.Delete("/{penalty_type_id}", penaltyTypeHandler.DeletePenaltyType)
-		})
-
-		r.Route("/punishment-types", func(r chi.Router) {
-			r.Post("/", punishmentTypeHandler.CreatePunishmentType)
-			r.Get("/", punishmentTypeHandler.ListPunishmentTypes)
-			r.Get("/{punishment_type_id}", punishmentTypeHandler.GetPunishmentType)
-			r.Put("/{punishment_type_id}", punishmentTypeHandler.UpdatePunishmentType)
-			r.Delete("/{punishment_type_id}", punishmentTypeHandler.DeletePunishmentType)
-		})
-
-		r.Route("/bonuses", func(r chi.Router) {
-			r.Post("/", bonusHandler.CreateBonus)
-			r.Get("/", bonusHandler.ListBonuses)
-			r.Get("/{bonus_id}", bonusHandler.GetBonus)
-			r.Post("/{bonus_id}/use", bonusHandler.UseBonus)
-			r.Delete("/{bonus_id}", bonusHandler.DeleteBonus)
-		})
-
-		r.Route("/penalties", func(r chi.Router) {
-			r.Post("/", penaltyHandler.CreatePenalty)
-			r.Get("/", penaltyHandler.ListPenalties)
-			r.Get("/{penalty_id}", penaltyHandler.GetPenalty)
-			r.Delete("/{penalty_id}", penaltyHandler.DeletePenalty)
-		})
-
-		r.Route("/punishments", func(r chi.Router) {
-			r.Post("/", punishmentHandler.CreatePunishment)
-			r.Get("/", punishmentHandler.ListPunishments)
-			r.Get("/{punishment_id}", punishmentHandler.GetPunishment)
-			r.Post("/{punishment_id}/resolve", punishmentHandler.ResolvePunishment)
-			r.Delete("/{punishment_id}", punishmentHandler.DeletePunishment)
-		})
-
-		r.Route("/rules", func(r chi.Router) {
-			r.Post("/", ruleHandler.CreateRule)
-			r.Get("/", ruleHandler.ListRules)
-			r.Get("/{rule_id}", ruleHandler.GetRule)
-			r.Put("/{rule_id}", ruleHandler.UpdateRule)
-			r.Delete("/{rule_id}", ruleHandler.DeleteRule)
-		})
-
-		r.Route("/dashboard", func(r chi.Router) {
-			r.Get("/", dashboardHandler.GetDashboard)
-		})
+		app.mountUserRoutes(r, userHandler)
+		app.mountStudentRoutes(r, studentHandler, classroomHandler, bonusHandler, penaltyHandler, punishmentHandler)
+		app.mountClassroomRoutes(r, classroomHandler)
+		app.mountBonusRoutes(r, bonusHandler, bonusTypeHandler)
+		app.mountPenaltyRoutes(r, penaltyHandler, penaltyTypeHandler)
+		app.mountPunishmentRoutes(r, punishmentHandler, punishmentTypeHandler)
+		app.mountRuleRoutes(r, ruleHandler)
+		app.mountDashboardRoutes(r, dashboardHandler)
 	})
 
 	return r
