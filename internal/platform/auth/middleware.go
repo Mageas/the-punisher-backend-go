@@ -15,7 +15,7 @@ type contextKey string
 
 const userIDKey contextKey = "userID"
 
-func AuthMiddleware(accessSecret string) func(http.Handler) http.Handler {
+func AuthMiddleware(accessSecret, issuer, audience string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -30,7 +30,11 @@ func AuthMiddleware(accessSecret string) func(http.Handler) http.Handler {
 				return
 			}
 
-			claims, err := jwt.Verify(token, accessSecret)
+			claims, err := jwt.Verify(token, jwt.VerifyConfig{
+				Secret:   accessSecret,
+				Issuer:   issuer,
+				Audience: audience,
+			})
 			if err != nil {
 				web.WriteFromError(w, err)
 				return

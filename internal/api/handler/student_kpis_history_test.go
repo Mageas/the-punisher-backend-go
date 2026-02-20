@@ -42,6 +42,12 @@ type studentHistoryItemResponse struct {
 	CreatedAt          time.Time  `json:"created_at"`
 }
 
+type paginatedStudentHistoryResponse struct {
+	Page       int                          `json:"page"`
+	TotalCount int64                        `json:"total_count"`
+	Data       []studentHistoryItemResponse `json:"data"`
+}
+
 func TestStudentKpisHandlerSuccess(t *testing.T) {
 	repo := inmemory.NewRepository()
 	cfg := shared.TestJWTConfig()
@@ -116,21 +122,24 @@ func TestStudentHistoryHandlerSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 	}
 
-	resp := httpx.DecodeJSONResponse[[]studentHistoryItemResponse](t, rr)
-	if len(resp) != 5 {
-		t.Fatalf("expected 5 history items, got %d (%+v)", len(resp), resp)
+	resp := httpx.DecodeJSONResponse[paginatedStudentHistoryResponse](t, rr)
+	if resp.TotalCount != 5 {
+		t.Fatalf("expected total_count=5, got %d", resp.TotalCount)
 	}
-	if resp[0].Type != "punishment" {
-		t.Fatalf("expected first history item to be latest punishment, got %+v", resp[0])
+	if len(resp.Data) != 5 {
+		t.Fatalf("expected 5 history items, got %d (%+v)", len(resp.Data), resp.Data)
 	}
-	if resp[0].PunishmentTypeID == nil || resp[0].PunishmentTypeName == nil || resp[0].DueAt == nil {
-		t.Fatalf("expected punishment fields on first item, got %+v", resp[0])
+	if resp.Data[0].Type != "punishment" {
+		t.Fatalf("expected first history item to be latest punishment, got %+v", resp.Data[0])
+	}
+	if resp.Data[0].PunishmentTypeID == nil || resp.Data[0].PunishmentTypeName == nil || resp.Data[0].DueAt == nil {
+		t.Fatalf("expected punishment fields on first item, got %+v", resp.Data[0])
 	}
 
 	typesCount := map[string]int{}
 	automatedTrueCount := 0
 	automatedFalseCount := 0
-	for _, item := range resp {
+	for _, item := range resp.Data {
 		typesCount[item.Type]++
 		if item.Type == "punishment" {
 			if item.Automated == nil {
@@ -185,9 +194,15 @@ func TestStudentHistoryHandlerPagination(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 	}
 
-	resp := httpx.DecodeJSONResponse[[]studentHistoryItemResponse](t, rr)
-	if len(resp) != 1 {
-		t.Fatalf("expected exactly one history item on page 2, got %d", len(resp))
+	resp := httpx.DecodeJSONResponse[paginatedStudentHistoryResponse](t, rr)
+	if resp.Page != 2 {
+		t.Fatalf("expected page=2, got %d", resp.Page)
+	}
+	if resp.TotalCount != 21 {
+		t.Fatalf("expected total_count=21, got %d", resp.TotalCount)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("expected exactly one history item on page 2, got %d", len(resp.Data))
 	}
 }
 

@@ -493,7 +493,7 @@ func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 	h := handler.NewStudentHandler(svc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Post("/", h.CreateStudent)
 		r.Get("/", h.ListStudents)

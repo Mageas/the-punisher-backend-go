@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	OpGetStudentKpis     = "GetStudentKpis"
-	OpListStudentHistory = "ListStudentHistory"
+	OpGetStudentKpis      = "GetStudentKpis"
+	OpListStudentHistory  = "ListStudentHistory"
+	OpCountStudentHistory = "CountStudentHistory"
 )
 
 func (r *Repository) GetStudentKpis(_ context.Context, arg repository.GetStudentKpisParams) (repository.GetStudentKpisRow, error) {
@@ -148,4 +149,35 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 
 	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
 	return paginated, nil
+}
+
+func (r *Repository) CountStudentHistory(_ context.Context, arg repository.CountStudentHistoryParams) (int64, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if err := r.errFor(OpCountStudentHistory); err != nil {
+		return 0, err
+	}
+
+	var count int64
+
+	for _, punishment := range r.punishments {
+		if punishment.StudentID == arg.StudentID && punishment.UserID == arg.UserID {
+			count++
+		}
+	}
+
+	for _, penalty := range r.penalties {
+		if penalty.StudentID == arg.StudentID && penalty.UserID == arg.UserID {
+			count++
+		}
+	}
+
+	for _, bonus := range r.bonuses {
+		if bonus.StudentID == arg.StudentID && bonus.UserID == arg.UserID {
+			count++
+		}
+	}
+
+	return count, nil
 }

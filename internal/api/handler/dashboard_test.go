@@ -228,7 +228,7 @@ func newDashboardRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Ha
 	dashboardHandler := handler.NewDashboardHandler(dashboardSvc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 	r.Route("/v1/dashboard", func(r chi.Router) {
 		r.Get("/", dashboardHandler.GetDashboard)
 	})

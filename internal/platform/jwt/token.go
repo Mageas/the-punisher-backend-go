@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 )
 
@@ -16,6 +17,12 @@ type Config struct {
 	Audience   string
 }
 
+type VerifyConfig struct {
+	Secret   string
+	Issuer   string
+	Audience string
+}
+
 func Generate(conf Config, subject string) (string, error) {
 	now := time.Now()
 	expiresAt := now.Add(conf.Expiration)
@@ -24,6 +31,7 @@ func Generate(conf Config, subject string) (string, error) {
 		"sub": subject,
 		"iss": conf.Issuer,
 		"aud": conf.Audience,
+		"jti": uuid.NewString(),
 		"exp": expiresAt.Unix(),
 		"iat": now.Unix(),
 		"nbf": now.Unix(),
@@ -33,13 +41,18 @@ func Generate(conf Config, subject string) (string, error) {
 	return token.SignedString([]byte(conf.Secret))
 }
 
-func Verify(tokenString string, secret string) (jwt.MapClaims, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, api.ErrJWTInvalidSigningMethod
-		}
-		return []byte(secret), nil
-	})
+func Verify(tokenString string, conf VerifyConfig) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(
+		tokenString,
+		func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, api.ErrJWTInvalidSigningMethod
+			}
+			return []byte(conf.Secret), nil
+		},
+		jwt.WithIssuer(conf.Issuer),
+		jwt.WithAudience(conf.Audience),
+	)
 
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {

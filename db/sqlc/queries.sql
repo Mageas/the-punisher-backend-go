@@ -34,12 +34,12 @@ RETURNING id, user_id, token, user_agent, client_ip, revoked_at, expires_at, cre
 -- name: GetRefreshToken :one
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
-WHERE user_id = sqlc.arg(user_id) AND token = sqlc.arg(token) AND revoked_at IS NULL LIMIT 1;
+WHERE user_id = sqlc.arg(user_id) AND token = sqlc.arg(token) AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1;
 
 -- name: RevokeRefreshToken :one
 UPDATE refresh_tokens
 SET revoked_at = NOW()
-WHERE token = sqlc.arg(token)
+WHERE token = sqlc.arg(token) AND revoked_at IS NULL
 RETURNING id, user_id, token, revoked_at, expires_at;
 
 -- name: DeleteRefreshToken :exec
@@ -666,6 +666,30 @@ FROM (
 ) history
 ORDER BY history.created_at DESC, history.id DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: CountStudentHistory :one
+SELECT (
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        WHERE p.student_id = sqlc.arg(student_id)
+          AND p.user_id = sqlc.arg(user_id)
+    ), 0)
+    +
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = sqlc.arg(student_id)
+          AND p.user_id = sqlc.arg(user_id)
+    ), 0)
+    +
+    COALESCE((
+        SELECT COUNT(*)
+        FROM bonuses b
+        WHERE b.student_id = sqlc.arg(student_id)
+          AND b.user_id = sqlc.arg(user_id)
+    ), 0)
+)::bigint;
 
 -- ==================== BonusType ====================
 
