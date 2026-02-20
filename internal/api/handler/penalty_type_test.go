@@ -53,9 +53,9 @@ func penaltyTypeSuite() shared.ManagedTypeSuite {
 			r.Route("/v1/penalty-types", func(r chi.Router) {
 				r.Post("/", h.CreatePenaltyType)
 				r.Get("/", h.ListPenaltyTypes)
-				r.Get("/{id}", h.GetPenaltyType)
-				r.Put("/{id}", h.UpdatePenaltyType)
-				r.Delete("/{id}", h.DeletePenaltyType)
+				r.Get("/{penalty_type_id}", h.GetPenaltyType)
+				r.Put("/{penalty_type_id}", h.UpdatePenaltyType)
+				r.Delete("/{penalty_type_id}", h.DeletePenaltyType)
 			})
 
 			return r

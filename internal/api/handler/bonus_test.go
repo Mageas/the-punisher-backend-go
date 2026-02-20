@@ -494,13 +494,13 @@ func newBonusRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Handle
 	r.Route("/v1/bonuses", func(r chi.Router) {
 		r.Post("/", h.CreateBonus)
 		r.Get("/", h.ListBonuses)
-		r.Get("/{id}", h.GetBonus)
-		r.Post("/{id}/use", h.UseBonus)
-		r.Delete("/{id}", h.DeleteBonus)
+		r.Get("/{bonus_id}", h.GetBonus)
+		r.Post("/{bonus_id}/use", h.UseBonus)
+		r.Delete("/{bonus_id}", h.DeleteBonus)
 	})
 
 	r.Route("/v1/students", func(r chi.Router) {
-		r.Get("/{id}/bonuses", h.ListBonusesByStudent)
+		r.Get("/{student_id}/bonuses", h.ListBonusesByStudent)
 	})
 
 	return r

@@ -324,7 +324,7 @@ func TestUserHandlerGetMe(t *testing.T) {
 			LastName:  "Dupont",
 		})
 
-		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me/", userID, cfg)
+		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me", userID, cfg)
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
@@ -346,7 +346,7 @@ func TestUserHandlerGetMe(t *testing.T) {
 		cfg := shared.TestJWTConfig()
 		router := newUserRouter(repo, cfg, true)
 
-		req := httptest.NewRequest(http.MethodGet, "/v1/user/me/", nil)
+		req := httptest.NewRequest(http.MethodGet, "/v1/user/me", nil)
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
@@ -361,7 +361,7 @@ func TestUserHandlerGetMe(t *testing.T) {
 		router := newUserRouter(repo, cfg, true)
 		userID := uuid.New()
 
-		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me/", userID, cfg)
+		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me", userID, cfg)
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
@@ -389,7 +389,7 @@ func TestUserHandlerGetMe(t *testing.T) {
 		})
 		repo.SetGetUserByIDError(errors.New("database unavailable"))
 
-		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me/", userID, cfg)
+		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/user/me", userID, cfg)
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
@@ -422,9 +422,9 @@ func newUserRouter(repo *inmemory.Repository, jwtCfg config.JWTConfig, allowRegi
 		r.Post("/register", userHandler.CreateUser)
 	})
 
-	r.Route("/v1/user/me", func(r chi.Router) {
+	r.Route("/v1/user", func(r chi.Router) {
 		r.Use(platformauth.AuthMiddleware(jwtCfg.AccessSecret, jwtCfg.Issuer, jwtCfg.Audience))
-		r.Get("/", userHandler.GetMe)
+		r.Get("/me", userHandler.GetMe)
 	})
 
 	return r

@@ -476,9 +476,9 @@ func newRuleRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Handler
 	r.Route("/v1/rules", func(r chi.Router) {
 		r.Post("/", h.CreateRule)
 		r.Get("/", h.ListRules)
-		r.Get("/{id}", h.GetRule)
-		r.Put("/{id}", h.UpdateRule)
-		r.Delete("/{id}", h.DeleteRule)
+		r.Get("/{rule_id}", h.GetRule)
+		r.Put("/{rule_id}", h.UpdateRule)
+		r.Delete("/{rule_id}", h.DeleteRule)
 	})
 
 	return r

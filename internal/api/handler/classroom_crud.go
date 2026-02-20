@@ -35,7 +35,7 @@ func (h *ClassroomHandler) CreateClassroom(w http.ResponseWriter, r *http.Reques
 func (h *ClassroomHandler) GetClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
 	if !ok {
 		return
 	}
@@ -67,7 +67,7 @@ func (h *ClassroomHandler) ListClassrooms(w http.ResponseWriter, r *http.Request
 func (h *ClassroomHandler) UpdateClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
 	if !ok {
 		return
 	}
@@ -95,7 +95,7 @@ func (h *ClassroomHandler) UpdateClassroom(w http.ResponseWriter, r *http.Reques
 func (h *ClassroomHandler) DeleteClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, ok := parsePathUUID(w, r, "classroom_id", "classroom_id", "id")
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
 	if !ok {
 		return
 	}

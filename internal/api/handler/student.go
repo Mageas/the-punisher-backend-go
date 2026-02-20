@@ -44,7 +44,7 @@ func (h *StudentHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}
@@ -61,7 +61,7 @@ func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) GetStudentKpis(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}
@@ -78,7 +78,7 @@ func (h *StudentHandler) GetStudentKpis(w http.ResponseWriter, r *http.Request) 
 func (h *StudentHandler) GetStudentHistory(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}
@@ -114,7 +114,7 @@ func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) UpdateStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}
@@ -142,7 +142,7 @@ func (h *StudentHandler) UpdateStudent(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) DeleteStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}
