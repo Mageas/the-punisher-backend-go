@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
@@ -36,7 +37,7 @@ func attachStudentsPreviewToClassrooms(ctx context.Context, repo repository.Quer
 		return err
 	}
 
-	previewByClassroom := dto.ClassroomStudentsPreviewByClassroomFromRows(rows)
+	previewByClassroom := sqlcmapper.ClassroomStudentsPreviewByClassroomFromRows(rows)
 	for _, classroom := range classrooms {
 		if classroom == nil {
 			continue

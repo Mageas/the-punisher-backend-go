@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
@@ -33,7 +34,7 @@ func attachClassroomsToStudents(ctx context.Context, repo repository.Querier, us
 		return err
 	}
 
-	classroomsByStudent := dto.StudentClassroomsByStudentFromRows(rows)
+	classroomsByStudent := sqlcmapper.StudentClassroomsByStudentFromRows(rows)
 	for _, student := range students {
 		if student == nil {
 			continue

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -64,7 +65,7 @@ func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, st
 
 	slog.Info("penalty created", "penalty_id", penalty.ID, "user_id", userID, "student_id", studentID, "penalty_type_id", penaltyTypeID)
 
-	return dto.PenaltyFromCreateRow(&penalty), nil
+	return sqlcmapper.PenaltyFromCreateRow(&penalty), nil
 }
 
 func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (repository.CreatePenaltyRow, error) {
@@ -181,7 +182,7 @@ func (s *penaltyService) GetPenalty(ctx context.Context, userID uuid.UUID, penal
 		return nil, fmt.Errorf("failed to get penalty: %w", err)
 	}
 
-	return dto.PenaltyFromGetRow(&penalty), nil
+	return sqlcmapper.PenaltyFromGetRow(&penalty), nil
 }
 
 func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error) {
@@ -199,7 +200,7 @@ func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, li
 		return nil, 0, fmt.Errorf("failed to list penalties: %w", err)
 	}
 
-	return dto.PenaltyListFromListByUserRows(penalties), totalCount, nil
+	return sqlcmapper.PenaltyListFromListByUserRows(penalties), totalCount, nil
 }
 
 func (s *penaltyService) ListPenaltiesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error) {
@@ -228,7 +229,7 @@ func (s *penaltyService) ListPenaltiesByStudent(ctx context.Context, userID uuid
 		return nil, 0, fmt.Errorf("failed to list penalties by student: %w", err)
 	}
 
-	return dto.PenaltyListFromListByStudentRows(penalties), totalCount, nil
+	return sqlcmapper.PenaltyListFromListByStudentRows(penalties), totalCount, nil
 }
 
 func (s *penaltyService) DeletePenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) error {

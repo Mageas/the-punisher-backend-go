@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -43,7 +44,7 @@ func (s *studentService) CreateStudent(ctx context.Context, userID uuid.UUID, re
 
 	slog.Info("student created", "student_id", student.ID, "user_id", userID)
 
-	response := dto.StudentFromCreateRow(&student)
+	response := sqlcmapper.StudentFromCreateRow(&student)
 	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
 	}
@@ -63,7 +64,7 @@ func (s *studentService) GetStudent(ctx context.Context, userID uuid.UUID, stude
 		return nil, fmt.Errorf("failed to get student: %w", err)
 	}
 
-	response := dto.StudentFromGetRow(&student)
+	response := sqlcmapper.StudentFromGetRow(&student)
 	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
 	}
@@ -90,7 +91,7 @@ func (s *studentService) ListStudents(ctx context.Context, userID uuid.UUID, sea
 		return nil, 0, fmt.Errorf("failed to list students: %w", err)
 	}
 
-	response := dto.StudentListFromListByUserRows(students)
+	response := sqlcmapper.StudentListFromListByUserRows(students)
 	if err := attachClassroomsToStudents(ctx, s.repo, userID, response); err != nil {
 		return nil, 0, fmt.Errorf("failed to list student classrooms: %w", err)
 	}
@@ -119,7 +120,7 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID uuid.UUID, st
 		return nil, fmt.Errorf("failed to update student: %w", err)
 	}
 
-	response := dto.StudentFromUpdateRow(&student)
+	response := sqlcmapper.StudentFromUpdateRow(&student)
 	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
 	}

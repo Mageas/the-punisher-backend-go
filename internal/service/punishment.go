@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -58,7 +59,7 @@ func (s *punishmentService) CreatePunishment(ctx context.Context, userID uuid.UU
 
 	slog.Info("punishment created", "punishment_id", punishment.ID, "user_id", userID, "student_id", studentID, "punishment_type_id", punishmentTypeID)
 
-	return dto.PunishmentFromCreateRow(&punishment), nil
+	return sqlcmapper.PunishmentFromCreateRow(&punishment), nil
 }
 
 func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
@@ -70,7 +71,7 @@ func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID,
 		return nil, fmt.Errorf("failed to get punishment: %w", err)
 	}
 
-	return dto.PunishmentFromGetRow(&punishment), nil
+	return sqlcmapper.PunishmentFromGetRow(&punishment), nil
 }
 
 func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, search *string, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
@@ -94,7 +95,7 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 		return nil, 0, fmt.Errorf("failed to list punishments: %w", err)
 	}
 
-	return dto.PunishmentListFromListByUserRows(punishments), totalCount, nil
+	return sqlcmapper.PunishmentListFromListByUserRows(punishments), totalCount, nil
 }
 
 func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
@@ -125,7 +126,7 @@ func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID
 		return nil, 0, fmt.Errorf("failed to list punishments by student: %w", err)
 	}
 
-	return dto.PunishmentListFromListByStudentRows(punishments), totalCount, nil
+	return sqlcmapper.PunishmentListFromListByStudentRows(punishments), totalCount, nil
 }
 
 func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
@@ -139,7 +140,7 @@ func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.U
 				}
 				return nil, fmt.Errorf("failed to get punishment: %w", getErr)
 			}
-			if existing.ResolvedAt != nil && *existing.ResolvedAt != nil {
+			if existing.ResolvedAt != nil {
 				return nil, api.ErrPunishmentAlreadyResolved
 			}
 			return nil, fmt.Errorf("failed to resolve punishment: %w", err)
@@ -149,7 +150,7 @@ func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.U
 
 	slog.Info("punishment resolved", "punishment_id", punishment.ID, "user_id", userID)
 
-	return dto.PunishmentFromResolveRow(&punishment), nil
+	return sqlcmapper.PunishmentFromResolveRow(&punishment), nil
 }
 
 func (s *punishmentService) DeletePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) error {

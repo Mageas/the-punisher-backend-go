@@ -31,21 +31,30 @@ sql:
             go_type: "time.Time"
           - db_type: "timestamptz"
             nullable: true
-            go_type: "*time.Time"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
 
           - db_type: "timestamp"
             nullable: false
             go_type: "time.Time"
           - db_type: "timestamp"
             nullable: true
-            go_type: "*time.Time"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
 
           - db_type: "date"
             nullable: false
             go_type: "time.Time"
           - db_type: "date"
             nullable: true
-            go_type: "*time.Time"
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
 
           # --- Chaînes de caractères ---
           - db_type: "text"

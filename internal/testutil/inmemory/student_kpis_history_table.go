@@ -3,7 +3,6 @@ package inmemory
 import (
 	"context"
 	"sort"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -13,8 +12,6 @@ const (
 	OpGetStudentKpis     = "GetStudentKpis"
 	OpListStudentHistory = "ListStudentHistory"
 )
-
-var studentHistoryFallbackDueAt = time.Unix(0, 0).UTC()
 
 func (r *Repository) GetStudentKpis(_ context.Context, arg repository.GetStudentKpisParams) (repository.GetStudentKpisRow, error) {
 	r.mu.RLock()
@@ -66,31 +63,29 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 		}
 
 		triggeringRuleName := r.triggeringRuleNameForPunishmentLocked(punishment.TriggeringRuleID)
-		items = append(items, repository.ListStudentHistoryRow{
+		item := repository.ListStudentHistoryRow{
 			Type:               "punishment",
 			ID:                 punishment.ID,
 			CreatedAt:          punishment.CreatedAt,
-			PenaltyTypeID:      uuid.Nil,
-			PenaltyTypeName:    "",
-			BonusTypeID:        uuid.Nil,
-			BonusTypeName:      "",
-			Points:             0,
-			UsedAt:             studentHistoryFallbackDueAt,
+			PenaltyTypeID:      nil,
+			PenaltyTypeName:    nil,
+			BonusTypeID:        nil,
+			BonusTypeName:      nil,
+			Points:             nil,
+			UsedAt:             nil,
 			PunishmentTypeID:   punishment.PunishmentTypeID,
 			PunishmentTypeName: r.punishmentTypeNameLocked(punishment.PunishmentTypeID),
-			TriggeringRuleID:   nil,
-			TriggeringRuleName: "",
+			TriggeringRuleID:   cloneUUIDPtr(punishment.TriggeringRuleID),
+			TriggeringRuleName: nil,
 			Automated:          punishment.Automated,
 			DueAt:              punishment.DueAt,
-			ResolvedAt:         doubleTimePtr(studentHistoryFallbackDueAt),
-		})
-		if punishment.TriggeringRuleID != nil {
-			items[len(items)-1].TriggeringRuleID = punishment.TriggeringRuleID
-			items[len(items)-1].TriggeringRuleName = triggeringRuleName
+			ResolvedAt:         punishment.ResolvedAt,
 		}
-		if hasTime(punishment.ResolvedAt) {
-			items[len(items)-1].ResolvedAt = punishment.ResolvedAt
+		if item.TriggeringRuleID != nil && triggeringRuleName != "" {
+			item.TriggeringRuleName = stringPtr(triggeringRuleName)
 		}
+
+		items = append(items, item)
 	}
 
 	for _, penalty := range r.penalties {
@@ -98,23 +93,24 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			continue
 		}
 
+		penaltyTypeName := r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID)
 		items = append(items, repository.ListStudentHistoryRow{
 			Type:               "penalty",
 			ID:                 penalty.ID,
 			CreatedAt:          penalty.CreatedAt,
-			PenaltyTypeID:      penalty.PenaltyTypeID,
-			PenaltyTypeName:    r.penaltyTypeNameForPenaltyLocked(penalty.PenaltyTypeID),
-			BonusTypeID:        uuid.Nil,
-			BonusTypeName:      "",
-			Points:             0,
-			UsedAt:             studentHistoryFallbackDueAt,
-			PunishmentTypeID:   uuid.Nil,
-			PunishmentTypeName: "",
+			PenaltyTypeID:      uuidPtr(penalty.PenaltyTypeID),
+			PenaltyTypeName:    stringPtr(penaltyTypeName),
+			BonusTypeID:        nil,
+			BonusTypeName:      nil,
+			Points:             nil,
+			UsedAt:             nil,
+			PunishmentTypeID:   penalty.PenaltyTypeID,
+			PunishmentTypeName: penaltyTypeName,
 			TriggeringRuleID:   nil,
-			TriggeringRuleName: "",
+			TriggeringRuleName: nil,
 			Automated:          false,
-			DueAt:              studentHistoryFallbackDueAt,
-			ResolvedAt:         doubleTimePtr(studentHistoryFallbackDueAt),
+			DueAt:              penalty.CreatedAt,
+			ResolvedAt:         nil,
 		})
 	}
 
@@ -123,27 +119,25 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			continue
 		}
 
+		bonusTypeName := r.bonusTypeNameForBonusLocked(bonus.BonusTypeID)
 		items = append(items, repository.ListStudentHistoryRow{
 			Type:               "bonus",
 			ID:                 bonus.ID,
 			CreatedAt:          bonus.CreatedAt,
-			PenaltyTypeID:      uuid.Nil,
-			PenaltyTypeName:    "",
-			BonusTypeID:        bonus.BonusTypeID,
-			BonusTypeName:      r.bonusTypeNameForBonusLocked(bonus.BonusTypeID),
-			Points:             bonus.Points,
-			UsedAt:             studentHistoryFallbackDueAt,
-			PunishmentTypeID:   uuid.Nil,
-			PunishmentTypeName: "",
+			PenaltyTypeID:      nil,
+			PenaltyTypeName:    nil,
+			BonusTypeID:        uuidPtr(bonus.BonusTypeID),
+			BonusTypeName:      stringPtr(bonusTypeName),
+			Points:             float64Ptr(bonus.Points),
+			UsedAt:             bonus.UsedAt,
+			PunishmentTypeID:   bonus.BonusTypeID,
+			PunishmentTypeName: bonusTypeName,
 			TriggeringRuleID:   nil,
-			TriggeringRuleName: "",
+			TriggeringRuleName: nil,
 			Automated:          false,
-			DueAt:              studentHistoryFallbackDueAt,
-			ResolvedAt:         doubleTimePtr(studentHistoryFallbackDueAt),
+			DueAt:              bonus.CreatedAt,
+			ResolvedAt:         nil,
 		})
-		if hasTime(bonus.UsedAt) {
-			items[len(items)-1].UsedAt = **bonus.UsedAt
-		}
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -155,4 +149,28 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 
 	paginated := paginate(items, arg.QueryOffset, arg.QueryLimit)
 	return paginated, nil
+}
+
+func cloneUUIDPtr(value *uuid.UUID) *uuid.UUID {
+	if value == nil {
+		return nil
+	}
+
+	id := *value
+	return &id
+}
+
+func uuidPtr(value uuid.UUID) *uuid.UUID {
+	id := value
+	return &id
+}
+
+func stringPtr(value string) *string {
+	v := value
+	return &v
+}
+
+func float64Ptr(value float64) *float64 {
+	v := value
+	return &v
 }
