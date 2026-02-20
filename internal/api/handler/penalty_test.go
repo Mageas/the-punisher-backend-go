@@ -454,12 +454,12 @@ func newPenaltyRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 	r.Route("/v1/penalties", func(r chi.Router) {
 		r.Post("/", penaltyHandler.CreatePenalty)
 		r.Get("/", penaltyHandler.ListPenalties)
-		r.Get("/{id}", penaltyHandler.GetPenalty)
-		r.Delete("/{id}", penaltyHandler.DeletePenalty)
+		r.Get("/{penalty_id}", penaltyHandler.GetPenalty)
+		r.Delete("/{penalty_id}", penaltyHandler.DeletePenalty)
 	})
 
 	r.Route("/v1/students", func(r chi.Router) {
-		r.Get("/{id}/penalties", penaltyHandler.ListPenaltiesByStudent)
+		r.Get("/{student_id}/penalties", penaltyHandler.ListPenaltiesByStudent)
 	})
 
 	// Only list endpoint is needed to assert rule-triggered punishments from penalties.

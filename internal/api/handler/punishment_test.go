@@ -518,13 +518,13 @@ func newPunishmentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.H
 	r.Route("/v1/punishments", func(r chi.Router) {
 		r.Post("/", h.CreatePunishment)
 		r.Get("/", h.ListPunishments)
-		r.Get("/{id}", h.GetPunishment)
-		r.Post("/{id}/resolve", h.ResolvePunishment)
-		r.Delete("/{id}", h.DeletePunishment)
+		r.Get("/{punishment_id}", h.GetPunishment)
+		r.Post("/{punishment_id}/resolve", h.ResolvePunishment)
+		r.Delete("/{punishment_id}", h.DeletePunishment)
 	})
 
 	r.Route("/v1/students", func(r chi.Router) {
-		r.Get("/{id}/punishments", h.ListPunishmentsByStudent)
+		r.Get("/{student_id}/punishments", h.ListPunishmentsByStudent)
 	})
 
 	return r

@@ -69,7 +69,7 @@ func (h *PenaltyHandler) ListPenalties(w http.ResponseWriter, r *http.Request) {
 func (h *PenaltyHandler) GetPenalty(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyID, ok := parsePathUUID(w, r, "penalty_id", "penalty_id", "id")
+	penaltyID, ok := parsePathUUID(w, r, "penalty_id")
 	if !ok {
 		return
 	}
@@ -86,7 +86,7 @@ func (h *PenaltyHandler) GetPenalty(w http.ResponseWriter, r *http.Request) {
 func (h *PenaltyHandler) DeletePenalty(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyID, ok := parsePathUUID(w, r, "penalty_id", "penalty_id", "id")
+	penaltyID, ok := parsePathUUID(w, r, "penalty_id")
 	if !ok {
 		return
 	}
@@ -102,7 +102,7 @@ func (h *PenaltyHandler) DeletePenalty(w http.ResponseWriter, r *http.Request) {
 func (h *PenaltyHandler) ListPenaltiesByStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}

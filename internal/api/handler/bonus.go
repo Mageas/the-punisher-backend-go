@@ -77,7 +77,7 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 func (h *BonusHandler) GetBonus(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	bonusID, ok := parsePathUUID(w, r, "bonus_id", "bonus_id", "id")
+	bonusID, ok := parsePathUUID(w, r, "bonus_id")
 	if !ok {
 		return
 	}
@@ -94,7 +94,7 @@ func (h *BonusHandler) GetBonus(w http.ResponseWriter, r *http.Request) {
 func (h *BonusHandler) UseBonus(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	bonusID, ok := parsePathUUID(w, r, "bonus_id", "bonus_id", "id")
+	bonusID, ok := parsePathUUID(w, r, "bonus_id")
 	if !ok {
 		return
 	}
@@ -111,7 +111,7 @@ func (h *BonusHandler) UseBonus(w http.ResponseWriter, r *http.Request) {
 func (h *BonusHandler) DeleteBonus(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	bonusID, ok := parsePathUUID(w, r, "bonus_id", "bonus_id", "id")
+	bonusID, ok := parsePathUUID(w, r, "bonus_id")
 	if !ok {
 		return
 	}
@@ -127,7 +127,7 @@ func (h *BonusHandler) DeleteBonus(w http.ResponseWriter, r *http.Request) {
 func (h *BonusHandler) ListBonusesByStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}
