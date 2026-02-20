@@ -53,9 +53,9 @@ func bonusTypeSuite() shared.ManagedTypeSuite {
 			r.Route("/v1/bonus-types", func(r chi.Router) {
 				r.Post("/", h.CreateBonusType)
 				r.Get("/", h.ListBonusTypes)
-				r.Get("/{id}", h.GetBonusType)
-				r.Put("/{id}", h.UpdateBonusType)
-				r.Delete("/{id}", h.DeleteBonusType)
+				r.Get("/{bonus_type_id}", h.GetBonusType)
+				r.Put("/{bonus_type_id}", h.UpdateBonusType)
+				r.Delete("/{bonus_type_id}", h.DeleteBonusType)
 			})
 
 			return r

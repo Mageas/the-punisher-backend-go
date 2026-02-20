@@ -82,7 +82,7 @@ func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Reque
 func (h *PunishmentHandler) GetPunishment(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	punishmentID, ok := parsePathUUID(w, r, "punishment_id", "punishment_id", "id")
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id")
 	if !ok {
 		return
 	}
@@ -99,7 +99,7 @@ func (h *PunishmentHandler) GetPunishment(w http.ResponseWriter, r *http.Request
 func (h *PunishmentHandler) ResolvePunishment(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	punishmentID, ok := parsePathUUID(w, r, "punishment_id", "punishment_id", "id")
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id")
 	if !ok {
 		return
 	}
@@ -116,7 +116,7 @@ func (h *PunishmentHandler) ResolvePunishment(w http.ResponseWriter, r *http.Req
 func (h *PunishmentHandler) DeletePunishment(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	punishmentID, ok := parsePathUUID(w, r, "punishment_id", "punishment_id", "id")
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id")
 	if !ok {
 		return
 	}
@@ -132,7 +132,7 @@ func (h *PunishmentHandler) DeletePunishment(w http.ResponseWriter, r *http.Requ
 func (h *PunishmentHandler) ListPunishmentsByStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	studentID, ok := parsePathUUID(w, r, "student_id")
 	if !ok {
 		return
 	}

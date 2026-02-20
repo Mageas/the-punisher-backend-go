@@ -61,7 +61,7 @@ func (h managedTypeHandler[TCreateReq, TUpdateReq, TReturn]) handleList(w http.R
 func (h managedTypeHandler[TCreateReq, TUpdateReq, TReturn]) handleGet(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	resourceID, ok := parsePathUUID(w, r, h.idPathParam, h.idPathParam, "id")
+	resourceID, ok := parsePathUUID(w, r, h.idPathParam)
 	if !ok {
 		return
 	}
@@ -78,7 +78,7 @@ func (h managedTypeHandler[TCreateReq, TUpdateReq, TReturn]) handleGet(w http.Re
 func (h managedTypeHandler[TCreateReq, TUpdateReq, TReturn]) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	resourceID, ok := parsePathUUID(w, r, h.idPathParam, h.idPathParam, "id")
+	resourceID, ok := parsePathUUID(w, r, h.idPathParam)
 	if !ok {
 		return
 	}
@@ -106,7 +106,7 @@ func (h managedTypeHandler[TCreateReq, TUpdateReq, TReturn]) handleUpdate(w http
 func (h managedTypeHandler[TCreateReq, TUpdateReq, TReturn]) handleDelete(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	resourceID, ok := parsePathUUID(w, r, h.idPathParam, h.idPathParam, "id")
+	resourceID, ok := parsePathUUID(w, r, h.idPathParam)
 	if !ok {
 		return
 	}

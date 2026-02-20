@@ -61,7 +61,7 @@ func (h *RuleHandler) ListRules(w http.ResponseWriter, r *http.Request) {
 func (h *RuleHandler) GetRule(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	ruleID, ok := parsePathUUID(w, r, "rule_id", "rule_id", "id")
+	ruleID, ok := parsePathUUID(w, r, "rule_id")
 	if !ok {
 		return
 	}
@@ -78,7 +78,7 @@ func (h *RuleHandler) GetRule(w http.ResponseWriter, r *http.Request) {
 func (h *RuleHandler) UpdateRule(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	ruleID, ok := parsePathUUID(w, r, "rule_id", "rule_id", "id")
+	ruleID, ok := parsePathUUID(w, r, "rule_id")
 	if !ok {
 		return
 	}
@@ -106,7 +106,7 @@ func (h *RuleHandler) UpdateRule(w http.ResponseWriter, r *http.Request) {
 func (h *RuleHandler) DeleteRule(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	ruleID, ok := parsePathUUID(w, r, "rule_id", "rule_id", "id")
+	ruleID, ok := parsePathUUID(w, r, "rule_id")
 	if !ok {
 		return
 	}

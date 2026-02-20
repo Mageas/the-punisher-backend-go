@@ -11,25 +11,15 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 )
 
-func parsePathUUID(w http.ResponseWriter, r *http.Request, field string, paramNames ...string) (uuid.UUID, bool) {
-	if len(paramNames) == 0 {
-		paramNames = []string{field}
+func parsePathUUID(w http.ResponseWriter, r *http.Request, field string) (uuid.UUID, bool) {
+	rawValue := strings.TrimSpace(chi.URLParam(r, field))
+	parsed, err := uuid.Parse(rawValue)
+	if err != nil {
+		writeUUIDParseError(w, http.StatusBadRequest, api.ErrMalformedParameter, field)
+		return uuid.Nil, false
 	}
 
-	for _, paramName := range paramNames {
-		rawValue := strings.TrimSpace(chi.URLParam(r, paramName))
-		if rawValue == "" {
-			continue
-		}
-
-		parsed, err := uuid.Parse(rawValue)
-		if err == nil {
-			return parsed, true
-		}
-	}
-
-	writeUUIDParseError(w, http.StatusBadRequest, api.ErrMalformedParameter, field)
-	return uuid.Nil, false
+	return parsed, true
 }
 
 func parseBodyUUID(w http.ResponseWriter, rawValue string, field string) (uuid.UUID, bool) {
