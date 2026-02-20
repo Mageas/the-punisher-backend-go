@@ -26,6 +26,7 @@ type Querier interface {
 	CountPunishmentsByStudent(ctx context.Context, arg CountPunishmentsByStudentParams) (int64, error)
 	CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error)
 	CountRulesByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountStudentHistory(ctx context.Context, arg CountStudentHistoryParams) (int64, error)
 	CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error)
 	CountStudentsByUser(ctx context.Context, arg CountStudentsByUserParams) (int64, error)
 	// ==================== Bonus ====================

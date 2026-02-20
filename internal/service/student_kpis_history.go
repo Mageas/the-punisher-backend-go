@@ -29,9 +29,17 @@ func (s *studentService) GetStudentKpis(ctx context.Context, userID uuid.UUID, s
 	return sqlcmapper.StudentKpisFromRow(&kpis), nil
 }
 
-func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentHistoryItemDto, error) {
+func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentHistoryItemDto, int64, error) {
 	if err := s.ensureStudentExists(ctx, userID, studentID); err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	totalCount, err := s.repo.CountStudentHistory(ctx, repository.CountStudentHistoryParams{
+		StudentID: studentID,
+		UserID:    userID,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count student history: %w", err)
 	}
 
 	history, err := s.repo.ListStudentHistory(ctx, repository.ListStudentHistoryParams{
@@ -41,10 +49,10 @@ func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUI
 		QueryOffset: offset,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list student history: %w", err)
+		return nil, 0, fmt.Errorf("failed to list student history: %w", err)
 	}
 
-	return sqlcmapper.StudentHistoryFromRows(history), nil
+	return sqlcmapper.StudentHistoryFromRows(history), totalCount, nil
 }
 
 func (s *studentService) ensureStudentExists(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error {

@@ -82,5 +82,19 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cookieDuration := h.cfg.RefreshExpiration
+	http.SetCookie(w, &http.Cookie{
+		Name:  refreshTokenName,
+		Value: resp.RefreshToken,
+
+		Path:     h.refreshTokenPath,
+		HttpOnly: true,
+		Secure:   h.cfg.RefreshCookieSecure,
+		SameSite: http.SameSiteStrictMode,
+
+		Expires: time.Now().Add(cookieDuration),
+		MaxAge:  int(cookieDuration.Seconds()),
+	})
+
 	web.WriteJSON(w, http.StatusOK, resp, nil)
 }

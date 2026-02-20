@@ -638,7 +638,7 @@ func newClassroomRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Ha
 	classroomHandler := handler.NewClassroomHandler(classroomSvc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 
 	r.Route("/v1/classrooms", func(r chi.Router) {
 		r.Post("/", classroomHandler.CreateClassroom)

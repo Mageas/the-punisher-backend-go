@@ -49,7 +49,7 @@ func bonusTypeSuite() shared.ManagedTypeSuite {
 			h := handler.NewBonusTypeHandler(svc)
 
 			r := chi.NewRouter()
-			r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+			r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 			r.Route("/v1/bonus-types", func(r chi.Router) {
 				r.Post("/", h.CreateBonusType)
 				r.Get("/", h.ListBonusTypes)

@@ -285,6 +285,7 @@ Cookie `HttpOnly` posé :
 ### POST `/auth/refresh`
 
 Nécessite le cookie `refresh_token`.
+Le cookie `refresh_token` est roté (nouvelle valeur) à chaque appel réussi.
 
 Réponse `200` :
 
@@ -376,10 +377,9 @@ Réponse :
 
 Query params :
 - `page` optionnel
-- `history_page` déprécié (ignoré, header `Warning` renvoyé)
 
 Réponse :
-- `200` -> `[]StudentHistoryItemDto`
+- `200` -> `PaginatedResponse<StudentHistoryItemDto>`
 
 ### GET `/students/{student_id}/classrooms`
 

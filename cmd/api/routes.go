@@ -51,7 +51,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/user", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Get("/me", userHandler.GetMe)
 	})
 
@@ -77,7 +77,7 @@ func (app *application) mount() http.Handler {
 	dashboardHandler := handler.NewDashboardHandler(dashboardService)
 
 	r.Route("/v1/students", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", studentHandler.CreateStudent)
 		r.Get("/", studentHandler.ListStudents)
 		r.Get("/{student_id}", studentHandler.GetStudent)
@@ -92,7 +92,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/classrooms", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
 		r.Get("/{classroom_id}", classroomHandler.GetClassroom)
@@ -113,7 +113,7 @@ func (app *application) mount() http.Handler {
 	punishmentTypeHandler := handler.NewPunishmentTypeHandler(punishmentTypeService)
 
 	r.Route("/v1/bonus-types", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", bonusTypeHandler.CreateBonusType)
 		r.Get("/", bonusTypeHandler.ListBonusTypes)
 		r.Get("/{bonus_type_id}", bonusTypeHandler.GetBonusType)
@@ -122,7 +122,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/penalty-types", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", penaltyTypeHandler.CreatePenaltyType)
 		r.Get("/", penaltyTypeHandler.ListPenaltyTypes)
 		r.Get("/{penalty_type_id}", penaltyTypeHandler.GetPenaltyType)
@@ -131,7 +131,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/punishment-types", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", punishmentTypeHandler.CreatePunishmentType)
 		r.Get("/", punishmentTypeHandler.ListPunishmentTypes)
 		r.Get("/{punishment_type_id}", punishmentTypeHandler.GetPunishmentType)
@@ -140,7 +140,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/bonuses", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", bonusHandler.CreateBonus)
 		r.Get("/", bonusHandler.ListBonuses)
 		r.Get("/{bonus_id}", bonusHandler.GetBonus)
@@ -149,7 +149,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/penalties", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", penaltyHandler.CreatePenalty)
 		r.Get("/", penaltyHandler.ListPenalties)
 		r.Get("/{penalty_id}", penaltyHandler.GetPenalty)
@@ -157,7 +157,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/punishments", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", punishmentHandler.CreatePunishment)
 		r.Get("/", punishmentHandler.ListPunishments)
 		r.Get("/{punishment_id}", punishmentHandler.GetPunishment)
@@ -166,7 +166,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/rules", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Post("/", ruleHandler.CreateRule)
 		r.Get("/", ruleHandler.ListRules)
 		r.Get("/{rule_id}", ruleHandler.GetRule)
@@ -175,7 +175,7 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.Route("/v1/dashboard", func(r chi.Router) {
-		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret))
+		r.Use(auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience))
 		r.Get("/", dashboardHandler.GetDashboard)
 	})
 

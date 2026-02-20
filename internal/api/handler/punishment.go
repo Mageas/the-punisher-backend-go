@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -44,9 +43,8 @@ func (h *PunishmentHandler) CreatePunishment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	dueAt, err := time.Parse(time.RFC3339, req.DueAt)
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, nil)
+	dueAt, ok := parseBodyRFC3339(w, req.DueAt, "due_at")
+	if !ok {
 		return
 	}
 

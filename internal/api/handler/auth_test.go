@@ -78,7 +78,8 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 		t.Fatalf("expected positive MaxAge, got %d", cookie.MaxAge)
 	}
 
-	storedToken, ok := repo.StoredRefreshToken(userID, cookie.Value)
+	refreshTokenHash := hash.HashToken(cookie.Value, cfg.RefreshSecret)
+	storedToken, ok := repo.StoredRefreshToken(userID, refreshTokenHash)
 	if !ok {
 		t.Fatal("expected refresh token to be persisted in in-memory repository")
 	}
@@ -355,7 +356,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 
 		repo.SeedRefreshToken(repository.RefreshToken{
 			UserID:    userID,
-			Token:     refreshToken,
+			Token:     hash.HashToken(refreshToken, cfg.RefreshSecret),
 			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
 		})
 
@@ -372,6 +373,31 @@ func TestAuthHandlerRefresh(t *testing.T) {
 		resp := httpx.DecodeJSONResponse[dto.RefreshResponseDto](t, rr)
 		if resp.AccessToken == "" {
 			t.Fatal("expected access_token to be present in response body")
+		}
+
+		newCookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+		if newCookie.Value == "" {
+			t.Fatal("expected rotated refresh token cookie value to be present")
+		}
+		if newCookie.Value == refreshToken {
+			t.Fatal("expected rotated refresh token to differ from previous one")
+		}
+
+		oldToken, ok := repo.StoredRefreshToken(userID, hash.HashToken(refreshToken, cfg.RefreshSecret))
+		if !ok {
+			t.Fatal("expected previous refresh token to still exist in storage as revoked")
+		}
+		if oldToken.RevokedAt == nil {
+			t.Fatal("expected previous refresh token to be revoked after refresh")
+		}
+
+		rotatedTokenHash := hash.HashToken(newCookie.Value, cfg.RefreshSecret)
+		rotatedToken, ok := repo.StoredRefreshToken(userID, rotatedTokenHash)
+		if !ok {
+			t.Fatal("expected rotated refresh token to be persisted in storage")
+		}
+		if rotatedToken.RevokedAt != nil {
+			t.Fatal("expected rotated refresh token to be active")
 		}
 	})
 
@@ -478,6 +504,54 @@ func TestAuthHandlerRefresh(t *testing.T) {
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
 		if resp.Error != api.ErrInternalError.Error() {
 			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
+		}
+	})
+
+	t.Run("rotation_rollback_when_create_new_refresh_token_fails", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := testJWTConfig()
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+
+		userID := uuid.New()
+		refreshToken, err := jwt.Generate(jwt.Config{
+			Secret:     cfg.RefreshSecret,
+			Expiration: cfg.RefreshExpiration,
+			Issuer:     cfg.Issuer,
+			Audience:   cfg.Audience,
+		}, userID.String())
+		if err != nil {
+			t.Fatalf("failed to generate refresh token: %v", err)
+		}
+
+		oldTokenHash := hash.HashToken(refreshToken, cfg.RefreshSecret)
+		repo.SeedRefreshToken(repository.RefreshToken{
+			UserID:    userID,
+			Token:     oldTokenHash,
+			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
+		})
+		repo.SetCreateRefreshTokenError(errors.New("database unavailable"))
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/auth/refresh", nil)
+		req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: refreshToken})
+		rr := httptest.NewRecorder()
+
+		authHandler.Refresh(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrInternalError.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
+		}
+
+		oldToken, ok := repo.StoredRefreshToken(userID, oldTokenHash)
+		if !ok {
+			t.Fatal("expected original refresh token to still be persisted")
+		}
+		if oldToken.RevokedAt != nil {
+			t.Fatal("expected original refresh token to remain active after rollback")
 		}
 	})
 }

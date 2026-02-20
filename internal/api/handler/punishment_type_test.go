@@ -49,7 +49,7 @@ func punishmentTypeSuite() shared.ManagedTypeSuite {
 			h := handler.NewPunishmentTypeHandler(svc)
 
 			r := chi.NewRouter()
-			r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+			r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 			r.Route("/v1/punishment-types", func(r chi.Router) {
 				r.Post("/", h.CreatePunishmentType)
 				r.Get("/", h.ListPunishmentTypes)

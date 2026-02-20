@@ -423,7 +423,7 @@ func newUserRouter(repo *inmemory.Repository, jwtCfg config.JWTConfig, allowRegi
 	})
 
 	r.Route("/v1/user/me", func(r chi.Router) {
-		r.Use(platformauth.AuthMiddleware(jwtCfg.AccessSecret))
+		r.Use(platformauth.AuthMiddleware(jwtCfg.AccessSecret, jwtCfg.Issuer, jwtCfg.Audience))
 		r.Get("/", userHandler.GetMe)
 	})
 

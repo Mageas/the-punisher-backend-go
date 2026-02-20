@@ -472,7 +472,7 @@ func newRuleRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Handler
 	h := handler.NewRuleHandler(svc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 	r.Route("/v1/rules", func(r chi.Router) {
 		r.Post("/", h.CreateRule)
 		r.Get("/", h.ListRules)

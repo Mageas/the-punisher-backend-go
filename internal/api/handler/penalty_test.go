@@ -449,7 +449,7 @@ func newPenaltyRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 	punishmentHandler := handler.NewPunishmentHandler(punishmentSvc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 
 	r.Route("/v1/penalties", func(r chi.Router) {
 		r.Post("/", penaltyHandler.CreatePenalty)
