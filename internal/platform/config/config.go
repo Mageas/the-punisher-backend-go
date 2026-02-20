@@ -34,20 +34,23 @@ type DBConfig struct {
 }
 
 type JWTConfig struct {
-	AccessSecret      string
-	AccessExpiration  time.Duration
-	RefreshSecret     string
-	RefreshExpiration time.Duration
-	Issuer            string
-	Audience          string
+	AccessSecret        string
+	AccessExpiration    time.Duration
+	RefreshSecret       string
+	RefreshExpiration   time.Duration
+	RefreshCookieSecure bool
+	Issuer              string
+	Audience            string
 }
 
 func Load() *Config {
 	godotenv.Load()
 
+	appEnv := GetEnv("APP_ENV", "development")
+
 	cfg := &Config{
 		Addr:          GetEnv("APP_ADDRESS", ":8080"),
-		Env:           GetEnv("APP_ENV", "development"),
+		Env:           appEnv,
 		Version:       GetEnv("APP_VERSION", "1.0.0"),
 		AllowRegister: GetEnvBool("APP_ALLOW_REGISTER", true),
 		CORS: CORSConfig{
@@ -62,12 +65,13 @@ func Load() *Config {
 			DSN: GetEnv("APP_DATABASE_URL", ""),
 		},
 		JWT: JWTConfig{
-			AccessSecret:      GetEnvOrFatal("JWT_ACCESS_SECRET"),
-			AccessExpiration:  GetEnvDuration("JWT_ACCESS_EXPIRATION_IN_MINUTES", 15) * time.Minute,
-			RefreshSecret:     GetEnvOrFatal("JWT_REFRESH_SECRET"),
-			RefreshExpiration: GetEnvDuration("JWT_REFRESH_EXPIRATION_IN_DAYS", 7) * time.Hour * 24,
-			Issuer:            GetEnvOrFatal("JWT_ISSUER"),
-			Audience:          GetEnvOrFatal("JWT_AUDIENCE"),
+			AccessSecret:        GetEnvOrFatal("JWT_ACCESS_SECRET"),
+			AccessExpiration:    GetEnvDuration("JWT_ACCESS_EXPIRATION_IN_MINUTES", 15) * time.Minute,
+			RefreshSecret:       GetEnvOrFatal("JWT_REFRESH_SECRET"),
+			RefreshExpiration:   GetEnvDuration("JWT_REFRESH_EXPIRATION_IN_DAYS", 7) * time.Hour * 24,
+			RefreshCookieSecure: GetEnvBool("JWT_REFRESH_COOKIE_SECURE", strings.EqualFold(appEnv, "production")),
+			Issuer:              GetEnvOrFatal("JWT_ISSUER"),
+			Audience:            GetEnvOrFatal("JWT_AUDIENCE"),
 		},
 	}
 

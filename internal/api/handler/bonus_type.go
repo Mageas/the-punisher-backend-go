@@ -3,9 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
@@ -64,9 +61,8 @@ func (h *BonusTypeHandler) ListBonusTypes(w http.ResponseWriter, r *http.Request
 func (h *BonusTypeHandler) GetBonusType(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	bonusTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	bonusTypeID, ok := parsePathUUID(w, r, "bonus_type_id", "bonus_type_id", "id")
+	if !ok {
 		return
 	}
 
@@ -82,9 +78,8 @@ func (h *BonusTypeHandler) GetBonusType(w http.ResponseWriter, r *http.Request) 
 func (h *BonusTypeHandler) UpdateBonusType(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	bonusTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	bonusTypeID, ok := parsePathUUID(w, r, "bonus_type_id", "bonus_type_id", "id")
+	if !ok {
 		return
 	}
 
@@ -111,9 +106,8 @@ func (h *BonusTypeHandler) UpdateBonusType(w http.ResponseWriter, r *http.Reques
 func (h *BonusTypeHandler) DeleteBonusType(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	bonusTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	bonusTypeID, ok := parsePathUUID(w, r, "bonus_type_id", "bonus_type_id", "id")
+	if !ok {
 		return
 	}
 

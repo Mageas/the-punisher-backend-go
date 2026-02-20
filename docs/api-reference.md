@@ -340,12 +340,12 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnStudentDto>`
 
-### GET `/students/{id}`
+### GET `/students/{student_id}`
 
 Réponse :
 - `200` -> `ReturnStudentDto`
 
-### PUT `/students/{id}`
+### PUT `/students/{student_id}`
 
 Body partiel :
 
@@ -359,12 +359,12 @@ Body partiel :
 Réponse :
 - `200` -> `ReturnStudentDto`
 
-### DELETE `/students/{id}`
+### DELETE `/students/{student_id}`
 
 Réponse :
 - `204` no content
 
-### GET `/students/{id}/kpis`
+### GET `/students/{student_id}/kpis`
 
 Query params :
 - aucun
@@ -372,16 +372,16 @@ Query params :
 Réponse :
 - `200` -> `StudentKpisDto`
 
-### GET `/students/{id}/history`
+### GET `/students/{student_id}/history`
 
 Query params :
 - `page` optionnel
-- `history_page` optionnel (support legacy, prioritaire sur `page`)
+- `history_page` déprécié (ignoré, header `Warning` renvoyé)
 
 Réponse :
 - `200` -> `[]StudentHistoryItemDto`
 
-### GET `/students/{id}/classrooms`
+### GET `/students/{student_id}/classrooms`
 
 Query params :
 - `page` optionnel
@@ -389,7 +389,7 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnClassroomDto>`
 
-### GET `/students/{id}/bonuses`
+### GET `/students/{student_id}/bonuses`
 
 Query params :
 - `page` optionnel
@@ -398,7 +398,7 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnBonusDto>`
 
-### GET `/students/{id}/penalties`
+### GET `/students/{student_id}/penalties`
 
 Query params :
 - `page` optionnel
@@ -406,7 +406,7 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnPenaltyDto>`
 
-### GET `/students/{id}/punishments`
+### GET `/students/{student_id}/punishments`
 
 Query params :
 - `page` optionnel
@@ -440,12 +440,12 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnClassroomDto>`
 
-### GET `/classrooms/{id}`
+### GET `/classrooms/{classroom_id}`
 
 Réponse :
 - `200` -> `ReturnClassroomDto`
 
-### PUT `/classrooms/{id}`
+### PUT `/classrooms/{classroom_id}`
 
 Body partiel :
 
@@ -460,12 +460,12 @@ Body partiel :
 Réponse :
 - `200` -> `ReturnClassroomDto`
 
-### DELETE `/classrooms/{id}`
+### DELETE `/classrooms/{classroom_id}`
 
 Réponse :
 - `204` no content
 
-### POST `/classrooms/{id}/students`
+### POST `/classrooms/{classroom_id}/students`
 
 Body :
 
@@ -478,12 +478,12 @@ Body :
 Réponse :
 - `204` no content
 
-### DELETE `/classrooms/{id}/students/{studentId}`
+### DELETE `/classrooms/{classroom_id}/students/{student_id}`
 
 Réponse :
 - `204` no content
 
-### GET `/classrooms/{id}/students`
+### GET `/classrooms/{classroom_id}/students`
 
 Query params :
 - `page` optionnel
@@ -495,9 +495,9 @@ Réponse :
 
 ### POST `/bonus-types/`
 ### GET `/bonus-types/`
-### GET `/bonus-types/{id}`
-### PUT `/bonus-types/{id}`
-### DELETE `/bonus-types/{id}`
+### GET `/bonus-types/{bonus_type_id}`
+### PUT `/bonus-types/{bonus_type_id}`
+### DELETE `/bonus-types/{bonus_type_id}`
 
 Payloads :
 - create/update body : `{ "name": "Participation" }`
@@ -509,9 +509,9 @@ Payloads :
 
 ### POST `/penalty-types/`
 ### GET `/penalty-types/`
-### GET `/penalty-types/{id}`
-### PUT `/penalty-types/{id}`
-### DELETE `/penalty-types/{id}`
+### GET `/penalty-types/{penalty_type_id}`
+### PUT `/penalty-types/{penalty_type_id}`
+### DELETE `/penalty-types/{penalty_type_id}`
 
 Payloads :
 - create/update body : `{ "name": "Bavardage" }`
@@ -523,9 +523,9 @@ Payloads :
 
 ### POST `/punishment-types/`
 ### GET `/punishment-types/`
-### GET `/punishment-types/{id}`
-### PUT `/punishment-types/{id}`
-### DELETE `/punishment-types/{id}`
+### GET `/punishment-types/{punishment_type_id}`
+### PUT `/punishment-types/{punishment_type_id}`
+### DELETE `/punishment-types/{punishment_type_id}`
 
 Payloads :
 - create/update body : `{ "name": "Retenue" }`
@@ -560,12 +560,12 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnBonusDto>`
 
-### GET `/bonuses/{id}`
+### GET `/bonuses/{bonus_id}`
 
 Réponse :
 - `200` -> `ReturnBonusDto`
 
-### POST `/bonuses/{id}/use`
+### POST `/bonuses/{bonus_id}/use`
 
 Effet :
 - passe `used_at` de `null` à `now`
@@ -573,7 +573,7 @@ Effet :
 Réponse :
 - `200` -> `ReturnBonusDto`
 
-### DELETE `/bonuses/{id}`
+### DELETE `/bonuses/{bonus_id}`
 
 Réponse :
 - `204` no content
@@ -607,12 +607,12 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnPenaltyDto>`
 
-### GET `/penalties/{id}`
+### GET `/penalties/{penalty_id}`
 
 Réponse :
 - `200` -> `ReturnPenaltyDto`
 
-### DELETE `/penalties/{id}`
+### DELETE `/penalties/{penalty_id}`
 
 Réponse :
 - `204` no content
@@ -644,12 +644,12 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnPunishmentDto>`
 
-### GET `/punishments/{id}`
+### GET `/punishments/{punishment_id}`
 
 Réponse :
 - `200` -> `ReturnPunishmentDto`
 
-### POST `/punishments/{id}/resolve`
+### POST `/punishments/{punishment_id}/resolve`
 
 Effet :
 - passe `resolved_at` de `null` à `now`
@@ -657,7 +657,7 @@ Effet :
 Réponse :
 - `200` -> `ReturnPunishmentDto`
 
-### DELETE `/punishments/{id}`
+### DELETE `/punishments/{punishment_id}`
 
 Réponse :
 - `204` no content
@@ -696,12 +696,12 @@ Query params :
 Réponse :
 - `200` -> `PaginatedResponse<ReturnRuleDto>`
 
-### GET `/rules/{id}`
+### GET `/rules/{rule_id}`
 
 Réponse :
 - `200` -> `ReturnRuleDto`
 
-### PUT `/rules/{id}`
+### PUT `/rules/{rule_id}`
 
 Body partiel possible :
 
@@ -717,7 +717,7 @@ Body partiel possible :
 Réponse :
 - `200` -> `ReturnRuleDto`
 
-### DELETE `/rules/{id}`
+### DELETE `/rules/{rule_id}`
 
 Réponse :
 - `204` no content
