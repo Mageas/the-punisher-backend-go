@@ -2,11 +2,7 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
@@ -48,9 +44,8 @@ func (h *StudentHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 
@@ -66,9 +61,8 @@ func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) GetStudentKpis(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 
@@ -84,18 +78,15 @@ func (h *StudentHandler) GetStudentKpis(w http.ResponseWriter, r *http.Request) 
 func (h *StudentHandler) GetStudentHistory(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 
 	limit, offset, _ := web.ParsePagination(r)
 
-	if rawPage := r.URL.Query().Get("history_page"); rawPage != "" {
-		if parsed, parseErr := strconv.Atoi(rawPage); parseErr == nil && parsed > 0 {
-			offset = int32((parsed - 1) * web.DefaultItemPerPage)
-		}
+	if r.URL.Query().Has("history_page") {
+		w.Header().Set("Warning", `299 - "query parameter 'history_page' is deprecated; use 'page'"`)
 	}
 
 	history, err := h.service.ListStudentHistory(r.Context(), userID, studentID, limit, offset)
@@ -126,9 +117,8 @@ func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) UpdateStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 
@@ -155,9 +145,8 @@ func (h *StudentHandler) UpdateStudent(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) DeleteStudent(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	studentID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	studentID, ok := parsePathUUID(w, r, "student_id", "student_id", "id")
+	if !ok {
 		return
 	}
 

@@ -70,8 +70,10 @@ Variables disponibles (dans `.env`) :
 - `CORS_EXPOSED_HEADERS` (CSV), ex: `Link`
 - `CORS_ALLOW_CREDENTIALS` (`true|false`)
 - `CORS_MAX_AGE` (secondes)
+- `JWT_REFRESH_COOKIE_SECURE` (`true|false`) pour forcer le flag `Secure` du cookie refresh
 
 Note sécurité : si `CORS_ALLOW_CREDENTIALS=true`, les origins contenant `*` sont refusées au démarrage.
+Par défaut, `JWT_REFRESH_COOKIE_SECURE=true` quand `APP_ENV=production`.
 
 ## Build
 

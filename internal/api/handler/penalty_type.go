@@ -3,9 +3,6 @@ package handler
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
@@ -64,9 +61,8 @@ func (h *PenaltyTypeHandler) ListPenaltyTypes(w http.ResponseWriter, r *http.Req
 func (h *PenaltyTypeHandler) GetPenaltyType(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	penaltyTypeID, ok := parsePathUUID(w, r, "penalty_type_id", "penalty_type_id", "id")
+	if !ok {
 		return
 	}
 
@@ -82,9 +78,8 @@ func (h *PenaltyTypeHandler) GetPenaltyType(w http.ResponseWriter, r *http.Reque
 func (h *PenaltyTypeHandler) UpdatePenaltyType(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	penaltyTypeID, ok := parsePathUUID(w, r, "penalty_type_id", "penalty_type_id", "id")
+	if !ok {
 		return
 	}
 
@@ -111,9 +106,8 @@ func (h *PenaltyTypeHandler) UpdatePenaltyType(w http.ResponseWriter, r *http.Re
 func (h *PenaltyTypeHandler) DeletePenaltyType(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	penaltyTypeID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, nil)
+	penaltyTypeID, ok := parsePathUUID(w, r, "penalty_type_id", "penalty_type_id", "id")
+	if !ok {
 		return
 	}
 

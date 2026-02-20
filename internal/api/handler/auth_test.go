@@ -68,6 +68,9 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	if !cookie.HttpOnly {
 		t.Fatal("expected cookie to be httpOnly")
 	}
+	if cookie.Secure {
+		t.Fatal("expected cookie secure flag to be disabled in non-production test config")
+	}
 	if cookie.SameSite != http.SameSiteStrictMode {
 		t.Fatalf("expected SameSiteStrictMode, got %v", cookie.SameSite)
 	}
@@ -81,6 +84,39 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	}
 	if storedToken.ClientIp != req.RemoteAddr {
 		t.Fatalf("expected persisted client ip %q, got %q", req.RemoteAddr, storedToken.ClientIp)
+	}
+}
+
+func TestAuthHandlerLoginSecureCookieEnabled(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := testJWTConfig()
+	cfg.RefreshCookieSecure = true
+	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+
+	userID := uuid.New()
+	password := "password123"
+	hashedPassword, err := hash.HashPassword(password)
+	if err != nil {
+		t.Fatalf("failed to hash password: %v", err)
+	}
+
+	repo.SeedAuthUser(userID, "teacher@example.com", hashedPassword)
+
+	req := httpx.NewJSONRequest(t, http.MethodPost, "/v1/auth/login", map[string]any{
+		"email":    "teacher@example.com",
+		"password": password,
+	})
+
+	rr := httptest.NewRecorder()
+	authHandler.Login(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+
+	cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+	if !cookie.Secure {
+		t.Fatal("expected cookie secure flag to be enabled")
 	}
 }
 
@@ -448,12 +484,13 @@ func TestAuthHandlerRefresh(t *testing.T) {
 
 func testJWTConfig() config.JWTConfig {
 	return config.JWTConfig{
-		AccessSecret:      "test-access-secret",
-		AccessExpiration:  15 * time.Minute,
-		RefreshSecret:     "test-refresh-secret",
-		RefreshExpiration: 7 * 24 * time.Hour,
-		Issuer:            "the-punisher-tests",
-		Audience:          "the-punisher-tests",
+		AccessSecret:        "test-access-secret",
+		AccessExpiration:    15 * time.Minute,
+		RefreshSecret:       "test-refresh-secret",
+		RefreshExpiration:   7 * 24 * time.Hour,
+		RefreshCookieSecure: false,
+		Issuer:              "the-punisher-tests",
+		Audience:            "the-punisher-tests",
 	}
 }
 

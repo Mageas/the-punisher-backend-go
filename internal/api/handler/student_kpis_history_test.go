@@ -158,8 +158,21 @@ func TestStudentHistoryHandlerPagination(t *testing.T) {
 	router := newStudentRouter(repo, cfg)
 	userID := uuid.New()
 	studentID := uuid.New()
+	bonusTypeID := uuid.New()
+	base := time.Date(2026, 2, 2, 10, 0, 0, 0, time.UTC)
 
 	repo.SeedStudent(inmemoryStudent(studentID, userID, "Jean", "Dupont"))
+	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
+	for i := 0; i < 21; i++ {
+		repo.SeedBonus(repository.Bonus{
+			ID:          uuid.New(),
+			UserID:      userID,
+			StudentID:   studentID,
+			BonusTypeID: bonusTypeID,
+			Points:      1,
+			CreatedAt:   base.Add(time.Duration(i) * time.Minute),
+		})
+	}
 
 	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history?page=2", userID, cfg)
 	rr := httptest.NewRecorder()
@@ -170,8 +183,8 @@ func TestStudentHistoryHandlerPagination(t *testing.T) {
 	}
 
 	resp := httpx.DecodeJSONResponse[[]studentHistoryItemResponse](t, rr)
-	if len(resp) != 0 {
-		t.Fatalf("expected empty second history page, got %+v", resp)
+	if len(resp) != 1 {
+		t.Fatalf("expected exactly one history item on page 2, got %d", len(resp))
 	}
 
 	reqLegacyPage := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history?history_page=2", userID, cfg)
@@ -180,6 +193,15 @@ func TestStudentHistoryHandlerPagination(t *testing.T) {
 
 	if rrLegacyPage.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, rrLegacyPage.Code)
+	}
+
+	legacyResp := httpx.DecodeJSONResponse[[]studentHistoryItemResponse](t, rrLegacyPage)
+	if len(legacyResp) != 20 {
+		t.Fatalf("expected first page size when using deprecated history_page, got %d", len(legacyResp))
+	}
+
+	if warning := rrLegacyPage.Header().Get("Warning"); warning == "" {
+		t.Fatal("expected deprecation warning header for history_page")
 	}
 }
 
@@ -197,6 +219,8 @@ func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
 		if rrKpis.Code != http.StatusBadRequest {
 			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rrKpis.Code)
 		}
+		respKpis := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrKpis)
+		shared.AssertHasErrorDetail(t, respKpis.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
 
 		reqHistory := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/not-a-uuid/history", userID, cfg)
 		rrHistory := httptest.NewRecorder()
@@ -205,6 +229,8 @@ func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
 		if rrHistory.Code != http.StatusBadRequest {
 			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rrHistory.Code)
 		}
+		respHistory := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrHistory)
+		shared.AssertHasErrorDetail(t, respHistory.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
 	})
 
 	t.Run("student_not_found", func(t *testing.T) {

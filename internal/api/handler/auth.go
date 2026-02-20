@@ -57,7 +57,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 		Path:     h.refreshTokenPath,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   h.cfg.RefreshCookieSecure,
 		SameSite: http.SameSiteStrictMode,
 
 		Expires: time.Now().Add(cookieDuration),
