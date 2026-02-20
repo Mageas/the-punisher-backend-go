@@ -11,8 +11,7 @@ func uuidPtr(value uuid.UUID) *uuid.UUID {
 	return &converted
 }
 
-func doubleTimePtr(value time.Time) **time.Time {
+func doubleTimePtr(value time.Time) *time.Time {
 	timeValue := value
-	ptr := &timeValue
-	return &ptr
+	return &timeValue
 }

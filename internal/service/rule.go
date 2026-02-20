@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -83,7 +84,7 @@ func (s *ruleService) CreateRule(ctx context.Context, userID uuid.UUID, req dto.
 
 	slog.Info("rule created", "rule_id", rule.ID, "user_id", userID)
 
-	return dto.RuleFromCreateRow(&rule), nil
+	return sqlcmapper.RuleFromCreateRow(&rule), nil
 }
 
 func (s *ruleService) GetRule(ctx context.Context, userID, ruleID uuid.UUID) (*dto.ReturnRuleDto, error) {
@@ -98,7 +99,7 @@ func (s *ruleService) GetRule(ctx context.Context, userID, ruleID uuid.UUID) (*d
 		return nil, fmt.Errorf("failed to get rule: %w", err)
 	}
 
-	return dto.RuleFromGetRow(&rule), nil
+	return sqlcmapper.RuleFromGetRow(&rule), nil
 }
 
 func (s *ruleService) ListRules(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnRuleDto, int64, error) {
@@ -116,7 +117,7 @@ func (s *ruleService) ListRules(ctx context.Context, userID uuid.UUID, limit, of
 		return nil, 0, fmt.Errorf("failed to list rules: %w", err)
 	}
 
-	return dto.RuleListFromListByUserRows(rules), totalCount, nil
+	return sqlcmapper.RuleListFromListByUserRows(rules), totalCount, nil
 }
 
 func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, req dto.UpdateRuleDto) (*dto.ReturnRuleDto, error) {
@@ -191,7 +192,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 		return nil, fmt.Errorf("failed to update rule: %w", err)
 	}
 
-	return dto.RuleFromUpdateRow(&rule), nil
+	return sqlcmapper.RuleFromUpdateRow(&rule), nil
 }
 
 func (s *ruleService) DeleteRule(ctx context.Context, userID, ruleID uuid.UUID) error {

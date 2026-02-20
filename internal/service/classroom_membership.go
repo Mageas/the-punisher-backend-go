@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -86,7 +87,7 @@ func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID u
 		return nil, 0, fmt.Errorf("failed to list students by classroom: %w", err)
 	}
 
-	response := dto.StudentListFromListByClassroomRows(students)
+	response := sqlcmapper.StudentListFromListByClassroomRows(students)
 	if err := attachClassroomsToStudents(ctx, s.repo, userID, response); err != nil {
 		return nil, 0, fmt.Errorf("failed to list student classrooms: %w", err)
 	}
@@ -124,7 +125,7 @@ func (s *classroomService) ListClassroomsByStudent(ctx context.Context, userID u
 		return nil, 0, fmt.Errorf("failed to list classrooms by student: %w", err)
 	}
 
-	response := dto.ClassroomListFromListByStudentRows(classrooms)
+	response := sqlcmapper.ClassroomListFromListByStudentRows(classrooms)
 	if err := attachStudentsPreviewToClassrooms(ctx, s.repo, userID, response); err != nil {
 		return nil, 0, fmt.Errorf("failed to list classroom students preview: %w", err)
 	}

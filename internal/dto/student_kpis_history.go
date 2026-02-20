@@ -4,10 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mageas/the-punisher-backend/internal/repository"
 )
-
-var studentHistoryTimeSentinel = time.Unix(0, 0).UTC()
 
 type StudentKpisDto struct {
 	AvailableBonusPoints   float64 `json:"available_bonus_points"`
@@ -33,118 +30,4 @@ type StudentHistoryItemDto struct {
 	DueAt              *time.Time `json:"due_at,omitempty"`
 	ResolvedAt         *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
-}
-
-func StudentKpisFromRow(kpis *repository.GetStudentKpisRow) *StudentKpisDto {
-	if kpis == nil {
-		return nil
-	}
-
-	return &StudentKpisDto{
-		AvailableBonusPoints:   kpis.AvailableBonusPoints,
-		ActiveBonusCount:       kpis.ActiveBonusCount,
-		TotalPenaltyCount:      kpis.TotalPenaltyCount,
-		PendingPunishmentCount: kpis.PendingPunishmentCount,
-	}
-}
-
-func StudentHistoryFromRows(rows []repository.ListStudentHistoryRow) []StudentHistoryItemDto {
-	return studentHistoryFromRows(rows)
-}
-
-func studentHistoryFromRows(rows []repository.ListStudentHistoryRow) []StudentHistoryItemDto {
-	history := make([]StudentHistoryItemDto, 0, len(rows))
-
-	for _, row := range rows {
-		item := StudentHistoryItemDto{
-			Type:      row.Type,
-			ID:        row.ID,
-			CreatedAt: row.CreatedAt,
-		}
-
-		switch row.Type {
-		case "penalty":
-			item.PenaltyTypeID = studentHistoryUUIDPtrFromSentinel(row.PenaltyTypeID)
-			item.PenaltyTypeName = studentHistoryTextPtrFromString(row.PenaltyTypeName)
-		case "bonus":
-			item.BonusTypeID = studentHistoryUUIDPtrFromSentinel(row.BonusTypeID)
-			item.BonusTypeName = studentHistoryTextPtrFromString(row.BonusTypeName)
-			item.Points = studentHistoryFloatPtrFromFloat(row.Points)
-			item.UsedAt = studentHistoryTimePtrFromSentinel(row.UsedAt)
-		case "punishment":
-			punishmentTypeID := row.PunishmentTypeID
-			punishmentTypeName := row.PunishmentTypeName
-			dueAt := row.DueAt
-			item.PunishmentTypeID = &punishmentTypeID
-			item.PunishmentTypeName = &punishmentTypeName
-			item.TriggeringRuleID = studentHistoryUUIDPtr(row.TriggeringRuleID)
-			item.TriggeringRuleName = studentHistoryTextPtrFromString(row.TriggeringRuleName)
-			item.Automated = studentHistoryBoolPtr(row.Automated)
-			item.DueAt = &dueAt
-			item.ResolvedAt = studentHistoryTimePtrFromSentinelPg(row.ResolvedAt)
-		}
-
-		history = append(history, item)
-	}
-
-	return history
-}
-
-func studentHistoryUUIDPtr(value *uuid.UUID) *uuid.UUID {
-	if value == nil {
-		return nil
-	}
-
-	id := *value
-	if id == uuid.Nil {
-		return nil
-	}
-
-	return &id
-}
-
-func studentHistoryUUIDPtrFromSentinel(value uuid.UUID) *uuid.UUID {
-	if value == uuid.Nil {
-		return nil
-	}
-
-	id := value
-	return &id
-}
-
-func studentHistoryTextPtrFromString(value string) *string {
-	if value == "" {
-		return nil
-	}
-
-	text := value
-	return &text
-}
-
-func studentHistoryTimePtrFromSentinel(value time.Time) *time.Time {
-	if value.Equal(studentHistoryTimeSentinel) {
-		return nil
-	}
-
-	timeValue := value
-	return &timeValue
-}
-
-func studentHistoryTimePtrFromSentinelPg(value **time.Time) *time.Time {
-	if value == nil || *value == nil || (*value).Equal(studentHistoryTimeSentinel) {
-		return nil
-	}
-
-	timeValue := **value
-	return &timeValue
-}
-
-func studentHistoryFloatPtrFromFloat(value float64) *float64 {
-	floatValue := value
-	return &floatValue
-}
-
-func studentHistoryBoolPtr(value bool) *bool {
-	boolValue := value
-	return &boolValue
 }
