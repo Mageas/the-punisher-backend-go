@@ -31,6 +31,7 @@ type punishmentResponse struct {
 	PunishmentTypeName string     `json:"punishment_type_name"`
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	TriggeringRuleName *string    `json:"triggering_rule_name"`
+	Automated          bool       `json:"automated"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 }
@@ -84,6 +85,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	if created.TriggeringRuleName != nil {
 		t.Fatalf("expected no triggering rule name for manual creation, got %+v", created.TriggeringRuleName)
 	}
+	if created.Automated {
+		t.Fatalf("expected automated=false for manual creation, got %+v", created)
+	}
 	if created.ResolvedAt != nil {
 		t.Fatalf("expected unresolved punishment, got %+v", created.ResolvedAt)
 	}
@@ -103,6 +107,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
 	}
+	if listResp.Data[0].Automated {
+		t.Fatalf("expected automated=false for manual punishment in list, got %+v", listResp.Data[0])
+	}
 	if listResp.Data[0].StudentFirstName != "Jean" || listResp.Data[0].StudentLastName != "Dupont" || listResp.Data[0].PunishmentTypeName != "Heure de colle" {
 		t.Fatalf("expected enriched list payload, got %+v", listResp.Data[0])
 	}
@@ -119,6 +126,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	if getResp.ID != created.ID {
 		t.Fatalf("expected punishment id %s, got %s", created.ID, getResp.ID)
 	}
+	if getResp.Automated {
+		t.Fatalf("expected automated=false for manual punishment on get, got %+v", getResp)
+	}
 	if getResp.StudentFirstName != "Jean" || getResp.StudentLastName != "Dupont" || getResp.PunishmentTypeName != "Heure de colle" {
 		t.Fatalf("expected enriched get payload, got %+v", getResp)
 	}
@@ -134,6 +144,9 @@ func TestPunishmentHandlerCRUDSuccess(t *testing.T) {
 	resolved := httpx.DecodeJSONResponse[punishmentResponse](t, resolveRR)
 	if resolved.ResolvedAt == nil {
 		t.Fatal("expected resolved_at to be set")
+	}
+	if resolved.Automated {
+		t.Fatalf("expected automated=false after resolving manual punishment, got %+v", resolved)
 	}
 	if resolved.StudentFirstName != "Jean" || resolved.StudentLastName != "Dupont" || resolved.PunishmentTypeName != "Heure de colle" {
 		t.Fatalf("expected enriched resolve payload, got %+v", resolved)

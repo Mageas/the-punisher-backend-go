@@ -81,6 +81,7 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			PunishmentTypeName: r.punishmentTypeNameLocked(punishment.PunishmentTypeID),
 			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
 			TriggeringRuleName: "",
+			Automated:          punishment.Automated,
 			DueAt:              punishment.DueAt,
 			ResolvedAt:         pgtype.Timestamptz{Time: studentHistoryFallbackDueAt, Valid: true},
 		})
@@ -112,6 +113,7 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			PunishmentTypeName: "",
 			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
 			TriggeringRuleName: "",
+			Automated:          false,
 			DueAt:              studentHistoryFallbackDueAt,
 			ResolvedAt:         pgtype.Timestamptz{Time: studentHistoryFallbackDueAt, Valid: true},
 		})
@@ -136,6 +138,7 @@ func (r *Repository) ListStudentHistory(_ context.Context, arg repository.ListSt
 			PunishmentTypeName: "",
 			TriggeringRuleID:   pgtype.UUID{Bytes: uuid.Nil, Valid: true},
 			TriggeringRuleName: "",
+			Automated:          false,
 			DueAt:              studentHistoryFallbackDueAt,
 			ResolvedAt:         pgtype.Timestamptz{Time: studentHistoryFallbackDueAt, Valid: true},
 		})

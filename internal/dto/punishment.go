@@ -23,6 +23,7 @@ type ReturnPunishmentDto struct {
 	PunishmentTypeName string     `json:"punishment_type_name"`
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	TriggeringRuleName *string    `json:"triggering_rule_name"`
+	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
@@ -37,6 +38,7 @@ func buildReturnPunishmentDto(
 	punishmentTypeName string,
 	triggeringRuleID pgtype.UUID,
 	triggeringRuleName *string,
+	automated bool,
 	createdAt time.Time,
 	dueAt time.Time,
 	resolvedAt pgtype.Timestamptz,
@@ -50,6 +52,7 @@ func buildReturnPunishmentDto(
 		PunishmentTypeName: punishmentTypeName,
 		TriggeringRuleID:   punishmentTriggeringRuleID(triggeringRuleID),
 		TriggeringRuleName: triggeringRuleName,
+		Automated:          automated,
 		CreatedAt:          createdAt,
 		DueAt:              dueAt,
 	}
@@ -75,6 +78,7 @@ func PunishmentFromCreateRow(p *repository.CreatePunishmentRow) *ReturnPunishmen
 		p.PunishmentTypeName,
 		p.TriggeringRuleID,
 		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
+		p.Automated,
 		p.CreatedAt,
 		p.DueAt,
 		p.ResolvedAt,
@@ -95,6 +99,7 @@ func PunishmentFromGetRow(p *repository.GetPunishmentByUserRow) *ReturnPunishmen
 		p.PunishmentTypeName,
 		p.TriggeringRuleID,
 		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
+		p.Automated,
 		p.CreatedAt,
 		p.DueAt,
 		p.ResolvedAt,
@@ -114,6 +119,7 @@ func PunishmentListFromListByUserRows(punishments []repository.ListPunishmentsBy
 			punishment.PunishmentTypeName,
 			punishment.TriggeringRuleID,
 			punishmentTriggeringRuleNameFromText(punishment.TriggeringRuleName),
+			punishment.Automated,
 			punishment.CreatedAt,
 			punishment.DueAt,
 			punishment.ResolvedAt,
@@ -139,6 +145,7 @@ func PunishmentListFromListByStudentRows(punishments []repository.ListPunishment
 			punishment.PunishmentTypeName,
 			punishment.TriggeringRuleID,
 			punishmentTriggeringRuleNameFromText(punishment.TriggeringRuleName),
+			punishment.Automated,
 			punishment.CreatedAt,
 			punishment.DueAt,
 			punishment.ResolvedAt,
@@ -165,6 +172,7 @@ func PunishmentFromResolveRow(p *repository.ResolvePunishmentRow) *ReturnPunishm
 		p.PunishmentTypeName,
 		p.TriggeringRuleID,
 		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
+		p.Automated,
 		p.CreatedAt,
 		p.DueAt,
 		p.ResolvedAt,

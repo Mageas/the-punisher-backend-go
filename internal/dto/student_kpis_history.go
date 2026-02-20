@@ -30,6 +30,7 @@ type StudentHistoryItemDto struct {
 	PunishmentTypeName *string    `json:"punishment_type_name,omitempty"`
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id,omitempty"`
 	TriggeringRuleName *string    `json:"triggering_rule_name,omitempty"`
+	Automated          *bool      `json:"automated,omitempty"`
 	DueAt              *time.Time `json:"due_at,omitempty"`
 	ResolvedAt         *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
@@ -79,6 +80,7 @@ func studentHistoryFromRows(rows []repository.ListStudentHistoryRow) []StudentHi
 			item.PunishmentTypeName = &punishmentTypeName
 			item.TriggeringRuleID = studentHistoryUUIDPtr(row.TriggeringRuleID)
 			item.TriggeringRuleName = studentHistoryTextPtrFromString(row.TriggeringRuleName)
+			item.Automated = studentHistoryBoolPtr(row.Automated)
 			item.DueAt = &dueAt
 			item.ResolvedAt = studentHistoryTimePtrFromSentinelPg(row.ResolvedAt)
 		}
@@ -141,4 +143,9 @@ func studentHistoryTimePtrFromSentinelPg(value pgtype.Timestamptz) *time.Time {
 func studentHistoryFloatPtrFromFloat(value float64) *float64 {
 	floatValue := value
 	return &floatValue
+}
+
+func studentHistoryBoolPtr(value bool) *bool {
+	boolValue := value
+	return &boolValue
 }

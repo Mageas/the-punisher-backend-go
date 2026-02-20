@@ -37,6 +37,7 @@ type studentHistoryItemResponse struct {
 	PunishmentTypeName *string    `json:"punishment_type_name,omitempty"`
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id,omitempty"`
 	TriggeringRuleName *string    `json:"triggering_rule_name,omitempty"`
+	Automated          *bool      `json:"automated,omitempty"`
 	DueAt              *time.Time `json:"due_at,omitempty"`
 	ResolvedAt         *time.Time `json:"resolved_at,omitempty"`
 	CreatedAt          time.Time  `json:"created_at"`
@@ -101,7 +102,7 @@ func TestStudentHistoryHandlerSuccess(t *testing.T) {
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: pgtype.Timestamptz{Time: base.Add(3 * time.Hour), Valid: true}})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(4 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: pgtype.UUID{Bytes: ruleID, Valid: true}, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: pgtype.UUID{Bytes: ruleID, Valid: true}, Automated: true, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: pgtype.Timestamptz{Time: base.Add(8 * time.Hour), Valid: true}})
 
 	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history", userID, cfg)
@@ -124,11 +125,30 @@ func TestStudentHistoryHandlerSuccess(t *testing.T) {
 	}
 
 	typesCount := map[string]int{}
+	automatedTrueCount := 0
+	automatedFalseCount := 0
 	for _, item := range resp {
 		typesCount[item.Type]++
+		if item.Type == "punishment" {
+			if item.Automated == nil {
+				t.Fatalf("expected automated field on punishment history item, got %+v", item)
+			}
+			if *item.Automated {
+				automatedTrueCount++
+			} else {
+				automatedFalseCount++
+			}
+			continue
+		}
+		if item.Automated != nil {
+			t.Fatalf("expected automated to be omitted for non-punishment history item, got %+v", item)
+		}
 	}
 	if typesCount["bonus"] != 2 || typesCount["penalty"] != 1 || typesCount["punishment"] != 2 {
 		t.Fatalf("unexpected history type distribution: %+v", typesCount)
+	}
+	if automatedTrueCount != 1 || automatedFalseCount != 1 {
+		t.Fatalf("expected one automated and one manual punishment in history, got true=%d false=%d", automatedTrueCount, automatedFalseCount)
 	}
 }
 

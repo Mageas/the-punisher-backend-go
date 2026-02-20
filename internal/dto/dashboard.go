@@ -99,6 +99,7 @@ func dashboardPendingPunishmentsFromRows(rows []repository.ListDashboardPendingP
 			row.PunishmentTypeName,
 			row.TriggeringRuleID,
 			punishmentTriggeringRuleNameFromText(row.TriggeringRuleName),
+			row.Automated,
 			row.CreatedAt,
 			row.DueAt,
 			row.ResolvedAt,
