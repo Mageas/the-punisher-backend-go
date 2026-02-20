@@ -5,7 +5,7 @@ Base path: `/v1`
 ## 1. Conventions globales
 
 - Auth Bearer requise sur toutes les routes sauf :
-  - `GET /health`
+  - `GET /v1/health`
   - `POST /auth/register`
   - `POST /auth/login`
   - `POST /auth/refresh`
@@ -124,6 +124,7 @@ Toutes les routes `List*` renvoient :
   "punishment_type_name": "Retenue",
   "triggering_rule_id": "uuid",
   "triggering_rule_name": "3 bavardages => retenue",
+  "automated": true,
   "created_at": "2026-02-18T10:00:00Z",
   "due_at": "2026-02-25T10:00:00Z",
   "resolved_at": null
@@ -133,6 +134,7 @@ Toutes les routes `List*` renvoient :
 Pour une punition manuelle :
 - `triggering_rule_id = null`
 - `triggering_rule_name = null`
+- `automated = false`
 
 ### Rule
 
@@ -194,6 +196,7 @@ Chaque liste est limitée à 10 éléments.
     "punishment_type_name": "Retenue",
     "triggering_rule_id": "uuid",
     "triggering_rule_name": "3 bavardages => retenue",
+    "automated": true,
     "due_at": "2026-02-25T10:00:00Z",
     "resolved_at": null,
     "created_at": "2026-02-18T10:00:00Z"
@@ -221,7 +224,7 @@ Chaque liste est limitée à 10 éléments.
 
 ## 3. Health
 
-### GET `/health`
+### GET `/v1/health`
 
 Réponses :
 - `200` si healthy
@@ -498,12 +501,13 @@ Réponse :
 ### GET `/bonus-types/{id}`
 ### PUT `/bonus-types/{id}`
 ### DELETE `/bonus-types/{id}`
+### DELETE `/bonus-types/{id}/force`
 
 Payloads :
 - create/update body : `{ "name": "Participation" }`
 - list : `PaginatedResponse<ReturnBonusTypeDto>`
 - get/create/update : `ReturnBonusTypeDto`
-- delete : `204`
+- delete / force-delete : `204`
 
 ## 9. Penalty Types
 
@@ -512,12 +516,13 @@ Payloads :
 ### GET `/penalty-types/{id}`
 ### PUT `/penalty-types/{id}`
 ### DELETE `/penalty-types/{id}`
+### DELETE `/penalty-types/{id}/force`
 
 Payloads :
 - create/update body : `{ "name": "Bavardage" }`
 - list : `PaginatedResponse<ReturnPenaltyTypeDto>`
 - get/create/update : `ReturnPenaltyTypeDto`
-- delete : `204`
+- delete / force-delete : `204`
 
 ## 10. Punishment Types
 
@@ -526,12 +531,13 @@ Payloads :
 ### GET `/punishment-types/{id}`
 ### PUT `/punishment-types/{id}`
 ### DELETE `/punishment-types/{id}`
+### DELETE `/punishment-types/{id}/force`
 
 Payloads :
 - create/update body : `{ "name": "Retenue" }`
 - list : `PaginatedResponse<ReturnPunishmentTypeDto>`
 - get/create/update : `ReturnPunishmentTypeDto`
-- delete : `204`
+- delete / force-delete : `204`
 
 ## 11. Bonuses
 
@@ -830,6 +836,7 @@ Conflicts :
   "punishment_type_name": "string|null",
   "triggering_rule_id": "uuid|null",
   "triggering_rule_name": "string|null",
+  "automated": "boolean|null",
   "due_at": "2026-02-25T10:00:00Z|null",
   "resolved_at": "2026-02-26T10:00:00Z|null",
   "created_at": "2026-02-18T10:00:00Z"
@@ -930,6 +937,7 @@ Conflicts :
   "punishment_type_name": "Retenue",
   "triggering_rule_id": "uuid|null",
   "triggering_rule_name": "string|null",
+  "automated": "boolean",
   "created_at": "2026-02-18T10:00:00Z",
   "due_at": "2026-02-25T10:00:00Z",
   "resolved_at": "2026-02-26T10:00:00Z|null"

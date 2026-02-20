@@ -110,6 +110,7 @@ erDiagram
         uuid student_id FK ""
         uuid punishment_type_id FK ""
         uuid triggering_rule_id FK "Nullable (si manuel)"
+        bool automated "true si créée par rule engine"
         timestamp created_at  ""
         timestamp due_at  ""
         timestamp resolved_at  "Nullable"
@@ -171,6 +172,7 @@ erDiagram
 5. Punitions manuelles et automatiques:
 - manuelle: `triggering_rule_id = NULL`.
 - automatique: `triggering_rule_id` référence la règle déclenchée.
+- `automated` explicite l'origine de la punition (`false` manuelle / `true` automatique).
 
 6. Cycle de vie punition:
 - créée avec `created_at` et `due_at`.
