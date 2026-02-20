@@ -27,6 +27,11 @@ type authService struct {
 	cfg  config.JWTConfig
 }
 
+type transactionalAuthRepo interface {
+	repository.Querier
+	WithinTransaction(ctx context.Context, fn func(repository.Querier) error) error
+}
+
 func NewAuthService(repo repository.Querier, cfg config.JWTConfig) AuthService {
 	return &authService{
 		repo: repo,
@@ -68,9 +73,11 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
 	}
 
+	refreshTokenHash := hash.HashToken(refreshToken, s.cfg.RefreshSecret)
+
 	_, err = s.repo.CreateRefreshToken(ctx, repository.CreateRefreshTokenParams{
 		UserID:    userCredentials.ID,
-		Token:     refreshToken,
+		Token:     refreshTokenHash,
 		UserAgent: "",
 		ClientIp:  req.RemoteAddr,
 		ExpiresAt: time.Now().Add(s.cfg.RefreshExpiration),
@@ -88,7 +95,11 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 }
 
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.RefreshResponseDto, error) {
-	claims, err := jwt.Verify(refreshToken, s.cfg.RefreshSecret)
+	claims, err := jwt.Verify(refreshToken, jwt.VerifyConfig{
+		Secret:   s.cfg.RefreshSecret,
+		Issuer:   s.cfg.Issuer,
+		Audience: s.cfg.Audience,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -98,22 +109,12 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 		return nil, api.ErrUnauthorized
 	}
 
-	uuid, err := uuid.Parse(sub)
+	userID, err := uuid.Parse(sub)
 	if err != nil {
 		return nil, api.ErrUnauthorized
 	}
 
-	_, err = s.repo.GetRefreshToken(ctx, repository.GetRefreshTokenParams{
-		UserID: uuid,
-		Token:  refreshToken,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, api.ErrUnauthorized
-		}
-
-		return nil, fmt.Errorf("failed to get refresh token: %w", err)
-	}
+	refreshTokenHash := hash.HashToken(refreshToken, s.cfg.RefreshSecret)
 
 	accessToken, err := jwt.Generate(jwt.Config{
 		Secret:     s.cfg.AccessSecret,
@@ -125,7 +126,62 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
+	rotatedRefreshToken, err := jwt.Generate(jwt.Config{
+		Secret:     s.cfg.RefreshSecret,
+		Expiration: s.cfg.RefreshExpiration,
+		Issuer:     s.cfg.Issuer,
+		Audience:   s.cfg.Audience,
+	}, sub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	rotatedRefreshTokenHash := hash.HashToken(rotatedRefreshToken, s.cfg.RefreshSecret)
+
+	txRepo, ok := s.repo.(transactionalAuthRepo)
+	if !ok {
+		return nil, fmt.Errorf("auth repository does not support transactions")
+	}
+
+	err = txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		storedRefreshToken, getErr := txQuerier.GetRefreshToken(ctx, repository.GetRefreshTokenParams{
+			UserID: userID,
+			Token:  refreshTokenHash,
+		})
+		if getErr != nil {
+			if errors.Is(getErr, pgx.ErrNoRows) {
+				return api.ErrUnauthorized
+			}
+			return fmt.Errorf("failed to get refresh token: %w", getErr)
+		}
+
+		_, revokeErr := txQuerier.RevokeRefreshToken(ctx, refreshTokenHash)
+		if revokeErr != nil {
+			if errors.Is(revokeErr, pgx.ErrNoRows) {
+				return api.ErrUnauthorized
+			}
+			return fmt.Errorf("failed to revoke refresh token: %w", revokeErr)
+		}
+
+		_, createErr := txQuerier.CreateRefreshToken(ctx, repository.CreateRefreshTokenParams{
+			UserID:    userID,
+			Token:     rotatedRefreshTokenHash,
+			UserAgent: storedRefreshToken.UserAgent,
+			ClientIp:  storedRefreshToken.ClientIp,
+			ExpiresAt: time.Now().Add(s.cfg.RefreshExpiration),
+		})
+		if createErr != nil {
+			return fmt.Errorf("failed to create refresh token: %w", createErr)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return &dto.RefreshResponseDto{
-		AccessToken: accessToken,
+		AccessToken:  accessToken,
+		RefreshToken: rotatedRefreshToken,
 	}, nil
 }

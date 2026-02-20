@@ -489,7 +489,7 @@ func newBonusRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Handle
 	h := handler.NewBonusHandler(svc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 
 	r.Route("/v1/bonuses", func(r chi.Router) {
 		r.Post("/", h.CreateBonus)

@@ -254,6 +254,43 @@ func (q *Queries) CountRulesByUser(ctx context.Context, userID uuid.UUID) (int64
 	return count, err
 }
 
+const countStudentHistory = `-- name: CountStudentHistory :one
+SELECT (
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
+    ), 0)
+    +
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
+    ), 0)
+    +
+    COALESCE((
+        SELECT COUNT(*)
+        FROM bonuses b
+        WHERE b.student_id = $1
+          AND b.user_id = $2
+    ), 0)
+)::bigint
+`
+
+type CountStudentHistoryParams struct {
+	StudentID uuid.UUID `json:"student_id"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) CountStudentHistory(ctx context.Context, arg CountStudentHistoryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStudentHistory, arg.StudentID, arg.UserID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countStudentsByClassroom = `-- name: CountStudentsByClassroom :one
 SELECT COUNT(*)
 FROM student_classrooms sc
@@ -1462,7 +1499,7 @@ func (q *Queries) GetPunishmentTypeByUser(ctx context.Context, arg GetPunishment
 const getRefreshToken = `-- name: GetRefreshToken :one
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens
-WHERE user_id = $1 AND token = $2 AND revoked_at IS NULL LIMIT 1
+WHERE user_id = $1 AND token = $2 AND revoked_at IS NULL AND expires_at > NOW() LIMIT 1
 `
 
 type GetRefreshTokenParams struct {
@@ -3329,7 +3366,7 @@ func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentPa
 const revokeRefreshToken = `-- name: RevokeRefreshToken :one
 UPDATE refresh_tokens
 SET revoked_at = NOW()
-WHERE token = $1
+WHERE token = $1 AND revoked_at IS NULL
 RETURNING id, user_id, token, revoked_at, expires_at
 `
 

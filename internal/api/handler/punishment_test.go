@@ -287,6 +287,7 @@ func TestPunishmentHandlerValidationsAndDecodeErrors(t *testing.T) {
 		if resp.Error != api.ErrInvalidRequestBody.Error() {
 			t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), resp.Error)
 		}
+		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "due_at", "validation_malformed_parameter:expected_rfc3339_datetime")
 	})
 
 	t.Run("malformed_ids_and_query_param", func(t *testing.T) {
@@ -512,7 +513,7 @@ func newPunishmentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.H
 	h := handler.NewPunishmentHandler(svc)
 
 	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret))
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 
 	r.Route("/v1/punishments", func(r chi.Router) {
 		r.Post("/", h.CreatePunishment)

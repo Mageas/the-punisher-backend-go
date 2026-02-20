@@ -3,6 +3,8 @@ package inmemory
 import (
 	"context"
 	"errors"
+	"fmt"
+	"log/slog"
 	"maps"
 	"sync"
 
@@ -34,6 +36,30 @@ func (r *Repository) WithTxQuerier(tx pgx.Tx) repository.Querier {
 	}
 
 	return inMemTx.working
+}
+
+func (r *Repository) WithinTransaction(ctx context.Context, fn func(repository.Querier) error) error {
+	tx, err := r.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	defer func() {
+		rollbackErr := tx.Rollback(ctx)
+		if rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			slog.Error("failed to rollback transaction", "error", rollbackErr)
+		}
+	}()
+
+	if err := fn(r.WithTxQuerier(tx)); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 func (tx *inMemoryTx) Begin(_ context.Context) (pgx.Tx, error) {

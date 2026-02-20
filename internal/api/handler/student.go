@@ -83,15 +83,16 @@ func (h *StudentHandler) GetStudentHistory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	limit, offset, _ := web.ParsePagination(r)
+	limit, offset, page := web.ParsePagination(r)
 
-	history, err := h.service.ListStudentHistory(r.Context(), userID, studentID, limit, offset)
+	history, totalCount, err := h.service.ListStudentHistory(r.Context(), userID, studentID, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
 	}
 
-	web.WriteJSON(w, http.StatusOK, history, nil)
+	response := web.NewPaginatedResponse(history, totalCount, page)
+	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
 func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {

@@ -14,6 +14,7 @@ const (
 	OpGetUserCredentialsByEmailForAuth = "GetUserCredentialsByEmailForAuth"
 	OpCreateRefreshToken               = "CreateRefreshToken"
 	OpGetRefreshToken                  = "GetRefreshToken"
+	OpRevokeRefreshToken               = "RevokeRefreshToken"
 )
 
 func (r *Repository) SetGetUserCredentialsError(err error) {
@@ -26,6 +27,10 @@ func (r *Repository) SetCreateRefreshTokenError(err error) {
 
 func (r *Repository) SetGetRefreshTokenError(err error) {
 	r.SetError(OpGetRefreshToken, err)
+}
+
+func (r *Repository) SetRevokeRefreshTokenError(err error) {
+	r.SetError(OpRevokeRefreshToken, err)
 }
 
 func (r *Repository) SeedAuthUser(id uuid.UUID, email, passwordHash string) {
@@ -103,11 +108,40 @@ func (r *Repository) GetRefreshToken(_ context.Context, arg repository.GetRefres
 	}
 
 	token, ok := r.refreshTokens[refreshTokenKey(arg.UserID, arg.Token)]
-	if !ok || hasTime(token.RevokedAt) {
+	if !ok || hasTime(token.RevokedAt) || !token.ExpiresAt.After(time.Now()) {
 		return repository.RefreshToken{}, pgx.ErrNoRows
 	}
 
 	return token, nil
+}
+
+func (r *Repository) RevokeRefreshToken(_ context.Context, token string) (repository.RevokeRefreshTokenRow, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpRevokeRefreshToken); err != nil {
+		return repository.RevokeRefreshTokenRow{}, err
+	}
+
+	for key, stored := range r.refreshTokens {
+		if stored.Token != token || hasTime(stored.RevokedAt) {
+			continue
+		}
+
+		now := time.Now()
+		stored.RevokedAt = &now
+		r.refreshTokens[key] = stored
+
+		return repository.RevokeRefreshTokenRow{
+			ID:        stored.ID,
+			UserID:    stored.UserID,
+			Token:     stored.Token,
+			RevokedAt: &now,
+			ExpiresAt: stored.ExpiresAt,
+		}, nil
+	}
+
+	return repository.RevokeRefreshTokenRow{}, pgx.ErrNoRows
 }
 
 func refreshTokenKey(userID uuid.UUID, token string) string {
