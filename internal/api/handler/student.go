@@ -85,10 +85,6 @@ func (h *StudentHandler) GetStudentHistory(w http.ResponseWriter, r *http.Reques
 
 	limit, offset, _ := web.ParsePagination(r)
 
-	if r.URL.Query().Has("history_page") {
-		w.Header().Set("Warning", `299 - "query parameter 'history_page' is deprecated; use 'page'"`)
-	}
-
 	history, err := h.service.ListStudentHistory(r.Context(), userID, studentID, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)

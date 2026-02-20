@@ -377,7 +377,8 @@ func (r *Repository) ResolvePunishment(_ context.Context, arg repository.Resolve
 		return repository.ResolvePunishmentRow{}, pgx.ErrNoRows
 	}
 
-	punishment.ResolvedAt = doubleTimePtr(time.Now())
+	now := time.Now()
+	punishment.ResolvedAt = &now
 	r.punishments[arg.ID] = punishment
 
 	return r.buildResolvePunishmentRowLocked(punishment), nil

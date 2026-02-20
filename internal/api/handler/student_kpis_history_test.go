@@ -59,11 +59,13 @@ func TestStudentKpisHandlerSuccess(t *testing.T) {
 	repo.SeedPenaltyType(repository.PenaltyType{ID: penaltyTypeID, UserID: userID, Name: "Bavardage"})
 	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Retenue"})
 
+	usedAt := base.Add(3 * time.Hour)
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
-	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: doubleTimePtr(base.Add(3 * time.Hour))})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: &usedAt})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(4 * time.Hour)})
 	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: doubleTimePtr(base.Add(8 * time.Hour))})
+	resolvedAt := base.Add(8 * time.Hour)
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &resolvedAt})
 
 	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/kpis", userID, cfg)
 	rr := httptest.NewRecorder()
@@ -98,11 +100,13 @@ func TestStudentHistoryHandlerSuccess(t *testing.T) {
 	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Retenue"})
 	repo.SeedRule(repository.Rule{ID: ruleID, UserID: userID, Name: "3 bavardages => retenue", PenaltyTypeID: penaltyTypeID, ResultingPunishmentTypeID: punishmentTypeID, Mode: "every", Threshold: 3, IsActive: true, DueAtAfterDays: 7})
 
+	usedAt := base.Add(3 * time.Hour)
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
-	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: doubleTimePtr(base.Add(3 * time.Hour))})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: &usedAt})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(4 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: uuidPtr(ruleID), Automated: true, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: doubleTimePtr(base.Add(8 * time.Hour))})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: &ruleID, Automated: true, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	resolvedAt := base.Add(8 * time.Hour)
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &resolvedAt})
 
 	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history", userID, cfg)
 	rr := httptest.NewRecorder()
@@ -184,23 +188,6 @@ func TestStudentHistoryHandlerPagination(t *testing.T) {
 	resp := httpx.DecodeJSONResponse[[]studentHistoryItemResponse](t, rr)
 	if len(resp) != 1 {
 		t.Fatalf("expected exactly one history item on page 2, got %d", len(resp))
-	}
-
-	reqLegacyPage := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history?history_page=2", userID, cfg)
-	rrLegacyPage := httptest.NewRecorder()
-	router.ServeHTTP(rrLegacyPage, reqLegacyPage)
-
-	if rrLegacyPage.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, rrLegacyPage.Code)
-	}
-
-	legacyResp := httpx.DecodeJSONResponse[[]studentHistoryItemResponse](t, rrLegacyPage)
-	if len(legacyResp) != 20 {
-		t.Fatalf("expected first page size when using deprecated history_page, got %d", len(legacyResp))
-	}
-
-	if warning := rrLegacyPage.Header().Get("Warning"); warning == "" {
-		t.Fatal("expected deprecation warning header for history_page")
 	}
 }
 

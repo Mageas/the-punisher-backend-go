@@ -37,13 +37,14 @@ func TestBonusServiceUseBonus(t *testing.T) {
 
 		userID := uuid.New()
 		bonusID := uuid.New()
+		now := time.Now()
 		repo.SeedBonus(repository.Bonus{
 			ID:          bonusID,
 			UserID:      userID,
 			StudentID:   uuid.New(),
 			BonusTypeID: uuid.New(),
 			Points:      1,
-			UsedAt:      doubleTimePtr(time.Now()),
+			UsedAt:      &now,
 		})
 
 		_, err := svc.UseBonus(context.Background(), userID, bonusID)

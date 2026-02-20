@@ -313,8 +313,9 @@ func TestBonusHandlerListSearch(t *testing.T) {
 	repo.SeedStudent(repository.Student{ID: studentOtherID, UserID: userID, FirstName: "Lucas", LastName: "Martin"})
 	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
 
+	usedAt := now.Add(3 * time.Minute)
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, BonusTypeID: bonusTypeID, Points: 1.5, CreatedAt: now.Add(1 * time.Minute)})
-	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, BonusTypeID: bonusTypeID, Points: 2.5, CreatedAt: now.Add(2 * time.Minute), UsedAt: doubleTimePtr(now.Add(3 * time.Minute))})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentMatchID, BonusTypeID: bonusTypeID, Points: 2.5, CreatedAt: now.Add(2 * time.Minute), UsedAt: &usedAt})
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentOtherID, BonusTypeID: bonusTypeID, Points: 3.5, CreatedAt: now.Add(4 * time.Minute)})
 
 	searchReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/bonuses/?search=%20%20jean%20%20%20dupont%20%20", userID, cfg)
