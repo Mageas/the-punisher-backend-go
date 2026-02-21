@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -60,7 +59,7 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 func (s *userService) GetCurrentUser(ctx context.Context, userID uuid.UUID) (*dto.ReturnUserDto, error) {
 	user, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrUnauthorized
 		}
 		return nil, fmt.Errorf("failed to get current user: %w", err)

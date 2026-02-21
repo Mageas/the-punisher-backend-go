@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -52,7 +51,7 @@ func (s *penaltyTypeService) GetPenaltyType(ctx context.Context, userID, penalty
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPenaltyTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get penalty type: %w", err)
@@ -97,7 +96,7 @@ func (s *penaltyTypeService) UpdatePenaltyType(ctx context.Context, userID, pena
 
 	entity, err := s.repo.UpdatePenaltyTypeByUser(ctx, params)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPenaltyTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to update penalty type: %w", err)

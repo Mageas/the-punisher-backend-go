@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -62,14 +61,14 @@ func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, st
 
 func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (repository.CreatePenaltyRow, error) {
 	if _, err := repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return repository.CreatePenaltyRow{}, api.ErrStudentNotFound
 		}
 		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to get student: %w", err)
 	}
 
 	if _, err := repo.GetPenaltyTypeByUser(ctx, repository.GetPenaltyTypeByUserParams{ID: penaltyTypeID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return repository.CreatePenaltyRow{}, api.ErrPenaltyTypeNotFound
 		}
 		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to get penalty type: %w", err)
@@ -168,7 +167,7 @@ func shouldTriggerRule(mode string, threshold int32, count int64) bool {
 func (s *penaltyService) GetPenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) (*dto.ReturnPenaltyDto, error) {
 	penalty, err := s.repo.GetPenaltyByUser(ctx, repository.GetPenaltyByUserParams{ID: penaltyID, UserID: userID})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPenaltyNotFound
 		}
 		return nil, fmt.Errorf("failed to get penalty: %w", err)
@@ -197,7 +196,7 @@ func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, li
 
 func (s *penaltyService) ListPenaltiesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, 0, api.ErrStudentNotFound
 		}
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)

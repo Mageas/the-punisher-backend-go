@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
@@ -59,7 +58,7 @@ func TestBonusServiceUseBonus(t *testing.T) {
 		repo := inmemory.NewRepository()
 		svc := NewBonusService(repo)
 
-		repo.SetError(inmemory.OpUseBonus, pgx.ErrNoRows)
+		repo.SetError(inmemory.OpUseBonus, repository.ErrNoRows)
 		repo.SetError(inmemory.OpGetBonusByUser, errors.New("db down"))
 
 		_, err := svc.UseBonus(context.Background(), uuid.New(), uuid.New())

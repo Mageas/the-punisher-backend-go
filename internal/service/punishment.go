@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -34,14 +33,14 @@ func NewPunishmentService(repo repository.Querier) PunishmentService {
 
 func (s *punishmentService) CreatePunishment(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, punishmentTypeID uuid.UUID, dueAt time.Time) (*dto.ReturnPunishmentDto, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
 		}
 		return nil, fmt.Errorf("failed to get student: %w", err)
 	}
 
 	if _, err := s.repo.GetPunishmentTypeByUser(ctx, repository.GetPunishmentTypeByUserParams{ID: punishmentTypeID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPunishmentTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get punishment type: %w", err)
@@ -65,7 +64,7 @@ func (s *punishmentService) CreatePunishment(ctx context.Context, userID uuid.UU
 func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
 	punishment, err := s.repo.GetPunishmentByUser(ctx, repository.GetPunishmentByUserParams{ID: punishmentID, UserID: userID})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPunishmentNotFound
 		}
 		return nil, fmt.Errorf("failed to get punishment: %w", err)
@@ -100,7 +99,7 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 
 func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, 0, api.ErrStudentNotFound
 		}
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)
@@ -132,10 +131,10 @@ func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID
 func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
 	punishment, err := s.repo.ResolvePunishment(ctx, repository.ResolvePunishmentParams{ID: punishmentID, UserID: userID})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			existing, getErr := s.repo.GetPunishmentByUser(ctx, repository.GetPunishmentByUserParams{ID: punishmentID, UserID: userID})
 			if getErr != nil {
-				if errors.Is(getErr, pgx.ErrNoRows) {
+				if errors.Is(getErr, repository.ErrNoRows) {
 					return nil, api.ErrPunishmentNotFound
 				}
 				return nil, fmt.Errorf("failed to get punishment: %w", getErr)
