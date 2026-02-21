@@ -2,8 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -19,70 +23,103 @@ type BonusTypeService interface {
 }
 
 type bonusTypeService struct {
-	managed *managedTypeService[dto.RequestBonusTypeDto, dto.UpdateBonusTypeDto, repository.BonusType, dto.ReturnBonusTypeDto]
+	repo repository.Querier
 }
 
 func NewBonusTypeService(repo repository.Querier) BonusTypeService {
 	return &bonusTypeService{
-		managed: newManagedTypeService(
-			repo,
-			managedTypeMetadata[repository.BonusType]{
-				label:       "bonus type",
-				logIDKey:    "bonus_type_id",
-				notFoundErr: api.ErrBonusTypeNotFound,
-				entityID: func(entity repository.BonusType) uuid.UUID {
-					return entity.ID
-				},
-			},
-			managedTypeOperations[dto.RequestBonusTypeDto, dto.UpdateBonusTypeDto, repository.BonusType]{
-				create: func(ctx context.Context, repo repository.Querier, userID uuid.UUID, req dto.RequestBonusTypeDto) (repository.BonusType, error) {
-					return repo.CreateBonusType(ctx, repository.CreateBonusTypeParams{UserID: userID, Name: req.Name})
-				},
-				get: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID) (repository.BonusType, error) {
-					return repo.GetBonusTypeByUser(ctx, repository.GetBonusTypeByUserParams{ID: resourceID, UserID: userID})
-				},
-				count: func(ctx context.Context, repo repository.Querier, userID uuid.UUID) (int64, error) {
-					return repo.CountBonusTypesByUser(ctx, userID)
-				},
-				list: func(ctx context.Context, repo repository.Querier, userID uuid.UUID, limit, offset int32) ([]repository.BonusType, error) {
-					return repo.ListBonusTypesByUser(ctx, repository.ListBonusTypesByUserParams{
-						UserID:      userID,
-						QueryLimit:  limit,
-						QueryOffset: offset,
-					})
-				},
-				update: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID, req dto.UpdateBonusTypeDto) (repository.BonusType, error) {
-					params := repository.UpdateBonusTypeByUserParams{ID: resourceID, UserID: userID}
-					if req.Name != nil {
-						params.Name = req.Name
-					}
-					return repo.UpdateBonusTypeByUser(ctx, params)
-				},
-				delete: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID) (int64, error) {
-					return repo.DeleteBonusTypeByUser(ctx, repository.DeleteBonusTypeByUserParams{ID: resourceID, UserID: userID})
-				},
-			},
-			sqlcmapper.BonusTypeFromRepository,
-		),
+		repo: repo,
 	}
 }
 
 func (s *bonusTypeService) CreateBonusType(ctx context.Context, userID uuid.UUID, req dto.RequestBonusTypeDto) (*dto.ReturnBonusTypeDto, error) {
-	return s.managed.Create(ctx, userID, req)
+	entity, err := s.repo.CreateBonusType(ctx, repository.CreateBonusTypeParams{
+		UserID: userID,
+		Name:   req.Name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bonus type: %w", err)
+	}
+
+	slog.Info("bonus type created", "bonus_type_id", entity.ID, "user_id", userID)
+
+	return sqlcmapper.BonusTypeFromRepository(&entity), nil
 }
 
 func (s *bonusTypeService) GetBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) (*dto.ReturnBonusTypeDto, error) {
-	return s.managed.Get(ctx, userID, bonusTypeID)
+	entity, err := s.repo.GetBonusTypeByUser(ctx, repository.GetBonusTypeByUserParams{
+		ID:     bonusTypeID,
+		UserID: userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrBonusTypeNotFound
+		}
+		return nil, fmt.Errorf("failed to get bonus type: %w", err)
+	}
+
+	return sqlcmapper.BonusTypeFromRepository(&entity), nil
 }
 
 func (s *bonusTypeService) ListBonusTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusTypeDto, int64, error) {
-	return s.managed.List(ctx, userID, limit, offset)
+	totalCount, err := s.repo.CountBonusTypesByUser(ctx, userID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count bonus types: %w", err)
+	}
+
+	entities, err := s.repo.ListBonusTypesByUser(ctx, repository.ListBonusTypesByUserParams{
+		UserID:      userID,
+		QueryLimit:  limit,
+		QueryOffset: offset,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list bonus types: %w", err)
+	}
+
+	mapped := make([]*dto.ReturnBonusTypeDto, 0, len(entities))
+	for _, entity := range entities {
+		if dto := sqlcmapper.BonusTypeFromRepository(&entity); dto != nil {
+			mapped = append(mapped, dto)
+		}
+	}
+
+	return mapped, totalCount, nil
 }
 
 func (s *bonusTypeService) UpdateBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID, req dto.UpdateBonusTypeDto) (*dto.ReturnBonusTypeDto, error) {
-	return s.managed.Update(ctx, userID, bonusTypeID, req)
+	params := repository.UpdateBonusTypeByUserParams{
+		ID:     bonusTypeID,
+		UserID: userID,
+	}
+	if req.Name != nil {
+		params.Name = req.Name
+	}
+
+	entity, err := s.repo.UpdateBonusTypeByUser(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrBonusTypeNotFound
+		}
+		return nil, fmt.Errorf("failed to update bonus type: %w", err)
+	}
+
+	return sqlcmapper.BonusTypeFromRepository(&entity), nil
 }
 
 func (s *bonusTypeService) DeleteBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) error {
-	return s.managed.Delete(ctx, userID, bonusTypeID)
+	rowsAffected, err := s.repo.DeleteBonusTypeByUser(ctx, repository.DeleteBonusTypeByUserParams{
+		ID:     bonusTypeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete bonus type: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return api.ErrBonusTypeNotFound
+	}
+
+	slog.Info("bonus type deleted", "bonus_type_id", bonusTypeID, "user_id", userID)
+
+	return nil
 }
