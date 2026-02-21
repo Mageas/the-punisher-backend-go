@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestBonusTypeHandlerCRUDSuccess(t *testing.T) {
-	shared.RunTypeHandlerCRUDSuccess(t, bonusTypeSuite())
+	shared.RunTypeHandlerCRUDSuccess[dto.ReturnBonusTypeDto](t, bonusTypeSuite())
 }
 
 func TestBonusTypeHandlerDTOValidations(t *testing.T) {
