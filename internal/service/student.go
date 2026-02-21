@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -60,7 +59,7 @@ func (s *studentService) GetStudent(ctx context.Context, userID uuid.UUID, stude
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
 		}
 		return nil, fmt.Errorf("failed to get student: %w", err)
@@ -116,7 +115,7 @@ func (s *studentService) UpdateStudent(ctx context.Context, userID uuid.UUID, st
 
 	student, err := s.repo.UpdateStudentByUser(ctx, params)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
 		}
 		return nil, fmt.Errorf("failed to update student: %w", err)
@@ -203,7 +202,7 @@ func (s *studentService) ensureStudentExists(ctx context.Context, userID uuid.UU
 		return nil
 	}
 
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, repository.ErrNoRows) {
 		return api.ErrStudentNotFound
 	}
 

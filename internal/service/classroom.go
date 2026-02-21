@@ -7,8 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -72,7 +70,7 @@ func (s *classroomService) GetClassroom(ctx context.Context, userID uuid.UUID, c
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrClassroomNotFound
 		}
 		return nil, fmt.Errorf("failed to get classroom: %w", err)
@@ -127,7 +125,7 @@ func (s *classroomService) UpdateClassroom(ctx context.Context, userID uuid.UUID
 
 	classroom, err := s.repo.UpdateClassroomByUser(ctx, params)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrClassroomNotFound
 		}
 		return nil, fmt.Errorf("failed to update classroom: %w", err)
@@ -168,8 +166,7 @@ func (s *classroomService) AddStudentToClassroom(ctx context.Context, userID uui
 		UserID:      userID,
 	})
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		if repository.IsUniqueViolation(err) {
 			return api.ErrStudentClassroomRelationExists
 		}
 		return fmt.Errorf("failed to add student to classroom: %w", err)
@@ -209,7 +206,7 @@ func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID u
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, 0, api.ErrClassroomNotFound
 		}
 		return nil, 0, fmt.Errorf("failed to get classroom: %w", err)
@@ -247,7 +244,7 @@ func (s *classroomService) ListClassroomsByStudent(ctx context.Context, userID u
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, 0, api.ErrStudentNotFound
 		}
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)

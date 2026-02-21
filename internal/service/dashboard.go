@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -34,7 +33,7 @@ func (s *dashboardService) GetDashboard(ctx context.Context, userID uuid.UUID, c
 			ID:     *classroomID,
 			UserID: userID,
 		}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNoRows) {
 				return nil, api.ErrClassroomNotFound
 			}
 			return nil, fmt.Errorf("failed to get classroom: %w", err)
