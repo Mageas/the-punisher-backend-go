@@ -2,8 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -19,70 +23,103 @@ type PunishmentTypeService interface {
 }
 
 type punishmentTypeService struct {
-	managed *managedTypeService[dto.RequestPunishmentTypeDto, dto.UpdatePunishmentTypeDto, repository.PunishmentType, dto.ReturnPunishmentTypeDto]
+	repo repository.Querier
 }
 
 func NewPunishmentTypeService(repo repository.Querier) PunishmentTypeService {
 	return &punishmentTypeService{
-		managed: newManagedTypeService(
-			repo,
-			managedTypeMetadata[repository.PunishmentType]{
-				label:       "punishment type",
-				logIDKey:    "punishment_type_id",
-				notFoundErr: api.ErrPunishmentTypeNotFound,
-				entityID: func(entity repository.PunishmentType) uuid.UUID {
-					return entity.ID
-				},
-			},
-			managedTypeOperations[dto.RequestPunishmentTypeDto, dto.UpdatePunishmentTypeDto, repository.PunishmentType]{
-				create: func(ctx context.Context, repo repository.Querier, userID uuid.UUID, req dto.RequestPunishmentTypeDto) (repository.PunishmentType, error) {
-					return repo.CreatePunishmentType(ctx, repository.CreatePunishmentTypeParams{UserID: userID, Name: req.Name})
-				},
-				get: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID) (repository.PunishmentType, error) {
-					return repo.GetPunishmentTypeByUser(ctx, repository.GetPunishmentTypeByUserParams{ID: resourceID, UserID: userID})
-				},
-				count: func(ctx context.Context, repo repository.Querier, userID uuid.UUID) (int64, error) {
-					return repo.CountPunishmentTypesByUser(ctx, userID)
-				},
-				list: func(ctx context.Context, repo repository.Querier, userID uuid.UUID, limit, offset int32) ([]repository.PunishmentType, error) {
-					return repo.ListPunishmentTypesByUser(ctx, repository.ListPunishmentTypesByUserParams{
-						UserID:      userID,
-						QueryLimit:  limit,
-						QueryOffset: offset,
-					})
-				},
-				update: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID, req dto.UpdatePunishmentTypeDto) (repository.PunishmentType, error) {
-					params := repository.UpdatePunishmentTypeByUserParams{ID: resourceID, UserID: userID}
-					if req.Name != nil {
-						params.Name = req.Name
-					}
-					return repo.UpdatePunishmentTypeByUser(ctx, params)
-				},
-				delete: func(ctx context.Context, repo repository.Querier, userID, resourceID uuid.UUID) (int64, error) {
-					return repo.DeletePunishmentTypeByUser(ctx, repository.DeletePunishmentTypeByUserParams{ID: resourceID, UserID: userID})
-				},
-			},
-			sqlcmapper.PunishmentTypeFromRepository,
-		),
+		repo: repo,
 	}
 }
 
 func (s *punishmentTypeService) CreatePunishmentType(ctx context.Context, userID uuid.UUID, req dto.RequestPunishmentTypeDto) (*dto.ReturnPunishmentTypeDto, error) {
-	return s.managed.Create(ctx, userID, req)
+	entity, err := s.repo.CreatePunishmentType(ctx, repository.CreatePunishmentTypeParams{
+		UserID: userID,
+		Name:   req.Name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create punishment type: %w", err)
+	}
+
+	slog.Info("punishment type created", "punishment_type_id", entity.ID, "user_id", userID)
+
+	return sqlcmapper.PunishmentTypeFromRepository(&entity), nil
 }
 
 func (s *punishmentTypeService) GetPunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) (*dto.ReturnPunishmentTypeDto, error) {
-	return s.managed.Get(ctx, userID, punishmentTypeID)
+	entity, err := s.repo.GetPunishmentTypeByUser(ctx, repository.GetPunishmentTypeByUserParams{
+		ID:     punishmentTypeID,
+		UserID: userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrPunishmentTypeNotFound
+		}
+		return nil, fmt.Errorf("failed to get punishment type: %w", err)
+	}
+
+	return sqlcmapper.PunishmentTypeFromRepository(&entity), nil
 }
 
 func (s *punishmentTypeService) ListPunishmentTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPunishmentTypeDto, int64, error) {
-	return s.managed.List(ctx, userID, limit, offset)
+	totalCount, err := s.repo.CountPunishmentTypesByUser(ctx, userID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count punishment types: %w", err)
+	}
+
+	entities, err := s.repo.ListPunishmentTypesByUser(ctx, repository.ListPunishmentTypesByUserParams{
+		UserID:      userID,
+		QueryLimit:  limit,
+		QueryOffset: offset,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list punishment types: %w", err)
+	}
+
+	mapped := make([]*dto.ReturnPunishmentTypeDto, 0, len(entities))
+	for _, entity := range entities {
+		if dto := sqlcmapper.PunishmentTypeFromRepository(&entity); dto != nil {
+			mapped = append(mapped, dto)
+		}
+	}
+
+	return mapped, totalCount, nil
 }
 
 func (s *punishmentTypeService) UpdatePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID, req dto.UpdatePunishmentTypeDto) (*dto.ReturnPunishmentTypeDto, error) {
-	return s.managed.Update(ctx, userID, punishmentTypeID, req)
+	params := repository.UpdatePunishmentTypeByUserParams{
+		ID:     punishmentTypeID,
+		UserID: userID,
+	}
+	if req.Name != nil {
+		params.Name = req.Name
+	}
+
+	entity, err := s.repo.UpdatePunishmentTypeByUser(ctx, params)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, api.ErrPunishmentTypeNotFound
+		}
+		return nil, fmt.Errorf("failed to update punishment type: %w", err)
+	}
+
+	return sqlcmapper.PunishmentTypeFromRepository(&entity), nil
 }
 
 func (s *punishmentTypeService) DeletePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) error {
-	return s.managed.Delete(ctx, userID, punishmentTypeID)
+	rowsAffected, err := s.repo.DeletePunishmentTypeByUser(ctx, repository.DeletePunishmentTypeByUserParams{
+		ID:     punishmentTypeID,
+		UserID: userID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete punishment type: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return api.ErrPunishmentTypeNotFound
+	}
+
+	slog.Info("punishment type deleted", "punishment_type_id", punishmentTypeID, "user_id", userID)
+
+	return nil
 }
