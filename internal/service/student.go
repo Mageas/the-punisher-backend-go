@@ -32,6 +32,8 @@ func NewStudentService(repo repository.Querier) StudentService {
 	return &studentService{repo: repo}
 }
 
+// --- CRUD Operations ---
+
 func (s *studentService) CreateStudent(ctx context.Context, userID uuid.UUID, req dto.RequestStudentDto) (*dto.ReturnStudentDto, error) {
 	student, err := s.repo.CreateStudent(ctx, repository.CreateStudentParams{
 		UserID:    userID,
@@ -142,6 +144,109 @@ func (s *studentService) DeleteStudent(ctx context.Context, userID uuid.UUID, st
 	}
 
 	slog.Info("student deleted", "student_id", studentID, "user_id", userID)
+
+	return nil
+}
+
+// --- KPIs & History ---
+
+func (s *studentService) GetStudentKpis(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.StudentKpisDto, error) {
+	if err := s.ensureStudentExists(ctx, userID, studentID); err != nil {
+		return nil, err
+	}
+
+	kpis, err := s.repo.GetStudentKpis(ctx, repository.GetStudentKpisParams{
+		StudentID: studentID,
+		UserID:    userID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get student kpis: %w", err)
+	}
+
+	return sqlcmapper.StudentKpisFromRow(&kpis), nil
+}
+
+func (s *studentService) ListStudentHistory(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]dto.StudentHistoryItemDto, int64, error) {
+	if err := s.ensureStudentExists(ctx, userID, studentID); err != nil {
+		return nil, 0, err
+	}
+
+	totalCount, err := s.repo.CountStudentHistory(ctx, repository.CountStudentHistoryParams{
+		StudentID: studentID,
+		UserID:    userID,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count student history: %w", err)
+	}
+
+	history, err := s.repo.ListStudentHistory(ctx, repository.ListStudentHistoryParams{
+		StudentID:   studentID,
+		UserID:      userID,
+		QueryLimit:  limit,
+		QueryOffset: offset,
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list student history: %w", err)
+	}
+
+	return sqlcmapper.StudentHistoryFromRows(history), totalCount, nil
+}
+
+// --- Helpers ---
+
+func (s *studentService) ensureStudentExists(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error {
+	_, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{
+		ID:     studentID,
+		UserID: userID,
+	})
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return api.ErrStudentNotFound
+	}
+
+	return fmt.Errorf("failed to get student: %w", err)
+}
+
+func attachClassroomsToStudents(ctx context.Context, repo repository.Querier, userID uuid.UUID, students []*dto.ReturnStudentDto) error {
+	if len(students) == 0 {
+		return nil
+	}
+
+	studentIDs := make([]uuid.UUID, 0, len(students))
+	for _, student := range students {
+		if student == nil {
+			continue
+		}
+		studentIDs = append(studentIDs, student.ID)
+	}
+
+	if len(studentIDs) == 0 {
+		return nil
+	}
+
+	rows, err := repo.ListClassroomRefsByStudentIDs(ctx, repository.ListClassroomRefsByStudentIDsParams{
+		UserID:     userID,
+		StudentIds: studentIDs,
+	})
+	if err != nil {
+		return err
+	}
+
+	classroomsByStudent := sqlcmapper.StudentClassroomsByStudentFromRows(rows)
+	for _, student := range students {
+		if student == nil {
+			continue
+		}
+
+		classrooms := classroomsByStudent[student.ID]
+		if classrooms == nil {
+			classrooms = []dto.StudentClassroomDto{}
+		}
+		student.Classrooms = classrooms
+	}
 
 	return nil
 }
