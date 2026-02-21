@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -20,36 +21,6 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 	shared "github.com/mageas/the-punisher-backend/internal/testutil/shared"
 )
-
-type dashboardKpisResponse struct {
-	StudentCount           int64   `json:"student_count"`
-	AvailableBonusPoints   float64 `json:"available_bonus_points"`
-	UnusedBonusCount       int64   `json:"unused_bonus_count"`
-	PenaltyCount           int64   `json:"penalty_count"`
-	PendingPunishmentCount int64   `json:"pending_punishment_count"`
-}
-
-type dashboardPenaltyResponse struct {
-	StudentID uuid.UUID `json:"student_id"`
-}
-
-type dashboardBonusResponse struct {
-	StudentID uuid.UUID `json:"student_id"`
-}
-
-type dashboardPunishmentResponse struct {
-	StudentID          uuid.UUID  `json:"student_id"`
-	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
-	TriggeringRuleName *string    `json:"triggering_rule_name"`
-	Automated          bool       `json:"automated"`
-}
-
-type dashboardResponse struct {
-	Kpis               dashboardKpisResponse         `json:"kpis"`
-	RecentPenalties    []dashboardPenaltyResponse    `json:"recent_penalties"`
-	RecentBonuses      []dashboardBonusResponse      `json:"recent_bonuses"`
-	PendingPunishments []dashboardPunishmentResponse `json:"pending_punishments"`
-}
 
 func TestDashboardHandlerSuccess(t *testing.T) {
 	repo := inmemory.NewRepository()
@@ -102,7 +73,7 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 		}
 
-		resp := httpx.DecodeJSONResponse[dashboardResponse](t, rr)
+		resp := httpx.DecodeJSONResponse[dto.ReturnDashboardDto](t, rr)
 		if resp.Kpis.StudentCount != 2 {
 			t.Fatalf("expected student_count %d, got %d", 2, resp.Kpis.StudentCount)
 		}
@@ -149,7 +120,7 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 		}
 
-		resp := httpx.DecodeJSONResponse[dashboardResponse](t, rr)
+		resp := httpx.DecodeJSONResponse[dto.ReturnDashboardDto](t, rr)
 		if resp.Kpis.StudentCount != 1 {
 			t.Fatalf("expected student_count %d, got %d", 1, resp.Kpis.StudentCount)
 		}

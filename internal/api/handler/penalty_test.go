@@ -11,8 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
 	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
@@ -20,21 +22,6 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 	shared "github.com/mageas/the-punisher-backend/internal/testutil/shared"
 )
-
-type penaltyResponse struct {
-	ID               uuid.UUID `json:"id"`
-	StudentID        uuid.UUID `json:"student_id"`
-	StudentFirstName string    `json:"student_first_name"`
-	StudentLastName  string    `json:"student_last_name"`
-	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
-	PenaltyTypeName  string    `json:"penalty_type_name"`
-}
-
-type paginatedPenaltyResponse struct {
-	Page       int               `json:"page"`
-	TotalCount int64             `json:"total_count"`
-	Data       []penaltyResponse `json:"data"`
-}
 
 func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 	repo := inmemory.NewRepository()
@@ -67,7 +54,7 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, createRR.Code)
 	}
 
-	created := httpx.DecodeJSONResponse[penaltyResponse](t, createRR)
+	created := httpx.DecodeJSONResponse[dto.ReturnPenaltyDto](t, createRR)
 	if created.ID == uuid.Nil {
 		t.Fatal("expected created penalty id")
 	}
@@ -83,7 +70,7 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listRR.Code)
 	}
 
-	listResp := httpx.DecodeJSONResponse[paginatedPenaltyResponse](t, listRR)
+	listResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnPenaltyDto]](t, listRR)
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
 	}
@@ -99,7 +86,7 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, getRR.Code)
 	}
 
-	getResp := httpx.DecodeJSONResponse[penaltyResponse](t, getRR)
+	getResp := httpx.DecodeJSONResponse[dto.ReturnPenaltyDto](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected penalty id %s, got %s", created.ID, getResp.ID)
 	}
@@ -115,7 +102,7 @@ func TestPenaltyHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listByStudentRR.Code)
 	}
 
-	listByStudentResp := httpx.DecodeJSONResponse[paginatedPenaltyResponse](t, listByStudentRR)
+	listByStudentResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnPenaltyDto]](t, listByStudentRR)
 	if listByStudentResp.TotalCount != 1 || len(listByStudentResp.Data) != 1 {
 		t.Fatalf("unexpected list by student response: %+v", listByStudentResp)
 	}
@@ -397,7 +384,7 @@ func TestPenaltyHandlerCreateTriggersPunishmentFromRule(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listPunishmentsRR.Code)
 	}
 
-	listPunishmentsResp := httpx.DecodeJSONResponse[paginatedPunishmentResponse](t, listPunishmentsRR)
+	listPunishmentsResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnPunishmentDto]](t, listPunishmentsRR)
 	if listPunishmentsResp.TotalCount != 1 || len(listPunishmentsResp.Data) != 1 {
 		t.Fatalf("expected one punishment created by rule, got %+v", listPunishmentsResp)
 	}

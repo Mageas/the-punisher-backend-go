@@ -10,8 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
 	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
@@ -19,25 +21,6 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 	shared "github.com/mageas/the-punisher-backend/internal/testutil/shared"
 )
-
-type ruleResponse struct {
-	ID                          uuid.UUID `json:"id"`
-	Name                        string    `json:"name"`
-	ResultingPunishmentTypeID   uuid.UUID `json:"resulting_punishment_type_id"`
-	ResultingPunishmentTypeName string    `json:"resulting_punishment_type_name"`
-	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
-	PenaltyTypeName             string    `json:"penalty_type_name"`
-	Threshold                   int32     `json:"threshold"`
-	DueAtAfterDays              int32     `json:"due_at_after_days"`
-	Mode                        string    `json:"mode"`
-	IsActive                    bool      `json:"is_active"`
-}
-
-type paginatedRuleResponse struct {
-	Page       int            `json:"page"`
-	TotalCount int64          `json:"total_count"`
-	Data       []ruleResponse `json:"data"`
-}
 
 func TestRuleHandlerCRUDSuccess(t *testing.T) {
 	repo := inmemory.NewRepository()
@@ -74,7 +57,7 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, createRR.Code)
 	}
 
-	created := httpx.DecodeJSONResponse[ruleResponse](t, createRR)
+	created := httpx.DecodeJSONResponse[dto.ReturnRuleDto](t, createRR)
 	if created.ID == uuid.Nil {
 		t.Fatal("expected created rule id")
 	}
@@ -96,7 +79,7 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listRR.Code)
 	}
 
-	listResp := httpx.DecodeJSONResponse[paginatedRuleResponse](t, listRR)
+	listResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnRuleDto]](t, listRR)
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
 	}
@@ -115,7 +98,7 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, getRR.Code)
 	}
 
-	getResp := httpx.DecodeJSONResponse[ruleResponse](t, getRR)
+	getResp := httpx.DecodeJSONResponse[dto.ReturnRuleDto](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected rule id %s, got %s", created.ID, getResp.ID)
 	}
@@ -135,7 +118,7 @@ func TestRuleHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, updateRR.Code)
 	}
 
-	updated := httpx.DecodeJSONResponse[ruleResponse](t, updateRR)
+	updated := httpx.DecodeJSONResponse[dto.ReturnRuleDto](t, updateRR)
 	if updated.Threshold != 4 || updated.Mode != "every" || updated.IsActive {
 		t.Fatalf("unexpected updated payload: %+v", updated)
 	}

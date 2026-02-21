@@ -11,21 +11,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
 	"github.com/mageas/the-punisher-backend/internal/testutil/httpx"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 )
-
-type typeResponse struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-}
-
-type paginatedTypeResponse struct {
-	Page       int            `json:"page"`
-	TotalCount int64          `json:"total_count"`
-	Data       []typeResponse `json:"data"`
-}
 
 type TypeSeed struct {
 	ID     uuid.UUID
@@ -42,7 +32,14 @@ type ManagedTypeSuite struct {
 	NewRouter     func(repo *inmemory.Repository, cfg config.JWTConfig) http.Handler
 }
 
-func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
+// NamedIdentifiable is an interface for DTOs that have ID and Name fields.
+// This allows the generic test to verify the content.
+type NamedIdentifiable interface {
+	GetID() uuid.UUID
+	GetName() string
+}
+
+func RunTypeHandlerCRUDSuccess[T NamedIdentifiable](t *testing.T, suite ManagedTypeSuite) {
 	t.Helper()
 
 	repo := inmemory.NewRepository()
@@ -60,12 +57,12 @@ func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, createRR.Code)
 	}
 
-	created := httpx.DecodeJSONResponse[typeResponse](t, createRR)
-	if created.ID == uuid.Nil {
+	created := httpx.DecodeJSONResponse[T](t, createRR)
+	if created.GetID() == uuid.Nil {
 		t.Fatal("expected created resource id")
 	}
-	if created.Name != "Type Alpha" {
-		t.Fatalf("expected created name %q, got %q", "Type Alpha", created.Name)
+	if created.GetName() != "Type Alpha" {
+		t.Fatalf("expected created name %q, got %q", "Type Alpha", created.GetName())
 	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, suite.BasePath+"/", userID, cfg)
@@ -76,18 +73,18 @@ func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listRR.Code)
 	}
 
-	listResp := httpx.DecodeJSONResponse[paginatedTypeResponse](t, listRR)
+	listResp := httpx.DecodeJSONResponse[web.PaginatedResponse[T]](t, listRR)
 	if listResp.TotalCount != 1 {
 		t.Fatalf("expected total_count=1, got %d", listResp.TotalCount)
 	}
 	if len(listResp.Data) != 1 {
 		t.Fatalf("expected one item in list, got %d", len(listResp.Data))
 	}
-	if listResp.Data[0].ID != created.ID {
-		t.Fatalf("expected listed id %s, got %s", created.ID, listResp.Data[0].ID)
+	if listResp.Data[0].GetID() != created.GetID() {
+		t.Fatalf("expected listed id %s, got %s", created.GetID(), listResp.Data[0].GetID())
 	}
 
-	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, suite.BasePath+"/"+created.ID.String(), userID, cfg)
+	getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, suite.BasePath+"/"+created.GetID().String(), userID, cfg)
 	getRR := httptest.NewRecorder()
 	router.ServeHTTP(getRR, getReq)
 
@@ -95,12 +92,12 @@ func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, getRR.Code)
 	}
 
-	getResp := httpx.DecodeJSONResponse[typeResponse](t, getRR)
-	if getResp.ID != created.ID {
-		t.Fatalf("expected retrieved id %s, got %s", created.ID, getResp.ID)
+	getResp := httpx.DecodeJSONResponse[T](t, getRR)
+	if getResp.GetID() != created.GetID() {
+		t.Fatalf("expected retrieved id %s, got %s", created.GetID(), getResp.GetID())
 	}
 
-	updateReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, suite.BasePath+"/"+created.ID.String(), map[string]any{
+	updateReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, suite.BasePath+"/"+created.GetID().String(), map[string]any{
 		"name": "Type Beta",
 	}, userID, cfg)
 	updateRR := httptest.NewRecorder()
@@ -110,12 +107,12 @@ func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, updateRR.Code)
 	}
 
-	updated := httpx.DecodeJSONResponse[typeResponse](t, updateRR)
-	if updated.Name != "Type Beta" {
-		t.Fatalf("expected updated name %q, got %q", "Type Beta", updated.Name)
+	updated := httpx.DecodeJSONResponse[T](t, updateRR)
+	if updated.GetName() != "Type Beta" {
+		t.Fatalf("expected updated name %q, got %q", "Type Beta", updated.GetName())
 	}
 
-	updateEmptyReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, suite.BasePath+"/"+created.ID.String(), map[string]any{}, userID, cfg)
+	updateEmptyReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPut, suite.BasePath+"/"+created.GetID().String(), map[string]any{}, userID, cfg)
 	updateEmptyRR := httptest.NewRecorder()
 	router.ServeHTTP(updateEmptyRR, updateEmptyReq)
 
@@ -123,12 +120,12 @@ func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, updateEmptyRR.Code)
 	}
 
-	updateEmptyResp := httpx.DecodeJSONResponse[typeResponse](t, updateEmptyRR)
-	if updateEmptyResp.Name != "Type Beta" {
-		t.Fatalf("expected name to remain %q, got %q", "Type Beta", updateEmptyResp.Name)
+	updateEmptyResp := httpx.DecodeJSONResponse[T](t, updateEmptyRR)
+	if updateEmptyResp.GetName() != "Type Beta" {
+		t.Fatalf("expected name to remain %q, got %q", "Type Beta", updateEmptyResp.GetName())
 	}
 
-	deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, suite.BasePath+"/"+created.ID.String(), userID, cfg)
+	deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, suite.BasePath+"/"+created.GetID().String(), userID, cfg)
 	deleteRR := httptest.NewRecorder()
 	router.ServeHTTP(deleteRR, deleteReq)
 
@@ -136,7 +133,7 @@ func RunTypeHandlerCRUDSuccess(t *testing.T, suite ManagedTypeSuite) {
 		t.Fatalf("expected status %d, got %d", http.StatusNoContent, deleteRR.Code)
 	}
 
-	getDeletedReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, suite.BasePath+"/"+created.ID.String(), userID, cfg)
+	getDeletedReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, suite.BasePath+"/"+created.GetID().String(), userID, cfg)
 	getDeletedRR := httptest.NewRecorder()
 	router.ServeHTTP(getDeletedRR, getDeletedReq)
 

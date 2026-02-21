@@ -7,13 +7,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
 	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
@@ -22,25 +25,35 @@ import (
 	shared "github.com/mageas/the-punisher-backend/internal/testutil/shared"
 )
 
-type studentResponse struct {
-	ID                   uuid.UUID                  `json:"id"`
-	FirstName            string                     `json:"first_name"`
-	LastName             string                     `json:"last_name"`
-	Classrooms           []studentClassroomResponse `json:"classrooms"`
-	AvailableBonusPoints float64                    `json:"available_bonus_points"`
-	PenaltyCount         int64                      `json:"penalty_count"`
+func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Handler {
+	svc := service.NewStudentService(repo)
+	h := handler.NewStudentHandler(svc)
+
+	r := chi.NewRouter()
+	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
+	r.Route("/v1/students", func(r chi.Router) {
+		r.Post("/", h.CreateStudent)
+		r.Get("/", h.ListStudents)
+		r.Get("/{student_id}", h.GetStudent)
+		r.Get("/{student_id}/kpis", h.GetStudentKpis)
+		r.Get("/{student_id}/history", h.GetStudentHistory)
+		r.Put("/{student_id}", h.UpdateStudent)
+		r.Delete("/{student_id}", h.DeleteStudent)
+	})
+
+	return r
 }
 
-type studentClassroomResponse struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
+func inmemoryStudent(id, userID uuid.UUID, firstName, lastName string) repository.Student {
+	return repository.Student{
+		ID:        id,
+		UserID:    userID,
+		FirstName: firstName,
+		LastName:  lastName,
+	}
 }
 
-type paginatedStudentResponse struct {
-	Page       int               `json:"page"`
-	TotalCount int64             `json:"total_count"`
-	Data       []studentResponse `json:"data"`
-}
+// --- CRUD Tests ---
 
 func TestStudentHandlerUnauthorized(t *testing.T) {
 	repo := inmemory.NewRepository()
@@ -73,7 +86,7 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, createRR.Code)
 	}
 
-	created := httpx.DecodeJSONResponse[studentResponse](t, createRR)
+	created := httpx.DecodeJSONResponse[dto.ReturnStudentDto](t, createRR)
 	if created.ID == uuid.Nil {
 		t.Fatal("expected created student id")
 	}
@@ -95,7 +108,7 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listRR.Code)
 	}
 
-	listResp := httpx.DecodeJSONResponse[paginatedStudentResponse](t, listRR)
+	listResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnStudentDto]](t, listRR)
 	if listResp.TotalCount != 1 {
 		t.Fatalf("expected total_count=1, got %d", listResp.TotalCount)
 	}
@@ -117,7 +130,7 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, getRR.Code)
 	}
 
-	getResp := httpx.DecodeJSONResponse[studentResponse](t, getRR)
+	getResp := httpx.DecodeJSONResponse[dto.ReturnStudentDto](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected student id %s, got %s", created.ID, getResp.ID)
 	}
@@ -135,7 +148,7 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, updateRR.Code)
 	}
 
-	updated := httpx.DecodeJSONResponse[studentResponse](t, updateRR)
+	updated := httpx.DecodeJSONResponse[dto.ReturnStudentDto](t, updateRR)
 	if updated.FirstName != "Jeanne" || updated.LastName != "Dupont" {
 		t.Fatalf("expected updated student, got %+v", updated)
 	}
@@ -151,7 +164,7 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, updateEmptyRR.Code)
 	}
 
-	updateEmptyResp := httpx.DecodeJSONResponse[studentResponse](t, updateEmptyRR)
+	updateEmptyResp := httpx.DecodeJSONResponse[dto.ReturnStudentDto](t, updateEmptyRR)
 	if updateEmptyResp.FirstName != "Jeanne" || updateEmptyResp.LastName != "Dupont" {
 		t.Fatalf("expected student unchanged, got %+v", updateEmptyResp)
 	}
@@ -387,7 +400,7 @@ func TestStudentHandlerListSearch(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, pageOneRR.Code)
 	}
 
-	pageOneResp := httpx.DecodeJSONResponse[paginatedStudentResponse](t, pageOneRR)
+	pageOneResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnStudentDto]](t, pageOneRR)
 	if pageOneResp.Page != 1 || pageOneResp.TotalCount != 21 || len(pageOneResp.Data) != 20 {
 		t.Fatalf("unexpected page 1 search response: %+v", pageOneResp)
 	}
@@ -400,7 +413,7 @@ func TestStudentHandlerListSearch(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, pageTwoRR.Code)
 	}
 
-	pageTwoResp := httpx.DecodeJSONResponse[paginatedStudentResponse](t, pageTwoRR)
+	pageTwoResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnStudentDto]](t, pageTwoRR)
 	if pageTwoResp.Page != 2 || pageTwoResp.TotalCount != 21 || len(pageTwoResp.Data) != 1 {
 		t.Fatalf("unexpected page 2 search response: %+v", pageTwoResp)
 	}
@@ -488,30 +501,248 @@ func TestStudentHandlerNotFoundAndInternalErrors(t *testing.T) {
 	}
 }
 
-func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Handler {
-	svc := service.NewStudentService(repo)
-	h := handler.NewStudentHandler(svc)
+// --- KPIs & History Tests ---
 
-	r := chi.NewRouter()
-	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
-	r.Route("/v1/students", func(r chi.Router) {
-		r.Post("/", h.CreateStudent)
-		r.Get("/", h.ListStudents)
-		r.Get("/{student_id}", h.GetStudent)
-		r.Get("/{student_id}/kpis", h.GetStudentKpis)
-		r.Get("/{student_id}/history", h.GetStudentHistory)
-		r.Put("/{student_id}", h.UpdateStudent)
-		r.Delete("/{student_id}", h.DeleteStudent)
-	})
+func TestStudentKpisHandlerSuccess(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
 
-	return r
+	userID := uuid.New()
+	studentID := uuid.New()
+	bonusTypeID := uuid.New()
+	penaltyTypeID := uuid.New()
+	punishmentTypeID := uuid.New()
+	base := time.Date(2026, 2, 2, 10, 0, 0, 0, time.UTC)
+
+	repo.SeedStudent(inmemoryStudent(studentID, userID, "Lucas", "Dubois"))
+	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
+	repo.SeedPenaltyType(repository.PenaltyType{ID: penaltyTypeID, UserID: userID, Name: "Bavardage"})
+	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Retenue"})
+
+	usedAt := base.Add(3 * time.Hour)
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: &usedAt})
+	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(4 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	resolvedAt := base.Add(8 * time.Hour)
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &resolvedAt})
+
+	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/kpis", userID, cfg)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+
+	resp := httpx.DecodeJSONResponse[dto.StudentKpisDto](t, rr)
+	if resp.AvailableBonusPoints != 2 || resp.ActiveBonusCount != 1 || resp.TotalPenaltyCount != 1 || resp.PendingPunishmentCount != 1 {
+		t.Fatalf("unexpected kpis payload: %+v", resp)
+	}
 }
 
-func inmemoryStudent(id, userID uuid.UUID, firstName, lastName string) repository.Student {
-	return repository.Student{
-		ID:        id,
-		UserID:    userID,
-		FirstName: firstName,
-		LastName:  lastName,
+func TestStudentHistoryHandlerSuccess(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+
+	userID := uuid.New()
+	studentID := uuid.New()
+	bonusTypeID := uuid.New()
+	penaltyTypeID := uuid.New()
+	punishmentTypeID := uuid.New()
+	ruleID := uuid.New()
+	base := time.Date(2026, 2, 2, 10, 0, 0, 0, time.UTC)
+
+	repo.SeedStudent(inmemoryStudent(studentID, userID, "Lucas", "Dubois"))
+	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
+	repo.SeedPenaltyType(repository.PenaltyType{ID: penaltyTypeID, UserID: userID, Name: "Bavardage"})
+	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Retenue"})
+	repo.SeedRule(repository.Rule{ID: ruleID, UserID: userID, Name: "3 bavardages => retenue", PenaltyTypeID: penaltyTypeID, ResultingPunishmentTypeID: punishmentTypeID, Mode: "every", Threshold: 3, IsActive: true, DueAtAfterDays: 7})
+
+	usedAt := base.Add(3 * time.Hour)
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: &usedAt})
+	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(4 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: &ruleID, Automated: true, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	resolvedAt := base.Add(8 * time.Hour)
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &resolvedAt})
+
+	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history", userID, cfg)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
 	}
+
+	resp := httpx.DecodeJSONResponse[web.PaginatedResponse[dto.StudentHistoryItemDto]](t, rr)
+	if resp.TotalCount != 5 {
+		t.Fatalf("expected total_count=5, got %d", resp.TotalCount)
+	}
+	if len(resp.Data) != 5 {
+		t.Fatalf("expected 5 history items, got %d (%+v)", len(resp.Data), resp.Data)
+	}
+	if resp.Data[0].Type != "punishment" {
+		t.Fatalf("expected first history item to be latest punishment, got %+v", resp.Data[0])
+	}
+	if resp.Data[0].PunishmentTypeID == nil || resp.Data[0].PunishmentTypeName == nil || resp.Data[0].DueAt == nil {
+		t.Fatalf("expected punishment fields on first item, got %+v", resp.Data[0])
+	}
+
+	typesCount := map[string]int{}
+	automatedTrueCount := 0
+	automatedFalseCount := 0
+	for _, item := range resp.Data {
+		typesCount[item.Type]++
+		if item.Type == "punishment" {
+			if item.Automated == nil {
+				t.Fatalf("expected automated field on punishment history item, got %+v", item)
+			}
+			if *item.Automated {
+				automatedTrueCount++
+			} else {
+				automatedFalseCount++
+			}
+			continue
+		}
+		if item.Automated != nil {
+			t.Fatalf("expected automated to be omitted for non-punishment history item, got %+v", item)
+		}
+	}
+	if typesCount["bonus"] != 2 || typesCount["penalty"] != 1 || typesCount["punishment"] != 2 {
+		t.Fatalf("unexpected history type distribution: %+v", typesCount)
+	}
+	if automatedTrueCount != 1 || automatedFalseCount != 1 {
+		t.Fatalf("expected one automated and one manual punishment in history, got true=%d false=%d", automatedTrueCount, automatedFalseCount)
+	}
+}
+
+func TestStudentHistoryHandlerPagination(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+	studentID := uuid.New()
+	bonusTypeID := uuid.New()
+	base := time.Date(2026, 2, 2, 10, 0, 0, 0, time.UTC)
+
+	repo.SeedStudent(inmemoryStudent(studentID, userID, "Jean", "Dupont"))
+	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
+	for i := 0; i < 21; i++ {
+		repo.SeedBonus(repository.Bonus{
+			ID:          uuid.New(),
+			UserID:      userID,
+			StudentID:   studentID,
+			BonusTypeID: bonusTypeID,
+			Points:      1,
+			CreatedAt:   base.Add(time.Duration(i) * time.Minute),
+		})
+	}
+
+	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history?page=2", userID, cfg)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+
+	resp := httpx.DecodeJSONResponse[web.PaginatedResponse[dto.StudentHistoryItemDto]](t, rr)
+	if resp.Page != 2 {
+		t.Fatalf("expected page=2, got %d", resp.Page)
+	}
+	if resp.TotalCount != 21 {
+		t.Fatalf("expected total_count=21, got %d", resp.TotalCount)
+	}
+	if len(resp.Data) != 1 {
+		t.Fatalf("expected exactly one history item on page 2, got %d", len(resp.Data))
+	}
+}
+
+func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+
+	t.Run("malformed_student_id", func(t *testing.T) {
+		reqKpis := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/not-a-uuid/kpis", userID, cfg)
+		rrKpis := httptest.NewRecorder()
+		router.ServeHTTP(rrKpis, reqKpis)
+
+		if rrKpis.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rrKpis.Code)
+		}
+		respKpis := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrKpis)
+		shared.AssertHasErrorDetail(t, respKpis.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
+
+		reqHistory := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/not-a-uuid/history", userID, cfg)
+		rrHistory := httptest.NewRecorder()
+		router.ServeHTTP(rrHistory, reqHistory)
+
+		if rrHistory.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rrHistory.Code)
+		}
+		respHistory := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrHistory)
+		shared.AssertHasErrorDetail(t, respHistory.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
+	})
+
+	t.Run("student_not_found", func(t *testing.T) {
+		reqKpis := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+uuid.New().String()+"/kpis", userID, cfg)
+		rrKpis := httptest.NewRecorder()
+		router.ServeHTTP(rrKpis, reqKpis)
+
+		if rrKpis.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rrKpis.Code)
+		}
+
+		respKpis := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrKpis)
+		if respKpis.Error != api.ErrStudentNotFound.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrStudentNotFound.Error(), respKpis.Error)
+		}
+
+		reqHistory := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+uuid.New().String()+"/history", userID, cfg)
+		rrHistory := httptest.NewRecorder()
+		router.ServeHTTP(rrHistory, reqHistory)
+
+		if rrHistory.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rrHistory.Code)
+		}
+	})
+
+	t.Run("internal_error", func(t *testing.T) {
+		studentID := uuid.New()
+		repo.SeedStudent(inmemoryStudent(studentID, userID, "Jean", "Dupont"))
+
+		repo.SetError(inmemory.OpGetStudentKpis, errors.New("database unavailable"))
+		reqKpis := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/kpis", userID, cfg)
+		rrKpis := httptest.NewRecorder()
+		router.ServeHTTP(rrKpis, reqKpis)
+
+		if rrKpis.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rrKpis.Code)
+		}
+
+		respKpis := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrKpis)
+		if respKpis.Error != api.ErrInternalError.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), respKpis.Error)
+		}
+
+		repo.ClearError(inmemory.OpGetStudentKpis)
+		repo.SetError(inmemory.OpListStudentHistory, errors.New("database unavailable"))
+		reqHistory := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/history", userID, cfg)
+		rrHistory := httptest.NewRecorder()
+		router.ServeHTTP(rrHistory, reqHistory)
+
+		if rrHistory.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rrHistory.Code)
+		}
+
+		respHistory := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrHistory)
+		if respHistory.Error != api.ErrInternalError.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), respHistory.Error)
+		}
+	})
 }
