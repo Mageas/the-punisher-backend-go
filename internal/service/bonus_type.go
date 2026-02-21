@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -52,7 +51,7 @@ func (s *bonusTypeService) GetBonusType(ctx context.Context, userID, bonusTypeID
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrBonusTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get bonus type: %w", err)
@@ -97,7 +96,7 @@ func (s *bonusTypeService) UpdateBonusType(ctx context.Context, userID, bonusTyp
 
 	entity, err := s.repo.UpdateBonusTypeByUser(ctx, params)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrBonusTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to update bonus type: %w", err)

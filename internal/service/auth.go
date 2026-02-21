@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
@@ -42,7 +41,7 @@ func NewAuthService(repo repository.Querier, cfg config.JWTConfig) AuthService {
 func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.LoginResponseDto, error) {
 	userCredentials, err := s.repo.GetUserCredentialsByEmailForAuth(ctx, req.Email)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrInvalidCredentialsOrUserDoesntExist
 		}
 
@@ -149,7 +148,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 			Token:  refreshTokenHash,
 		})
 		if getErr != nil {
-			if errors.Is(getErr, pgx.ErrNoRows) {
+			if errors.Is(getErr, repository.ErrNoRows) {
 				return api.ErrUnauthorized
 			}
 			return fmt.Errorf("failed to get refresh token: %w", getErr)
@@ -157,7 +156,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 
 		_, revokeErr := txQuerier.RevokeRefreshToken(ctx, refreshTokenHash)
 		if revokeErr != nil {
-			if errors.Is(revokeErr, pgx.ErrNoRows) {
+			if errors.Is(revokeErr, repository.ErrNoRows) {
 				return api.ErrUnauthorized
 			}
 			return fmt.Errorf("failed to revoke refresh token: %w", revokeErr)

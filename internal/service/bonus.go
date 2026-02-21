@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -33,14 +32,14 @@ func NewBonusService(repo repository.Querier) BonusService {
 
 func (s *bonusService) CreateBonus(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, bonusTypeID uuid.UUID, points float64) (*dto.ReturnBonusDto, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
 		}
 		return nil, fmt.Errorf("failed to get student: %w", err)
 	}
 
 	if _, err := s.repo.GetBonusTypeByUser(ctx, repository.GetBonusTypeByUserParams{ID: bonusTypeID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrBonusTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get bonus type: %w", err)
@@ -64,7 +63,7 @@ func (s *bonusService) CreateBonus(ctx context.Context, userID uuid.UUID, studen
 func (s *bonusService) GetBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error) {
 	bonus, err := s.repo.GetBonusByUser(ctx, repository.GetBonusByUserParams{ID: bonusID, UserID: userID})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrBonusNotFound
 		}
 		return nil, fmt.Errorf("failed to get bonus: %w", err)
@@ -99,7 +98,7 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, used *
 
 func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, 0, api.ErrStudentNotFound
 		}
 		return nil, 0, fmt.Errorf("failed to get student: %w", err)
@@ -131,9 +130,9 @@ func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUI
 func (s *bonusService) UseBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error) {
 	bonus, err := s.repo.UseBonus(ctx, repository.UseBonusParams{ID: bonusID, UserID: userID})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			if _, getErr := s.repo.GetBonusByUser(ctx, repository.GetBonusByUserParams{ID: bonusID, UserID: userID}); getErr != nil {
-				if errors.Is(getErr, pgx.ErrNoRows) {
+				if errors.Is(getErr, repository.ErrNoRows) {
 					return nil, api.ErrBonusNotFound
 				}
 				return nil, fmt.Errorf("failed to get bonus: %w", getErr)

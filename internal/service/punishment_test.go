@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
@@ -59,7 +58,7 @@ func TestPunishmentServiceResolvePunishment(t *testing.T) {
 		repo := inmemory.NewRepository()
 		svc := NewPunishmentService(repo)
 
-		repo.SetError(inmemory.OpResolvePunishment, pgx.ErrNoRows)
+		repo.SetError(inmemory.OpResolvePunishment, repository.ErrNoRows)
 		repo.SetError(inmemory.OpGetPunishmentByUser, errors.New("db down"))
 
 		_, err := svc.ResolvePunishment(context.Background(), uuid.New(), uuid.New())

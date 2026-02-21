@@ -7,7 +7,6 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -47,7 +46,7 @@ func (s *ruleService) CreateRule(ctx context.Context, userID uuid.UUID, req dto.
 		ID:     resultingPunishmentTypeID,
 		UserID: userID,
 	}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPunishmentTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get punishment type: %w", err)
@@ -57,7 +56,7 @@ func (s *ruleService) CreateRule(ctx context.Context, userID uuid.UUID, req dto.
 		ID:     penaltyTypeID,
 		UserID: userID,
 	}); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrPenaltyTypeNotFound
 		}
 		return nil, fmt.Errorf("failed to get penalty type: %w", err)
@@ -93,7 +92,7 @@ func (s *ruleService) GetRule(ctx context.Context, userID, ruleID uuid.UUID) (*d
 		UserID: userID,
 	})
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrRuleNotFound
 		}
 		return nil, fmt.Errorf("failed to get rule: %w", err)
@@ -140,7 +139,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 			ID:     resultingPunishmentTypeID,
 			UserID: userID,
 		}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNoRows) {
 				return nil, api.ErrPunishmentTypeNotFound
 			}
 			return nil, fmt.Errorf("failed to get punishment type: %w", err)
@@ -159,7 +158,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 			ID:     penaltyTypeID,
 			UserID: userID,
 		}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+			if errors.Is(err, repository.ErrNoRows) {
 				return nil, api.ErrPenaltyTypeNotFound
 			}
 			return nil, fmt.Errorf("failed to get penalty type: %w", err)
@@ -186,7 +185,7 @@ func (s *ruleService) UpdateRule(ctx context.Context, userID, ruleID uuid.UUID, 
 
 	rule, err := s.repo.UpdateRuleByUser(ctx, arg)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrRuleNotFound
 		}
 		return nil, fmt.Errorf("failed to update rule: %w", err)
