@@ -11,8 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
+	"github.com/mageas/the-punisher-backend/internal/dto"
 	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
 	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
@@ -20,23 +22,6 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 	shared "github.com/mageas/the-punisher-backend/internal/testutil/shared"
 )
-
-type bonusResponse struct {
-	ID               uuid.UUID  `json:"id"`
-	StudentID        uuid.UUID  `json:"student_id"`
-	StudentFirstName string     `json:"student_first_name"`
-	StudentLastName  string     `json:"student_last_name"`
-	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
-	BonusTypeName    string     `json:"bonus_type_name"`
-	Points           float64    `json:"points"`
-	UsedAt           *time.Time `json:"used_at"`
-}
-
-type paginatedBonusResponse struct {
-	Page       int             `json:"page"`
-	TotalCount int64           `json:"total_count"`
-	Data       []bonusResponse `json:"data"`
-}
 
 func TestBonusHandlerCRUDSuccess(t *testing.T) {
 	repo := inmemory.NewRepository()
@@ -70,7 +55,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, createRR.Code)
 	}
 
-	created := httpx.DecodeJSONResponse[bonusResponse](t, createRR)
+	created := httpx.DecodeJSONResponse[dto.ReturnBonusDto](t, createRR)
 	if created.ID == uuid.Nil {
 		t.Fatal("expected created bonus id")
 	}
@@ -92,7 +77,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listRR.Code)
 	}
 
-	listResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, listRR)
+	listResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnBonusDto]](t, listRR)
 	if listResp.TotalCount != 1 || len(listResp.Data) != 1 {
 		t.Fatalf("unexpected list response: %+v", listResp)
 	}
@@ -108,7 +93,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listUnusedRR.Code)
 	}
 
-	listUnusedResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, listUnusedRR)
+	listUnusedResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnBonusDto]](t, listUnusedRR)
 	if listUnusedResp.TotalCount != 1 || len(listUnusedResp.Data) != 1 {
 		t.Fatalf("unexpected unused list response: %+v", listUnusedResp)
 	}
@@ -121,7 +106,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, useRR.Code)
 	}
 
-	used := httpx.DecodeJSONResponse[bonusResponse](t, useRR)
+	used := httpx.DecodeJSONResponse[dto.ReturnBonusDto](t, useRR)
 	if used.UsedAt == nil {
 		t.Fatal("expected used_at to be set")
 	}
@@ -137,7 +122,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listUsedRR.Code)
 	}
 
-	listUsedResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, listUsedRR)
+	listUsedResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnBonusDto]](t, listUsedRR)
 	if listUsedResp.TotalCount != 1 || len(listUsedResp.Data) != 1 {
 		t.Fatalf("unexpected used list response: %+v", listUsedResp)
 	}
@@ -150,7 +135,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, getRR.Code)
 	}
 
-	getResp := httpx.DecodeJSONResponse[bonusResponse](t, getRR)
+	getResp := httpx.DecodeJSONResponse[dto.ReturnBonusDto](t, getRR)
 	if getResp.ID != created.ID {
 		t.Fatalf("expected bonus id %s, got %s", created.ID, getResp.ID)
 	}
@@ -166,7 +151,7 @@ func TestBonusHandlerCRUDSuccess(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, listByStudentRR.Code)
 	}
 
-	listByStudentResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, listByStudentRR)
+	listByStudentResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnBonusDto]](t, listByStudentRR)
 	if listByStudentResp.TotalCount != 1 || len(listByStudentResp.Data) != 1 {
 		t.Fatalf("unexpected list by student response: %+v", listByStudentResp)
 	}
@@ -326,7 +311,7 @@ func TestBonusHandlerListSearch(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, searchRR.Code)
 	}
 
-	searchResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, searchRR)
+	searchResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnBonusDto]](t, searchRR)
 	if searchResp.TotalCount != 2 || len(searchResp.Data) != 2 {
 		t.Fatalf("unexpected search response: %+v", searchResp)
 	}
@@ -339,7 +324,7 @@ func TestBonusHandlerListSearch(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, stateSearchRR.Code)
 	}
 
-	stateSearchResp := httpx.DecodeJSONResponse[paginatedBonusResponse](t, stateSearchRR)
+	stateSearchResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnBonusDto]](t, stateSearchRR)
 	if stateSearchResp.TotalCount != 1 || len(stateSearchResp.Data) != 1 {
 		t.Fatalf("unexpected state+search response: %+v", stateSearchResp)
 	}
@@ -414,7 +399,7 @@ func TestBonusHandlerBusinessAndInternalErrors(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusCreated, createRR.Code)
 	}
 
-	created := httpx.DecodeJSONResponse[bonusResponse](t, createRR)
+	created := httpx.DecodeJSONResponse[dto.ReturnBonusDto](t, createRR)
 
 	useReq := handlertest.NewAuthorizedRequest(t, http.MethodPost, "/v1/bonuses/"+created.ID.String()+"/use", userID, cfg)
 	useRR := httptest.NewRecorder()

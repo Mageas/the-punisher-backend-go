@@ -20,3 +20,11 @@ type ReturnPunishmentTypeDto struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+func (d ReturnPunishmentTypeDto) GetID() uuid.UUID {
+	return d.ID
+}
+
+func (d ReturnPunishmentTypeDto) GetName() string {
+	return d.Name
+}

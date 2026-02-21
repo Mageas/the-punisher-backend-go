@@ -20,3 +20,11 @@ type ReturnBonusTypeDto struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+func (d ReturnBonusTypeDto) GetID() uuid.UUID {
+	return d.ID
+}
+
+func (d ReturnBonusTypeDto) GetName() string {
+	return d.Name
+}
