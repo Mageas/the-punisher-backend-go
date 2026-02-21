@@ -7,8 +7,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
+	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
 )
@@ -31,6 +33,11 @@ func (app *application) mount() http.Handler {
 	}))
 
 	r.Use(middleware.Timeout(60 * time.Second))
+
+	// Custom 404 Handler
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		web.WriteError(w, http.StatusNotFound, api.ErrNotFound, nil)
+	})
 
 	healthService := service.NewHealthService(&app.config, app.db)
 	healthHandler := handler.NewHealthHandler(healthService)

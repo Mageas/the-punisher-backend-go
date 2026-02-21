@@ -31,6 +31,7 @@ func NewAPIError(statusCode int, message string, details ...ErrorDetail) *APIErr
 
 var (
 	ErrInternalError      = NewAPIError(http.StatusInternalServerError, "internal_error")
+	ErrNotFound           = NewAPIError(http.StatusNotFound, "not_found")
 	ErrInvalidRequestBody = NewAPIError(http.StatusBadRequest, "invalid_request_body")
 
 	ErrUnauthorized       = NewAPIError(http.StatusUnauthorized, "unauthorized")
