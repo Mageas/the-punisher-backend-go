@@ -36,7 +36,7 @@ func (app *application) mount() http.Handler {
 
 	// Custom 404 Handler
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		web.WriteError(w, http.StatusNotFound, api.ErrNotFound, nil)
+		web.WriteAPIError(w, api.ErrNotFound, nil)
 	})
 
 	healthService := service.NewHealthService(&app.config, app.db)

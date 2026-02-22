@@ -313,7 +313,7 @@ Query params :
 
 Réponses :
 - `200` -> `ReturnDashboardDto`
-- `400 malformed_parameter` si `classroom_id` n'est pas un UUID
+- `404 not_found` si `classroom_id` n'est pas un UUID
 - `404 classroom_not_found` si classe absente pour l'utilisateur
 
 ## 6. Students

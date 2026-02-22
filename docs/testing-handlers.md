@@ -70,7 +70,9 @@ Chaque handler est testé au minimum sur:
 3. erreurs de decode JSON:
    - champ inconnu
    - type JSON invalide
-4. erreurs de paramètres d’URL (`malformed_parameter`)
+4. erreurs de paramètres d’URL/query:
+   - UUID malformé (`not_found`)
+   - paramètre optionnel invalide (`malformed_parameter`)
 5. erreurs métier:
    - `*_not_found`
    - `*_already_used`

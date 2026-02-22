@@ -582,8 +582,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	}
 
 	createMalformedResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, createMalformedRR)
-	if createMalformedResp.Error != api.ErrMalformedParameter.Error() {
-		t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), createMalformedResp.Error)
+	if createMalformedResp.Error != api.ErrInvalidRequestBody.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), createMalformedResp.Error)
 	}
 	shared.AssertHasErrorDetail(t, createMalformedResp.ErrorDetails, "name", "validation_malformed_parameter:expected_string")
 
@@ -599,13 +599,13 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rr.Code)
 		}
 
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
-		if resp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
+		if resp.Error != api.ErrNotFound.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrNotFound.Error(), resp.Error)
 		}
 		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "classroom_id", "validation_malformed_parameter:expected_uuid")
 	}
@@ -616,8 +616,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	addBadClassroomRR := httptest.NewRecorder()
 	router.ServeHTTP(addBadClassroomRR, addBadClassroomReq)
 
-	if addBadClassroomRR.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, addBadClassroomRR.Code)
+	if addBadClassroomRR.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, addBadClassroomRR.Code)
 	}
 	addBadClassroomResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, addBadClassroomRR)
 	shared.AssertHasErrorDetail(t, addBadClassroomResp.ErrorDetails, "classroom_id", "validation_malformed_parameter:expected_uuid")
@@ -626,8 +626,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	removeBadStudentRR := httptest.NewRecorder()
 	router.ServeHTTP(removeBadStudentRR, removeBadStudentReq)
 
-	if removeBadStudentRR.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, removeBadStudentRR.Code)
+	if removeBadStudentRR.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, removeBadStudentRR.Code)
 	}
 	removeBadStudentResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, removeBadStudentRR)
 	shared.AssertHasErrorDetail(t, removeBadStudentResp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
@@ -636,8 +636,8 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 	listByBadStudentRR := httptest.NewRecorder()
 	router.ServeHTTP(listByBadStudentRR, listByBadStudentReq)
 
-	if listByBadStudentRR.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, listByBadStudentRR.Code)
+	if listByBadStudentRR.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, listByBadStudentRR.Code)
 	}
 	listByBadStudentResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, listByBadStudentRR)
 	shared.AssertHasErrorDetail(t, listByBadStudentResp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")

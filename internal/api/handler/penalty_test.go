@@ -187,8 +187,8 @@ func TestPenaltyHandlerValidationsAndDecodeErrors(t *testing.T) {
 		}
 
 		malformedResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, malformedRR)
-		if malformedResp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), malformedResp.Error)
+		if malformedResp.Error != api.ErrInvalidRequestBody.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), malformedResp.Error)
 		}
 		shared.AssertHasErrorDetail(t, malformedResp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_string")
 	})
@@ -197,22 +197,22 @@ func TestPenaltyHandlerValidationsAndDecodeErrors(t *testing.T) {
 		getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/penalties/not-a-uuid", userID, cfg)
 		getRR := httptest.NewRecorder()
 		router.ServeHTTP(getRR, getReq)
-		if getRR.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, getRR.Code)
+		if getRR.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, getRR.Code)
 		}
 
 		deleteReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/penalties/not-a-uuid", userID, cfg)
 		deleteRR := httptest.NewRecorder()
 		router.ServeHTTP(deleteRR, deleteReq)
-		if deleteRR.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, deleteRR.Code)
+		if deleteRR.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, deleteRR.Code)
 		}
 
 		listByStudentReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/not-a-uuid/penalties", userID, cfg)
 		listByStudentRR := httptest.NewRecorder()
 		router.ServeHTTP(listByStudentRR, listByStudentReq)
-		if listByStudentRR.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, listByStudentRR.Code)
+		if listByStudentRR.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, listByStudentRR.Code)
 		}
 	})
 }

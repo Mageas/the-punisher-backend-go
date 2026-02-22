@@ -20,13 +20,13 @@ func AuthMiddleware(accessSecret, issuer, audience string) func(http.Handler) ht
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
+				web.WriteAPIError(w, api.ErrUnauthorized, nil)
 				return
 			}
 
 			token, found := strings.CutPrefix(authHeader, "Bearer ")
 			if !found {
-				web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
+				web.WriteAPIError(w, api.ErrUnauthorized, nil)
 				return
 			}
 
@@ -42,13 +42,13 @@ func AuthMiddleware(accessSecret, issuer, audience string) func(http.Handler) ht
 
 			sub, err := claims.GetSubject()
 			if err != nil {
-				web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
+				web.WriteAPIError(w, api.ErrUnauthorized, nil)
 				return
 			}
 
 			userID, err := uuid.Parse(sub)
 			if err != nil {
-				web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
+				web.WriteAPIError(w, api.ErrUnauthorized, nil)
 				return
 			}
 

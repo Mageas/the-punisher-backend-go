@@ -263,8 +263,8 @@ func TestPunishmentHandlerValidationsAndDecodeErrors(t *testing.T) {
 		}
 
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
-		if resp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
+		if resp.Error != api.ErrInvalidRequestBody.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), resp.Error)
 		}
 
 		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "due_at", "validation_malformed_parameter:expected_string")
@@ -294,15 +294,15 @@ func TestPunishmentHandlerValidationsAndDecodeErrors(t *testing.T) {
 		getReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/not-a-uuid", userID, cfg)
 		getRR := httptest.NewRecorder()
 		router.ServeHTTP(getRR, getReq)
-		if getRR.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, getRR.Code)
+		if getRR.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, getRR.Code)
 		}
 
 		resolveReq := handlertest.NewAuthorizedRequest(t, http.MethodPost, "/v1/punishments/not-a-uuid/resolve", userID, cfg)
 		resolveRR := httptest.NewRecorder()
 		router.ServeHTTP(resolveRR, resolveReq)
-		if resolveRR.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, resolveRR.Code)
+		if resolveRR.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, resolveRR.Code)
 		}
 
 		listBadStateReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/punishments/?state=bad", userID, cfg)
@@ -317,8 +317,8 @@ func TestPunishmentHandlerValidationsAndDecodeErrors(t *testing.T) {
 		listByStudentBadIDReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/not-a-uuid/punishments", userID, cfg)
 		listByStudentBadIDRR := httptest.NewRecorder()
 		router.ServeHTTP(listByStudentBadIDRR, listByStudentBadIDReq)
-		if listByStudentBadIDRR.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, listByStudentBadIDRR.Code)
+		if listByStudentBadIDRR.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, listByStudentBadIDRR.Code)
 		}
 	})
 }

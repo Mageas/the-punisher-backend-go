@@ -309,8 +309,8 @@ func RunTypeHandlerDecodeAndIDErrors(t *testing.T, suite ManagedTypeSuite) {
 	}
 
 	createMalformedResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, createMalformedRR)
-	if createMalformedResp.Error != api.ErrMalformedParameter.Error() {
-		t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), createMalformedResp.Error)
+	if createMalformedResp.Error != api.ErrInvalidRequestBody.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), createMalformedResp.Error)
 	}
 	AssertHasErrorDetail(t, createMalformedResp.ErrorDetails, "name", "validation_malformed_parameter:expected_string")
 
@@ -326,13 +326,13 @@ func RunTypeHandlerDecodeAndIDErrors(t *testing.T, suite ManagedTypeSuite) {
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rr.Code)
 		}
 
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
-		if resp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
+		if resp.Error != api.ErrNotFound.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrNotFound.Error(), resp.Error)
 		}
 	}
 }

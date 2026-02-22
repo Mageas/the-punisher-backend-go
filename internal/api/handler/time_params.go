@@ -13,7 +13,7 @@ import (
 func parseBodyRFC3339(w http.ResponseWriter, rawValue, field string) (time.Time, bool) {
 	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(rawValue))
 	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, []api.ErrorDetail{
+		web.WriteAPIError(w, api.ErrInvalidRequestBody, []api.ErrorDetail{
 			{Field: field, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "rfc3339_datetime")},
 		})
 		return time.Time{}, false

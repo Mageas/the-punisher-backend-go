@@ -60,7 +60,7 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 
 	used, details, err := web.ParseEnumQueryParamToBool(r, "state", "used", "unused")
 	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, details)
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *BonusHandler) ListBonusesByStudent(w http.ResponseWriter, r *http.Reque
 
 	used, details, err := web.ParseEnumQueryParamToBool(r, "state", "used", "unused")
 	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, details)
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 

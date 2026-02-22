@@ -31,15 +31,23 @@ func WriteError(w http.ResponseWriter, status int, message error, details []api.
 	)
 }
 
+func WriteAPIError(w http.ResponseWriter, apiErr *api.APIError, details []api.ErrorDetail) {
+	if details == nil {
+		details = apiErr.Details
+	}
+
+	WriteError(w, apiErr.StatusCode, apiErr, details)
+}
+
 func WriteServerError(w http.ResponseWriter, err error) {
 	slog.Error(err.Error())
-	WriteError(w, http.StatusInternalServerError, api.ErrInternalError, nil)
+	WriteAPIError(w, api.ErrInternalError, nil)
 }
 
 func WriteJSONDecodeError(w http.ResponseWriter, err error) {
 	var unmarshalTypeErr *json.UnmarshalTypeError
 	if errors.As(err, &unmarshalTypeErr) {
-		WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, []api.ErrorDetail{
+		WriteAPIError(w, api.ErrInvalidRequestBody, []api.ErrorDetail{
 			{Field: unmarshalTypeErr.Field, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, unmarshalTypeErr.Type.String())},
 		})
 		return
@@ -48,13 +56,13 @@ func WriteJSONDecodeError(w http.ResponseWriter, err error) {
 	if after, ok := strings.CutPrefix(err.Error(), "json: unknown field"); ok {
 		fieldName := strings.Trim(after, " \"")
 
-		WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, []api.ErrorDetail{
+		WriteAPIError(w, api.ErrInvalidRequestBody, []api.ErrorDetail{
 			{Field: fieldName, Error: api.KeyValidationUnknownField},
 		})
 		return
 	}
 
-	WriteError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, []api.ErrorDetail{
+	WriteAPIError(w, api.ErrInvalidRequestBody, []api.ErrorDetail{
 		{Field: "", Error: err.Error()},
 	})
 }
@@ -78,7 +86,7 @@ func WriteValidationError(w http.ResponseWriter, err error) {
 			}
 		}
 
-		WriteError(w, http.StatusBadRequest, api.ErrValidationFailed, details)
+		WriteAPIError(w, api.ErrValidationFailed, details)
 		return
 	}
 
@@ -88,7 +96,7 @@ func WriteValidationError(w http.ResponseWriter, err error) {
 func WriteFromError(w http.ResponseWriter, err error) {
 	var apiErr *api.APIError
 	if errors.As(err, &apiErr) {
-		WriteError(w, apiErr.StatusCode, apiErr, apiErr.Details)
+		WriteAPIError(w, apiErr, nil)
 		return
 	}
 

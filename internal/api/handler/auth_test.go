@@ -162,8 +162,8 @@ func TestAuthHandlerLoginDecodeErrors(t *testing.T) {
 		}
 
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
-		if resp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
+		if resp.Error != api.ErrInvalidRequestBody.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), resp.Error)
 		}
 
 		assertHasErrorDetail(t, resp.ErrorDetails, "password", "validation_malformed_parameter:expected_string")
