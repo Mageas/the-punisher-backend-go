@@ -350,8 +350,8 @@ func TestStudentHandlerDecodeAndIDErrors(t *testing.T) {
 	}
 
 	createMalformedResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, createMalformedRR)
-	if createMalformedResp.Error != api.ErrMalformedParameter.Error() {
-		t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), createMalformedResp.Error)
+	if createMalformedResp.Error != api.ErrInvalidRequestBody.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), createMalformedResp.Error)
 	}
 	shared.AssertHasErrorDetail(t, createMalformedResp.ErrorDetails, "first_name", "validation_malformed_parameter:expected_string")
 
@@ -367,13 +367,13 @@ func TestStudentHandlerDecodeAndIDErrors(t *testing.T) {
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 
-		if rr.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+		if rr.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rr.Code)
 		}
 
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
-		if resp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
+		if resp.Error != api.ErrNotFound.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrNotFound.Error(), resp.Error)
 		}
 		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
 	}
@@ -672,8 +672,8 @@ func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
 		rrKpis := httptest.NewRecorder()
 		router.ServeHTTP(rrKpis, reqKpis)
 
-		if rrKpis.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rrKpis.Code)
+		if rrKpis.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rrKpis.Code)
 		}
 		respKpis := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrKpis)
 		shared.AssertHasErrorDetail(t, respKpis.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")
@@ -682,8 +682,8 @@ func TestStudentKpisAndHistoryHandlersErrors(t *testing.T) {
 		rrHistory := httptest.NewRecorder()
 		router.ServeHTTP(rrHistory, reqHistory)
 
-		if rrHistory.Code != http.StatusBadRequest {
-			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rrHistory.Code)
+		if rrHistory.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, rrHistory.Code)
 		}
 		respHistory := httpx.DecodeJSONResponse[api.ErrorResponse](t, rrHistory)
 		shared.AssertHasErrorDetail(t, respHistory.ErrorDetails, "student_id", "validation_malformed_parameter:expected_uuid")

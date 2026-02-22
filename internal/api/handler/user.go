@@ -26,7 +26,7 @@ func NewUserHandler(service service.UserService, cfg config.Config) *UserHandler
 
 func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if !h.cfg.AllowRegister {
-		web.WriteError(w, http.StatusUnauthorized, api.ErrRegisterNotAllowed, nil)
+		web.WriteAPIError(w, api.ErrRegisterNotAllowed, nil)
 		return
 	}
 

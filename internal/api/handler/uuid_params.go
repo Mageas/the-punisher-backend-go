@@ -15,7 +15,7 @@ func parsePathUUID(w http.ResponseWriter, r *http.Request, field string) (uuid.U
 	rawValue := strings.TrimSpace(chi.URLParam(r, field))
 	parsed, err := uuid.Parse(rawValue)
 	if err != nil {
-		writeUUIDParseError(w, http.StatusBadRequest, api.ErrMalformedParameter, field)
+		writeUUIDParseError(w, api.ErrNotFound, field)
 		return uuid.Nil, false
 	}
 
@@ -25,7 +25,7 @@ func parsePathUUID(w http.ResponseWriter, r *http.Request, field string) (uuid.U
 func parseBodyUUID(w http.ResponseWriter, rawValue string, field string) (uuid.UUID, bool) {
 	parsed, err := uuid.Parse(strings.TrimSpace(rawValue))
 	if err != nil {
-		writeUUIDParseError(w, http.StatusBadRequest, api.ErrInvalidRequestBody, field)
+		writeUUIDParseError(w, api.ErrInvalidRequestBody, field)
 		return uuid.Nil, false
 	}
 
@@ -40,15 +40,15 @@ func parseOptionalQueryUUID(w http.ResponseWriter, r *http.Request, name string)
 
 	parsed, err := uuid.Parse(rawValue)
 	if err != nil {
-		writeUUIDParseError(w, http.StatusBadRequest, api.ErrMalformedParameter, name)
+		writeUUIDParseError(w, api.ErrNotFound, name)
 		return nil, false
 	}
 
 	return &parsed, true
 }
 
-func writeUUIDParseError(w http.ResponseWriter, status int, apiErr error, field string) {
-	web.WriteError(w, status, apiErr, []api.ErrorDetail{
+func writeUUIDParseError(w http.ResponseWriter, apiErr *api.APIError, field string) {
+	web.WriteAPIError(w, apiErr, []api.ErrorDetail{
 		{Field: field, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "uuid")},
 	})
 }

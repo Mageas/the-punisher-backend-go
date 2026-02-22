@@ -72,7 +72,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie(refreshTokenName)
 	if err != nil {
-		web.WriteError(w, http.StatusUnauthorized, api.ErrUnauthorized, nil)
+		web.WriteAPIError(w, api.ErrUnauthorized, nil)
 		return
 	}
 

@@ -119,8 +119,8 @@ func TestUserHandlerCreateUserDecodeErrors(t *testing.T) {
 		}
 
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
-		if resp.Error != api.ErrMalformedParameter.Error() {
-			t.Fatalf("expected error %q, got %q", api.ErrMalformedParameter.Error(), resp.Error)
+		if resp.Error != api.ErrInvalidRequestBody.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInvalidRequestBody.Error(), resp.Error)
 		}
 
 		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "first_name", "validation_malformed_parameter:expected_string")

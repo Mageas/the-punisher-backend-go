@@ -65,7 +65,7 @@ func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Reque
 
 	resolved, details, err := web.ParseEnumQueryParamToBool(r, "state", "resolved", "pending")
 	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, details)
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 
@@ -141,7 +141,7 @@ func (h *PunishmentHandler) ListPunishmentsByStudent(w http.ResponseWriter, r *h
 
 	resolved, details, err := web.ParseEnumQueryParamToBool(r, "state", "resolved", "pending")
 	if err != nil {
-		web.WriteError(w, http.StatusBadRequest, api.ErrMalformedParameter, details)
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 
