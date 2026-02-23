@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+bin
+tmp
+tests
+docs
+coverage.out
+*.test
+*.out
+*.log
+.env
+.env.*
+README.md
