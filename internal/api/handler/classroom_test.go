@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -36,6 +37,7 @@ func newClassroomRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Ha
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
 		r.Get("/{classroom_id}", classroomHandler.GetClassroom)
+		r.Get("/{classroom_id}/kpis", classroomHandler.GetClassroomKpis)
 		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
 		r.Delete("/{classroom_id}", classroomHandler.DeleteClassroom)
 		r.Post("/{classroom_id}/students", classroomHandler.AddStudentToClassroom)
@@ -56,12 +58,19 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	router := newClassroomRouter(repo, cfg)
 	userID := uuid.New()
 	studentID := uuid.New()
+	outsideStudentID := uuid.New()
 
 	repo.SeedStudent(repository.Student{
 		ID:        studentID,
 		UserID:    userID,
 		FirstName: "Jean",
 		LastName:  "Dupont",
+	})
+	repo.SeedStudent(repository.Student{
+		ID:        outsideStudentID,
+		UserID:    userID,
+		FirstName: "Emma",
+		LastName:  "Martin",
 	})
 
 	createReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPost, "/v1/classrooms/", map[string]any{
@@ -94,9 +103,6 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	}
 	if len(created.StudentsPreview) != 0 {
 		t.Fatalf("expected empty students_preview, got %+v", created.StudentsPreview)
-	}
-	if created.TotalBonusPoints != 0 || created.TotalPenaltyCount != 0 {
-		t.Fatalf("expected zero classroom aggregates, got %+v", created)
 	}
 
 	listReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/", userID, cfg)
@@ -211,8 +217,46 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	if listClassroomsByStudentResp.Data[0].StudentsPreview[0].FirstName != "Jean" || listClassroomsByStudentResp.Data[0].StudentsPreview[0].LastName != "Dupont" {
 		t.Fatalf("unexpected student preview names: %+v", listClassroomsByStudentResp.Data[0].StudentsPreview[0])
 	}
-	if listClassroomsByStudentResp.Data[0].TotalBonusPoints != 0 || listClassroomsByStudentResp.Data[0].TotalPenaltyCount != 0 {
-		t.Fatalf("expected zero classroom aggregates, got %+v", listClassroomsByStudentResp.Data[0])
+
+	now := time.Now().UTC()
+	bonusTypeID := uuid.New()
+	penaltyTypeID := uuid.New()
+	punishmentTypeID := uuid.New()
+
+	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
+	repo.SeedPenaltyType(repository.PenaltyType{ID: penaltyTypeID, UserID: userID, Name: "Bavardage"})
+	repo.SeedPunishmentType(repository.PunishmentType{ID: punishmentTypeID, UserID: userID, Name: "Retenue"})
+
+	usedAt := now.Add(-1 * time.Hour)
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: now.Add(-4 * time.Hour)})
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: now.Add(-3 * time.Hour), UsedAt: &usedAt})
+	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: now.Add(-2 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(-2 * time.Hour), DueAt: now.Add(-24 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(-1 * time.Hour), DueAt: now.Add(24 * time.Hour), ResolvedAt: &usedAt})
+
+	// Seed data for another student outside classroom to ensure classroom KPI filtering works.
+	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: outsideStudentID, BonusTypeID: bonusTypeID, Points: 50, CreatedAt: now.Add(-3 * time.Hour)})
+	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: outsideStudentID, PenaltyTypeID: penaltyTypeID, CreatedAt: now.Add(-2 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: outsideStudentID, PunishmentTypeID: punishmentTypeID, CreatedAt: now.Add(-2 * time.Hour), DueAt: now.Add(-12 * time.Hour)})
+
+	getKpisReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/"+created.ID.String()+"/kpis", userID, cfg)
+	getKpisRR := httptest.NewRecorder()
+	router.ServeHTTP(getKpisRR, getKpisReq)
+
+	if getKpisRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, getKpisRR.Code)
+	}
+
+	getKpisResp := httpx.DecodeJSONResponse[dto.DashboardKpisDto](t, getKpisRR)
+	if getKpisResp.StudentCount != 1 ||
+		getKpisResp.AvailableBonusPoints != 2 ||
+		getKpisResp.TotalBonusPoints != 3 ||
+		getKpisResp.UnusedBonusCount != 1 ||
+		getKpisResp.PenaltyCount != 1 ||
+		getKpisResp.TotalPunishmentCount != 2 ||
+		getKpisResp.OverduePunishmentCount != 1 ||
+		getKpisResp.PendingPunishmentCount != 1 {
+		t.Fatalf("unexpected classroom kpis payload: %+v", getKpisResp)
 	}
 
 	removeReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/classrooms/"+created.ID.String()+"/students/"+studentID.String(), userID, cfg)
@@ -279,6 +323,19 @@ func TestClassroomHandlerBusinessAndInternalErrors(t *testing.T) {
 	getResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, getRR)
 	if getResp.Error != api.ErrClassroomNotFound.Error() {
 		t.Fatalf("expected error %q, got %q", api.ErrClassroomNotFound.Error(), getResp.Error)
+	}
+
+	getKpisReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/"+missingClassroomID.String()+"/kpis", userID, cfg)
+	getKpisRR := httptest.NewRecorder()
+	router.ServeHTTP(getKpisRR, getKpisReq)
+
+	if getKpisRR.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, getKpisRR.Code)
+	}
+
+	getKpisResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, getKpisRR)
+	if getKpisResp.Error != api.ErrClassroomNotFound.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrClassroomNotFound.Error(), getKpisResp.Error)
 	}
 
 	repo.SeedStudent(repository.Student{
@@ -391,6 +448,27 @@ func TestClassroomHandlerBusinessAndInternalErrors(t *testing.T) {
 	listResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, listRR)
 	if listResp.Error != api.ErrInternalError.Error() {
 		t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), listResp.Error)
+	}
+
+	repo.ClearError(inmemory.OpListClassroomsByUser)
+	repo.SeedClassroom(repository.Classroom{
+		ID:     classroomID,
+		UserID: userID,
+		Name:   "CM1 A",
+	})
+	repo.SetError(inmemory.OpGetDashboardKpis, errors.New("database unavailable"))
+
+	getKpisInternalReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/"+classroomID.String()+"/kpis", userID, cfg)
+	getKpisInternalRR := httptest.NewRecorder()
+	router.ServeHTTP(getKpisInternalRR, getKpisInternalReq)
+
+	if getKpisInternalRR.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, getKpisInternalRR.Code)
+	}
+
+	getKpisInternalResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, getKpisInternalRR)
+	if getKpisInternalResp.Error != api.ErrInternalError.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), getKpisInternalResp.Error)
 	}
 }
 
@@ -609,6 +687,16 @@ func TestClassroomHandlerDecodeAndIDErrors(t *testing.T) {
 		}
 		shared.AssertHasErrorDetail(t, resp.ErrorDetails, "classroom_id", "validation_malformed_parameter:expected_uuid")
 	}
+
+	getBadKpisReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/not-a-uuid/kpis", userID, cfg)
+	getBadKpisRR := httptest.NewRecorder()
+	router.ServeHTTP(getBadKpisRR, getBadKpisReq)
+
+	if getBadKpisRR.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, getBadKpisRR.Code)
+	}
+	getBadKpisResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, getBadKpisRR)
+	shared.AssertHasErrorDetail(t, getBadKpisResp.ErrorDetails, "classroom_id", "validation_malformed_parameter:expected_uuid")
 
 	addBadClassroomReq := handlertest.NewAuthorizedJSONRequest(t, http.MethodPost, "/v1/classrooms/not-a-uuid/students", map[string]any{
 		"student_id": uuid.New().String(),

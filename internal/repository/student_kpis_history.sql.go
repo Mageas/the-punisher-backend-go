@@ -60,6 +60,12 @@ SELECT
           AND b.used_at IS NULL
     ), 0)::double precision AS available_bonus_points,
     COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        WHERE b.student_id = $1
+          AND b.user_id = $2
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
         SELECT COUNT(*)
         FROM bonuses b
         WHERE b.student_id = $1
@@ -71,7 +77,27 @@ SELECT
         FROM penalties p
         WHERE p.student_id = $1
           AND p.user_id = $2
+    ), 0)::bigint AS penalty_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM penalties p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
     ), 0)::bigint AS total_penalty_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
+    ), 0)::bigint AS total_punishment_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        WHERE p.student_id = $1
+          AND p.user_id = $2
+          AND p.resolved_at IS NULL
+          AND p.due_at < NOW()
+    ), 0)::bigint AS overdue_punishment_count,
     COALESCE((
         SELECT COUNT(*)
         FROM punishments p
@@ -88,8 +114,12 @@ type GetStudentKpisParams struct {
 
 type GetStudentKpisRow struct {
 	AvailableBonusPoints   float64 `json:"available_bonus_points"`
+	TotalBonusPoints       float64 `json:"total_bonus_points"`
 	ActiveBonusCount       int64   `json:"active_bonus_count"`
+	PenaltyCount           int64   `json:"penalty_count"`
 	TotalPenaltyCount      int64   `json:"total_penalty_count"`
+	TotalPunishmentCount   int64   `json:"total_punishment_count"`
+	OverduePunishmentCount int64   `json:"overdue_punishment_count"`
 	PendingPunishmentCount int64   `json:"pending_punishment_count"`
 }
 
@@ -99,8 +129,12 @@ func (q *Queries) GetStudentKpis(ctx context.Context, arg GetStudentKpisParams) 
 	var i GetStudentKpisRow
 	err := row.Scan(
 		&i.AvailableBonusPoints,
+		&i.TotalBonusPoints,
 		&i.ActiveBonusCount,
+		&i.PenaltyCount,
 		&i.TotalPenaltyCount,
+		&i.TotalPunishmentCount,
+		&i.OverduePunishmentCount,
 		&i.PendingPunishmentCount,
 	)
 	return i, err

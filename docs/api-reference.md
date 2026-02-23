@@ -73,8 +73,6 @@ Toutes les routes `List*` renvoient :
   "students_preview": [
     { "id": "uuid", "first_name": "Lucas", "last_name": "Dubois" }
   ],
-  "total_bonus_points": 14.5,
-  "total_penalty_count": 23,
   "created_at": "2026-02-18T10:00:00Z",
   "updated_at": "2026-02-18T10:00:00Z"
 }
@@ -160,8 +158,11 @@ Pour une punition manuelle :
   "kpis": {
     "student_count": 34,
     "available_bonus_points": 14.5,
+    "total_bonus_points": 26.5,
     "unused_bonus_count": 12,
     "penalty_count": 47,
+    "total_punishment_count": 9,
+    "overdue_punishment_count": 2,
     "pending_punishment_count": 5
   },
   "recent_penalties": [],
@@ -177,8 +178,12 @@ Chaque liste est limitée à 10 éléments.
 ```json
 {
   "available_bonus_points": 3,
+  "total_bonus_points": 6,
   "active_bonus_count": 2,
+  "penalty_count": 5,
   "total_penalty_count": 5,
+  "total_punishment_count": 3,
+  "overdue_punishment_count": 1,
   "pending_punishment_count": 1
 }
 ```
@@ -444,6 +449,11 @@ Réponse :
 
 Réponse :
 - `200` -> `ReturnClassroomDto`
+
+### GET `/classrooms/{classroom_id}/kpis`
+
+Réponse :
+- `200` -> `DashboardKpisDto`
 
 ### PUT `/classrooms/{classroom_id}`
 
@@ -778,13 +788,31 @@ Conflicts :
   "kpis": {
     "student_count": 34,
     "available_bonus_points": 14.5,
+    "total_bonus_points": 26.5,
     "unused_bonus_count": 12,
     "penalty_count": 47,
+    "total_punishment_count": 9,
+    "overdue_punishment_count": 2,
     "pending_punishment_count": 5
   },
   "recent_penalties": [],
   "recent_bonuses": [],
   "pending_punishments": []
+}
+```
+
+### DashboardKpisDto
+
+```json
+{
+  "student_count": 34,
+  "available_bonus_points": 14.5,
+  "total_bonus_points": 26.5,
+  "unused_bonus_count": 12,
+  "penalty_count": 47,
+  "total_punishment_count": 9,
+  "overdue_punishment_count": 2,
+  "pending_punishment_count": 5
 }
 ```
 
@@ -808,8 +836,12 @@ Conflicts :
 ```json
 {
   "available_bonus_points": 3,
+  "total_bonus_points": 6,
   "active_bonus_count": 2,
+  "penalty_count": 5,
   "total_penalty_count": 5,
+  "total_punishment_count": 3,
+  "overdue_punishment_count": 1,
   "pending_punishment_count": 1
 }
 ```
@@ -848,8 +880,6 @@ Conflicts :
   "students_preview": [
     { "id": "uuid", "first_name": "Lucas", "last_name": "Dubois" }
   ],
-  "total_bonus_points": 14.5,
-  "total_penalty_count": 23,
   "created_at": "2026-02-18T10:00:00Z",
   "updated_at": "2026-02-18T10:00:00Z"
 }

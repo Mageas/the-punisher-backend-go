@@ -17,17 +17,28 @@ func DashboardFromRows(
 		PendingPunishments: dashboardPendingPunishmentsFromRows(punishments),
 	}
 
-	if kpis != nil {
-		response.Kpis = dto.DashboardKpisDto{
-			StudentCount:           kpis.StudentCount,
-			AvailableBonusPoints:   kpis.AvailableBonusPoints,
-			UnusedBonusCount:       kpis.UnusedBonusCount,
-			PenaltyCount:           kpis.PenaltyCount,
-			PendingPunishmentCount: kpis.PendingPunishmentCount,
-		}
+	if mappedKpis := DashboardKpisFromRow(kpis); mappedKpis != nil {
+		response.Kpis = *mappedKpis
 	}
 
 	return response
+}
+
+func DashboardKpisFromRow(kpis *repository.GetDashboardKpisRow) *dto.DashboardKpisDto {
+	if kpis == nil {
+		return nil
+	}
+
+	return &dto.DashboardKpisDto{
+		StudentCount:           kpis.StudentCount,
+		AvailableBonusPoints:   kpis.AvailableBonusPoints,
+		TotalBonusPoints:       kpis.TotalBonusPoints,
+		UnusedBonusCount:       kpis.UnusedBonusCount,
+		PenaltyCount:           kpis.PenaltyCount,
+		TotalPunishmentCount:   kpis.TotalPunishmentCount,
+		OverduePunishmentCount: kpis.OverduePunishmentCount,
+		PendingPunishmentCount: kpis.PendingPunishmentCount,
+	}
 }
 
 func dashboardPenaltiesFromRows(rows []repository.ListDashboardRecentPenaltiesRow) []*dto.ReturnPenaltyDto {

@@ -19,16 +19,14 @@ type UpdateClassroomDto struct {
 }
 
 type ReturnClassroomDto struct {
-	ID                uuid.UUID                    `json:"id"`
-	Name              string                       `json:"name"`
-	Year              *string                      `json:"year"`
-	MainTeacher       *string                      `json:"main_teacher"`
-	StudentCount      int64                        `json:"student_count"`
-	StudentsPreview   []ClassroomStudentPreviewDto `json:"students_preview"`
-	TotalBonusPoints  float64                      `json:"total_bonus_points"`
-	TotalPenaltyCount int64                        `json:"total_penalty_count"`
-	CreatedAt         time.Time                    `json:"created_at"`
-	UpdatedAt         time.Time                    `json:"updated_at"`
+	ID              uuid.UUID                    `json:"id"`
+	Name            string                       `json:"name"`
+	Year            *string                      `json:"year"`
+	MainTeacher     *string                      `json:"main_teacher"`
+	StudentCount    int64                        `json:"student_count"`
+	StudentsPreview []ClassroomStudentPreviewDto `json:"students_preview"`
+	CreatedAt       time.Time                    `json:"created_at"`
+	UpdatedAt       time.Time                    `json:"updated_at"`
 }
 
 type StudentClassroomRequestDto struct {

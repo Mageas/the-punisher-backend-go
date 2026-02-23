@@ -14,20 +14,16 @@ func buildReturnClassroomDto(
 	year *string,
 	mainTeacher *string,
 	studentCount int64,
-	totalBonusPoints float64,
-	totalPenaltyCount int64,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) *dto.ReturnClassroomDto {
 	response := &dto.ReturnClassroomDto{
-		ID:                id,
-		Name:              name,
-		StudentCount:      studentCount,
-		StudentsPreview:   []dto.ClassroomStudentPreviewDto{},
-		TotalBonusPoints:  totalBonusPoints,
-		TotalPenaltyCount: totalPenaltyCount,
-		CreatedAt:         createdAt,
-		UpdatedAt:         updatedAt,
+		ID:              id,
+		Name:            name,
+		StudentCount:    studentCount,
+		StudentsPreview: []dto.ClassroomStudentPreviewDto{},
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
 	}
 
 	if convertedYear := classroomTextPtr(year); convertedYear != nil {
@@ -51,8 +47,6 @@ func ClassroomFromCreateRow(c *repository.CreateClassroomRow) *dto.ReturnClassro
 		c.Year,
 		c.MainTeacher,
 		c.StudentCount,
-		c.TotalBonusPoints,
-		c.TotalPenaltyCount,
 		c.CreatedAt,
 		c.UpdatedAt,
 	)
@@ -69,8 +63,6 @@ func ClassroomFromGetRow(c *repository.GetClassroomByUserRow) *dto.ReturnClassro
 		c.Year,
 		c.MainTeacher,
 		c.StudentCount,
-		c.TotalBonusPoints,
-		c.TotalPenaltyCount,
 		c.CreatedAt,
 		c.UpdatedAt,
 	)
@@ -87,8 +79,6 @@ func ClassroomFromUpdateRow(c *repository.UpdateClassroomByUserRow) *dto.ReturnC
 		c.Year,
 		c.MainTeacher,
 		c.StudentCount,
-		c.TotalBonusPoints,
-		c.TotalPenaltyCount,
 		c.CreatedAt,
 		c.UpdatedAt,
 	)
@@ -104,8 +94,6 @@ func ClassroomListFromListByUserRows(classrooms []repository.ListClassroomsByUse
 			classroom.Year,
 			classroom.MainTeacher,
 			classroom.StudentCount,
-			classroom.TotalBonusPoints,
-			classroom.TotalPenaltyCount,
 			classroom.CreatedAt,
 			classroom.UpdatedAt,
 		)
@@ -127,8 +115,6 @@ func ClassroomListFromListByStudentRows(classrooms []repository.ListClassroomsBy
 			classroom.Year,
 			classroom.MainTeacher,
 			classroom.StudentCount,
-			classroom.TotalBonusPoints,
-			classroom.TotalPenaltyCount,
 			classroom.CreatedAt,
 			classroom.UpdatedAt,
 		)

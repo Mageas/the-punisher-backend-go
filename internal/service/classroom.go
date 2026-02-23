@@ -16,6 +16,7 @@ import (
 type ClassroomService interface {
 	CreateClassroom(ctx context.Context, userID uuid.UUID, req dto.RequestClassroomDto) (*dto.ReturnClassroomDto, error)
 	GetClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) (*dto.ReturnClassroomDto, error)
+	GetClassroomKpis(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) (*dto.DashboardKpisDto, error)
 	ListClassrooms(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error)
 	UpdateClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, req dto.UpdateClassroomDto) (*dto.ReturnClassroomDto, error)
 	DeleteClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) error
@@ -82,6 +83,28 @@ func (s *classroomService) GetClassroom(ctx context.Context, userID uuid.UUID, c
 	}
 
 	return response, nil
+}
+
+func (s *classroomService) GetClassroomKpis(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) (*dto.DashboardKpisDto, error) {
+	if _, err := s.repo.GetClassroomByUser(ctx, repository.GetClassroomByUserParams{
+		ID:     classroomID,
+		UserID: userID,
+	}); err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return nil, api.ErrClassroomNotFound
+		}
+		return nil, fmt.Errorf("failed to get classroom: %w", err)
+	}
+
+	kpis, err := s.repo.GetDashboardKpis(ctx, repository.GetDashboardKpisParams{
+		UserID:      userID,
+		ClassroomID: &classroomID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get classroom kpis: %w", err)
+	}
+
+	return sqlcmapper.DashboardKpisFromRow(&kpis), nil
 }
 
 func (s *classroomService) ListClassrooms(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error) {

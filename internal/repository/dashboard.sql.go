@@ -38,6 +38,12 @@ SELECT
           AND b.used_at IS NULL
     ), 0)::double precision AS available_bonus_points,
     COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        JOIN filtered_students fs ON fs.id = b.student_id
+        WHERE b.user_id = $1
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
         SELECT COUNT(*)
         FROM bonuses b
         JOIN filtered_students fs ON fs.id = b.student_id
@@ -50,6 +56,20 @@ SELECT
         JOIN filtered_students fs ON fs.id = p.student_id
         WHERE p.user_id = $1
     ), 0)::bigint AS penalty_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        JOIN filtered_students fs ON fs.id = p.student_id
+        WHERE p.user_id = $1
+    ), 0)::bigint AS total_punishment_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        JOIN filtered_students fs ON fs.id = p.student_id
+        WHERE p.user_id = $1
+          AND p.resolved_at IS NULL
+          AND p.due_at < NOW()
+    ), 0)::bigint AS overdue_punishment_count,
     COALESCE((
         SELECT COUNT(*)
         FROM punishments p
@@ -68,8 +88,11 @@ type GetDashboardKpisParams struct {
 type GetDashboardKpisRow struct {
 	StudentCount           int64   `json:"student_count"`
 	AvailableBonusPoints   float64 `json:"available_bonus_points"`
+	TotalBonusPoints       float64 `json:"total_bonus_points"`
 	UnusedBonusCount       int64   `json:"unused_bonus_count"`
 	PenaltyCount           int64   `json:"penalty_count"`
+	TotalPunishmentCount   int64   `json:"total_punishment_count"`
+	OverduePunishmentCount int64   `json:"overdue_punishment_count"`
 	PendingPunishmentCount int64   `json:"pending_punishment_count"`
 }
 
@@ -80,8 +103,11 @@ func (q *Queries) GetDashboardKpis(ctx context.Context, arg GetDashboardKpisPara
 	err := row.Scan(
 		&i.StudentCount,
 		&i.AvailableBonusPoints,
+		&i.TotalBonusPoints,
 		&i.UnusedBonusCount,
 		&i.PenaltyCount,
+		&i.TotalPunishmentCount,
+		&i.OverduePunishmentCount,
 		&i.PendingPunishmentCount,
 	)
 	return i, err

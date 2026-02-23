@@ -3,6 +3,7 @@ package inmemory
 import (
 	"context"
 	"sort"
+	"time"
 
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
@@ -24,7 +25,11 @@ func (r *Repository) GetStudentKpis(_ context.Context, arg repository.GetStudent
 	row := repository.GetStudentKpisRow{}
 
 	for _, bonus := range r.bonuses {
-		if bonus.StudentID != arg.StudentID || bonus.UserID != arg.UserID || hasTime(bonus.UsedAt) {
+		if bonus.StudentID != arg.StudentID || bonus.UserID != arg.UserID {
+			continue
+		}
+		row.TotalBonusPoints += bonus.Points
+		if hasTime(bonus.UsedAt) {
 			continue
 		}
 		row.AvailableBonusPoints += bonus.Points
@@ -33,13 +38,21 @@ func (r *Repository) GetStudentKpis(_ context.Context, arg repository.GetStudent
 
 	for _, penalty := range r.penalties {
 		if penalty.StudentID == arg.StudentID && penalty.UserID == arg.UserID {
+			row.PenaltyCount++
 			row.TotalPenaltyCount++
 		}
 	}
 
 	for _, punishment := range r.punishments {
-		if punishment.StudentID != arg.StudentID || punishment.UserID != arg.UserID || hasTime(punishment.ResolvedAt) {
+		if punishment.StudentID != arg.StudentID || punishment.UserID != arg.UserID {
 			continue
+		}
+		row.TotalPunishmentCount++
+		if hasTime(punishment.ResolvedAt) {
+			continue
+		}
+		if punishment.DueAt.Before(time.Now().UTC()) {
+			row.OverduePunishmentCount++
 		}
 		row.PendingPunishmentCount++
 	}

@@ -10,6 +10,7 @@ func (app *application) mountClassroomRoutes(r chi.Router, classroomHandler *han
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
 		r.Get("/{classroom_id}", classroomHandler.GetClassroom)
+		r.Get("/{classroom_id}/kpis", classroomHandler.GetClassroomKpis)
 		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
 		r.Delete("/{classroom_id}", classroomHandler.DeleteClassroom)
 		r.Post("/{classroom_id}/students", classroomHandler.AddStudentToClassroom)
