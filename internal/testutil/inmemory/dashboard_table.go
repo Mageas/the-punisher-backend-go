@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/repository"
@@ -69,6 +70,7 @@ func (r *Repository) GetDashboardKpis(_ context.Context, arg repository.GetDashb
 		if _, ok := studentIDs[bonus.StudentID]; !ok {
 			continue
 		}
+		row.TotalBonusPoints += bonus.Points
 		if !hasTime(bonus.UsedAt) {
 			row.AvailableBonusPoints += bonus.Points
 			row.UnusedBonusCount++
@@ -91,7 +93,11 @@ func (r *Repository) GetDashboardKpis(_ context.Context, arg repository.GetDashb
 		if _, ok := studentIDs[punishment.StudentID]; !ok {
 			continue
 		}
+		row.TotalPunishmentCount++
 		if !hasTime(punishment.ResolvedAt) {
+			if punishment.DueAt.Before(time.Now().UTC()) {
+				row.OverduePunishmentCount++
+			}
 			row.PendingPunishmentCount++
 		}
 	}

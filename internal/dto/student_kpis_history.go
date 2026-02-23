@@ -8,8 +8,12 @@ import (
 
 type StudentKpisDto struct {
 	AvailableBonusPoints   float64 `json:"available_bonus_points"`
+	TotalBonusPoints       float64 `json:"total_bonus_points"`
 	ActiveBonusCount       int64   `json:"active_bonus_count"`
+	PenaltyCount           int64   `json:"penalty_count"`
 	TotalPenaltyCount      int64   `json:"total_penalty_count"`
+	TotalPunishmentCount   int64   `json:"total_punishment_count"`
+	OverduePunishmentCount int64   `json:"overdue_punishment_count"`
 	PendingPunishmentCount int64   `json:"pending_punishment_count"`
 }
 

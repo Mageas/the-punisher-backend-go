@@ -25,6 +25,12 @@ SELECT
           AND b.used_at IS NULL
     ), 0)::double precision AS available_bonus_points,
     COALESCE((
+        SELECT SUM(b.points)
+        FROM bonuses b
+        JOIN filtered_students fs ON fs.id = b.student_id
+        WHERE b.user_id = sqlc.arg(user_id)
+    ), 0)::double precision AS total_bonus_points,
+    COALESCE((
         SELECT COUNT(*)
         FROM bonuses b
         JOIN filtered_students fs ON fs.id = b.student_id
@@ -37,6 +43,20 @@ SELECT
         JOIN filtered_students fs ON fs.id = p.student_id
         WHERE p.user_id = sqlc.arg(user_id)
     ), 0)::bigint AS penalty_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        JOIN filtered_students fs ON fs.id = p.student_id
+        WHERE p.user_id = sqlc.arg(user_id)
+    ), 0)::bigint AS total_punishment_count,
+    COALESCE((
+        SELECT COUNT(*)
+        FROM punishments p
+        JOIN filtered_students fs ON fs.id = p.student_id
+        WHERE p.user_id = sqlc.arg(user_id)
+          AND p.resolved_at IS NULL
+          AND p.due_at < NOW()
+    ), 0)::bigint AS overdue_punishment_count,
     COALESCE((
         SELECT COUNT(*)
         FROM punishments p

@@ -514,6 +514,9 @@ func TestStudentKpisHandlerSuccess(t *testing.T) {
 	penaltyTypeID := uuid.New()
 	punishmentTypeID := uuid.New()
 	base := time.Date(2026, 2, 2, 10, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
+	overdueDueAt := now.Add(-24 * time.Hour)
+	futureDueAt := now.Add(24 * time.Hour)
 
 	repo.SeedStudent(inmemoryStudent(studentID, userID, "Lucas", "Dubois"))
 	repo.SeedBonusType(repository.BonusType{ID: bonusTypeID, UserID: userID, Name: "Participation"})
@@ -524,9 +527,9 @@ func TestStudentKpisHandlerSuccess(t *testing.T) {
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 2, CreatedAt: base.Add(1 * time.Hour)})
 	repo.SeedBonus(repository.Bonus{ID: uuid.New(), UserID: userID, StudentID: studentID, BonusTypeID: bonusTypeID, Points: 1, CreatedAt: base.Add(2 * time.Hour), UsedAt: &usedAt})
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(4 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(5 * time.Hour), DueAt: base.Add(24 * time.Hour)})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(5 * time.Hour), DueAt: overdueDueAt})
 	resolvedAt := base.Add(8 * time.Hour)
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &resolvedAt})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(6 * time.Hour), DueAt: futureDueAt, ResolvedAt: &resolvedAt})
 
 	req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/"+studentID.String()+"/kpis", userID, cfg)
 	rr := httptest.NewRecorder()
@@ -537,7 +540,14 @@ func TestStudentKpisHandlerSuccess(t *testing.T) {
 	}
 
 	resp := httpx.DecodeJSONResponse[dto.StudentKpisDto](t, rr)
-	if resp.AvailableBonusPoints != 2 || resp.ActiveBonusCount != 1 || resp.TotalPenaltyCount != 1 || resp.PendingPunishmentCount != 1 {
+	if resp.AvailableBonusPoints != 2 ||
+		resp.TotalBonusPoints != 3 ||
+		resp.ActiveBonusCount != 1 ||
+		resp.PenaltyCount != 1 ||
+		resp.TotalPenaltyCount != 1 ||
+		resp.TotalPunishmentCount != 2 ||
+		resp.OverduePunishmentCount != 1 ||
+		resp.PendingPunishmentCount != 1 {
 		t.Fatalf("unexpected kpis payload: %+v", resp)
 	}
 }

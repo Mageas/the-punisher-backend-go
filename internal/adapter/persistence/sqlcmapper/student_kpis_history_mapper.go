@@ -12,8 +12,12 @@ func StudentKpisFromRow(kpis *repository.GetStudentKpisRow) *dto.StudentKpisDto 
 
 	return &dto.StudentKpisDto{
 		AvailableBonusPoints:   kpis.AvailableBonusPoints,
+		TotalBonusPoints:       kpis.TotalBonusPoints,
 		ActiveBonusCount:       kpis.ActiveBonusCount,
+		PenaltyCount:           kpis.PenaltyCount,
 		TotalPenaltyCount:      kpis.TotalPenaltyCount,
+		TotalPunishmentCount:   kpis.TotalPunishmentCount,
+		OverduePunishmentCount: kpis.OverduePunishmentCount,
 		PendingPunishmentCount: kpis.PendingPunishmentCount,
 	}
 }

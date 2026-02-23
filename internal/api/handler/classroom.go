@@ -58,6 +58,23 @@ func (h *ClassroomHandler) GetClassroom(w http.ResponseWriter, r *http.Request) 
 	web.WriteJSON(w, http.StatusOK, classroom, nil)
 }
 
+func (h *ClassroomHandler) GetClassroomKpis(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
+	if !ok {
+		return
+	}
+
+	kpis, err := h.service.GetClassroomKpis(r.Context(), userID, classroomID)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, kpis, nil)
+}
+
 func (h *ClassroomHandler) ListClassrooms(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 

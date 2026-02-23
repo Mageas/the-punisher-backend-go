@@ -37,6 +37,9 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 	ruleID := uuid.New()
 
 	base := time.Date(2026, 2, 1, 10, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
+	overdueDueAt := now.Add(-24 * time.Hour)
+	futureDueAt := now.Add(24 * time.Hour)
 
 	repo.SeedStudent(repository.Student{ID: studentInClassroomID, UserID: userID, FirstName: "Jean", LastName: "Dupont", CreatedAt: base.Add(-3 * time.Hour), UpdatedAt: base.Add(-3 * time.Hour)})
 	repo.SeedStudent(repository.Student{ID: studentOutsideClassroomID, UserID: userID, FirstName: "Emma", LastName: "Martin", CreatedAt: base.Add(-2 * time.Hour), UpdatedAt: base.Add(-2 * time.Hour)})
@@ -60,9 +63,9 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 	repo.SeedPenalty(repository.Penalty{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PenaltyTypeID: penaltyTypeID, CreatedAt: base.Add(2 * time.Hour)})
 
 	usedAt = base.Add(5 * time.Hour)
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: &ruleID, Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: base.Add(24 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(2 * time.Hour), DueAt: base.Add(24 * time.Hour)})
-	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: base.Add(24 * time.Hour), ResolvedAt: &usedAt})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, TriggeringRuleID: &ruleID, Automated: true, CreatedAt: base.Add(1 * time.Hour), DueAt: overdueDueAt})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentOutsideClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(2 * time.Hour), DueAt: futureDueAt})
+	repo.SeedPunishment(repository.Punishment{ID: uuid.New(), UserID: userID, StudentID: studentInClassroomID, PunishmentTypeID: punishmentTypeID, CreatedAt: base.Add(3 * time.Hour), DueAt: overdueDueAt, ResolvedAt: &usedAt})
 
 	t.Run("without_classroom_filter", func(t *testing.T) {
 		req := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/dashboard/", userID, cfg)
@@ -80,7 +83,10 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 		if resp.Kpis.AvailableBonusPoints != 5 {
 			t.Fatalf("expected available_bonus_points %.1f, got %.1f", 5.0, resp.Kpis.AvailableBonusPoints)
 		}
-		if resp.Kpis.UnusedBonusCount != 2 || resp.Kpis.PenaltyCount != 2 || resp.Kpis.PendingPunishmentCount != 2 {
+		if resp.Kpis.TotalBonusPoints != 9 {
+			t.Fatalf("expected total_bonus_points %.1f, got %.1f", 9.0, resp.Kpis.TotalBonusPoints)
+		}
+		if resp.Kpis.UnusedBonusCount != 2 || resp.Kpis.PenaltyCount != 2 || resp.Kpis.TotalPunishmentCount != 3 || resp.Kpis.OverduePunishmentCount != 1 || resp.Kpis.PendingPunishmentCount != 2 {
 			t.Fatalf("unexpected kpis: %+v", resp.Kpis)
 		}
 		if len(resp.RecentPenalties) != 2 || len(resp.RecentBonuses) != 3 || len(resp.PendingPunishments) != 2 {
@@ -127,7 +133,10 @@ func TestDashboardHandlerSuccess(t *testing.T) {
 		if resp.Kpis.AvailableBonusPoints != 2 {
 			t.Fatalf("expected available_bonus_points %.1f, got %.1f", 2.0, resp.Kpis.AvailableBonusPoints)
 		}
-		if resp.Kpis.UnusedBonusCount != 1 || resp.Kpis.PenaltyCount != 1 || resp.Kpis.PendingPunishmentCount != 1 {
+		if resp.Kpis.TotalBonusPoints != 6 {
+			t.Fatalf("expected total_bonus_points %.1f, got %.1f", 6.0, resp.Kpis.TotalBonusPoints)
+		}
+		if resp.Kpis.UnusedBonusCount != 1 || resp.Kpis.PenaltyCount != 1 || resp.Kpis.TotalPunishmentCount != 2 || resp.Kpis.OverduePunishmentCount != 1 || resp.Kpis.PendingPunishmentCount != 1 {
 			t.Fatalf("unexpected filtered kpis: %+v", resp.Kpis)
 		}
 		if len(resp.RecentPenalties) != 1 || len(resp.RecentBonuses) != 2 || len(resp.PendingPunishments) != 1 {
