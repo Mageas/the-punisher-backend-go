@@ -6,6 +6,7 @@ Base path: `/v1`
 
 - Auth Bearer requise sur toutes les routes sauf :
   - `GET /health`
+  - `GET /auth/register/status`
   - `POST /auth/register`
   - `POST /auth/login`
   - `POST /auth/refresh`
@@ -247,6 +248,16 @@ Body :
 
 ## 4. Auth
 
+### GET `/auth/register/status`
+
+Réponse `200` :
+
+```json
+{
+  "register_allowed": true
+}
+```
+
 ### POST `/auth/register`
 
 Body :
@@ -262,7 +273,7 @@ Body :
 
 Réponses :
 - `201` -> `ReturnUserDto`
-- `401 register_not_allowed` si `ALLOW_REGISTER=false`
+- `401 register_not_allowed` si `APP_ALLOW_REGISTER=false`
 
 ### POST `/auth/login`
 
