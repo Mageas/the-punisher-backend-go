@@ -7,6 +7,7 @@ import (
 
 func (app *application) mountAuthRoutes(r chi.Router, userHandler *handler.UserHandler, authHandler *handler.AuthHandler) {
 	r.Route("/v1/auth", func(r chi.Router) {
+		r.Get("/register/status", userHandler.GetRegisterStatus)
 		r.Post("/register", userHandler.CreateUser)
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)

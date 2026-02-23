@@ -75,6 +75,42 @@ func TestUserHandlerCreateUserRegisterNotAllowed(t *testing.T) {
 	}
 }
 
+func TestUserHandlerGetRegisterStatus(t *testing.T) {
+	tests := []struct {
+		name          string
+		allowRegister bool
+	}{
+		{
+			name:          "register_allowed",
+			allowRegister: true,
+		},
+		{
+			name:          "register_not_allowed",
+			allowRegister: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := inmemory.NewRepository()
+			router := newUserRouter(repo, shared.TestJWTConfig(), tc.allowRegister)
+
+			req := httptest.NewRequest(http.MethodGet, "/v1/auth/register/status", nil)
+			rr := httptest.NewRecorder()
+			router.ServeHTTP(rr, req)
+
+			if rr.Code != http.StatusOK {
+				t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+			}
+
+			resp := httpx.DecodeJSONResponse[dto.RegisterStatusResponseDto](t, rr)
+			if resp.RegisterAllowed != tc.allowRegister {
+				t.Fatalf("expected register_allowed=%t, got %t", tc.allowRegister, resp.RegisterAllowed)
+			}
+		})
+	}
+}
+
 func TestUserHandlerCreateUserDecodeErrors(t *testing.T) {
 	repo := inmemory.NewRepository()
 	userHandler := newUserHandler(repo, true)
@@ -419,6 +455,7 @@ func newUserRouter(repo *inmemory.Repository, jwtCfg config.JWTConfig, allowRegi
 
 	r := chi.NewRouter()
 	r.Route("/v1/auth", func(r chi.Router) {
+		r.Get("/register/status", userHandler.GetRegisterStatus)
 		r.Post("/register", userHandler.CreateUser)
 	})
 

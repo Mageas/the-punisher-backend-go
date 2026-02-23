@@ -50,6 +50,14 @@ func (h *UserHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusCreated, user, nil)
 }
 
+func (h *UserHandler) GetRegisterStatus(w http.ResponseWriter, r *http.Request) {
+	resp := dto.RegisterStatusResponseDto{
+		RegisterAllowed: h.cfg.AllowRegister,
+	}
+
+	web.WriteJSON(w, http.StatusOK, resp, nil)
+}
+
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 

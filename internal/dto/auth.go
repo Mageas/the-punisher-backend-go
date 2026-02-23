@@ -15,3 +15,7 @@ type RefreshResponseDto struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"-"`
 }
+
+type RegisterStatusResponseDto struct {
+	RegisterAllowed bool `json:"register_allowed"`
+}
