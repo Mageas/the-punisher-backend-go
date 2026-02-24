@@ -50,19 +50,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookieDuration := h.cfg.RefreshExpiration
-	http.SetCookie(w, &http.Cookie{
-		Name:  refreshTokenName,
-		Value: resp.RefreshToken,
-
-		Path:     h.refreshTokenPath,
-		HttpOnly: true,
-		Secure:   h.cfg.RefreshCookieSecure,
-		SameSite: http.SameSiteStrictMode,
-
-		Expires: time.Now().Add(cookieDuration),
-		MaxAge:  int(cookieDuration.Seconds()),
-	})
+	h.setRefreshTokenCookie(w, resp.RefreshToken)
 
 	// TODO: retrieve 'X-Auth-Mode' header, if 'body' is set, return the refresh token in the response
 
@@ -82,10 +70,31 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.setRefreshTokenCookie(w, resp.RefreshToken)
+
+	web.WriteJSON(w, http.StatusOK, resp, nil)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	cookie, err := r.Cookie(refreshTokenName)
+	if err == nil {
+		if err := h.service.Logout(r.Context(), cookie.Value); err != nil {
+			h.clearRefreshTokenCookie(w)
+			web.WriteFromError(w, err)
+			return
+		}
+	}
+
+	h.clearRefreshTokenCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, token string) {
 	cookieDuration := h.cfg.RefreshExpiration
+
 	http.SetCookie(w, &http.Cookie{
 		Name:  refreshTokenName,
-		Value: resp.RefreshToken,
+		Value: token,
 
 		Path:     h.refreshTokenPath,
 		HttpOnly: true,
@@ -95,6 +104,17 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		Expires: time.Now().Add(cookieDuration),
 		MaxAge:  int(cookieDuration.Seconds()),
 	})
+}
 
-	web.WriteJSON(w, http.StatusOK, resp, nil)
+func (h *AuthHandler) clearRefreshTokenCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     refreshTokenName,
+		Value:    "",
+		Path:     h.refreshTokenPath,
+		HttpOnly: true,
+		Secure:   h.cfg.RefreshCookieSecure,
+		SameSite: http.SameSiteStrictMode,
+		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+	})
 }
