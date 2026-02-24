@@ -10,6 +10,7 @@ Base path: `/v1`
   - `POST /auth/register`
   - `POST /auth/login`
   - `POST /auth/refresh`
+  - `POST /auth/logout`
 - JSON strict :
   - champs inconnus rejetés (`400 invalid_request_body`)
   - validation via tags `validate` (`400 validation_failed`)
@@ -296,7 +297,7 @@ Réponse `200` :
 
 Cookie `HttpOnly` posé :
 - nom : `refresh_token`
-- path : `/v1/auth/refresh`
+- path : `/v1/auth`
 
 ### POST `/auth/refresh`
 
@@ -310,6 +311,16 @@ Réponse `200` :
   "access_token": "jwt"
 }
 ```
+
+### POST `/auth/logout`
+
+Nécessite le cookie `refresh_token` (si présent).  
+Comportement :
+- invalide le refresh token courant en base de données (si trouvé et actif)
+- supprime le cookie `refresh_token` côté navigateur
+
+Réponse :
+- `204` (aucun body)
 
 ### GET `/user/me`
 

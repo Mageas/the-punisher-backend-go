@@ -11,5 +11,6 @@ func (app *application) mountAuthRoutes(r chi.Router, userHandler *handler.UserH
 		r.Post("/register", userHandler.CreateUser)
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
+		r.Post("/logout", authHandler.Logout)
 	})
 }

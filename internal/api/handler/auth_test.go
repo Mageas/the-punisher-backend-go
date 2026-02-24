@@ -21,12 +21,15 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 )
 
-const refreshTokenCookieName = "refresh_token"
+const (
+	refreshTokenCookieName = "refresh_token"
+	refreshTokenCookiePath = "/v1/auth"
+)
 
 func TestAuthHandlerLoginSuccess(t *testing.T) {
 	repo := inmemory.NewRepository()
 	cfg := testJWTConfig()
-	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 	userID := uuid.New()
 	password := "password123"
@@ -62,8 +65,8 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	if cookie.Value == "" {
 		t.Fatal("expected refresh token cookie value to be present")
 	}
-	if cookie.Path != "/v1/auth/refresh" {
-		t.Fatalf("expected cookie path /v1/auth/refresh, got %q", cookie.Path)
+	if cookie.Path != refreshTokenCookiePath {
+		t.Fatalf("expected cookie path %q, got %q", refreshTokenCookiePath, cookie.Path)
 	}
 	if !cookie.HttpOnly {
 		t.Fatal("expected cookie to be httpOnly")
@@ -92,7 +95,7 @@ func TestAuthHandlerLoginSecureCookieEnabled(t *testing.T) {
 	repo := inmemory.NewRepository()
 	cfg := testJWTConfig()
 	cfg.RefreshCookieSecure = true
-	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 	userID := uuid.New()
 	password := "password123"
@@ -124,7 +127,7 @@ func TestAuthHandlerLoginSecureCookieEnabled(t *testing.T) {
 func TestAuthHandlerLoginDecodeErrors(t *testing.T) {
 	repo := inmemory.NewRepository()
 	cfg := testJWTConfig()
-	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 	t.Run("unknown_field", func(t *testing.T) {
 		req := httpx.NewJSONRequest(t, http.MethodPost, "/v1/auth/login", map[string]any{
@@ -190,7 +193,7 @@ func TestAuthHandlerLoginDecodeErrors(t *testing.T) {
 func TestAuthHandlerLoginDTOValidations(t *testing.T) {
 	repo := inmemory.NewRepository()
 	cfg := testJWTConfig()
-	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+	authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 	tests := []struct {
 		name          string
@@ -259,7 +262,7 @@ func TestAuthHandlerLoginBusinessAndInternalErrors(t *testing.T) {
 	t.Run("invalid_credentials", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		req := httpx.NewJSONRequest(t, http.MethodPost, "/v1/auth/login", map[string]any{
 			"email":    "missing@example.com",
@@ -282,7 +285,7 @@ func TestAuthHandlerLoginBusinessAndInternalErrors(t *testing.T) {
 	t.Run("repository_read_failure", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 		repo.SetGetUserCredentialsError(errors.New("database unavailable"))
 
 		req := httpx.NewJSONRequest(t, http.MethodPost, "/v1/auth/login", map[string]any{
@@ -306,7 +309,7 @@ func TestAuthHandlerLoginBusinessAndInternalErrors(t *testing.T) {
 	t.Run("repository_write_failure", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		userID := uuid.New()
 		password := "password123"
@@ -341,7 +344,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		userID := uuid.New()
 		refreshToken, err := jwt.Generate(jwt.Config{
@@ -404,7 +407,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 	t.Run("missing_cookie", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		req := httptest.NewRequest(http.MethodPost, "/v1/auth/refresh", nil)
 		rr := httptest.NewRecorder()
@@ -424,7 +427,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 	t.Run("invalid_jwt_refresh_token", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		req := httptest.NewRequest(http.MethodPost, "/v1/auth/refresh", nil)
 		req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "not-a-jwt"})
@@ -445,7 +448,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 	t.Run("refresh_token_not_found", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		userID := uuid.New()
 		refreshToken, err := jwt.Generate(jwt.Config{
@@ -477,7 +480,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 	t.Run("repository_failure", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 		repo.SetGetRefreshTokenError(errors.New("database unavailable"))
 
 		userID := uuid.New()
@@ -510,7 +513,7 @@ func TestAuthHandlerRefresh(t *testing.T) {
 	t.Run("rotation_rollback_when_create_new_refresh_token_fails", func(t *testing.T) {
 		repo := inmemory.NewRepository()
 		cfg := testJWTConfig()
-		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, "/v1/auth/refresh")
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
 
 		userID := uuid.New()
 		refreshToken, err := jwt.Generate(jwt.Config{
@@ -552,6 +555,119 @@ func TestAuthHandlerRefresh(t *testing.T) {
 		}
 		if oldToken.RevokedAt != nil {
 			t.Fatal("expected original refresh token to remain active after rollback")
+		}
+	})
+}
+
+func TestAuthHandlerLogout(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := testJWTConfig()
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
+
+		userID := uuid.New()
+		refreshToken, err := jwt.Generate(jwt.Config{
+			Secret:     cfg.RefreshSecret,
+			Expiration: cfg.RefreshExpiration,
+			Issuer:     cfg.Issuer,
+			Audience:   cfg.Audience,
+		}, userID.String())
+		if err != nil {
+			t.Fatalf("failed to generate refresh token: %v", err)
+		}
+
+		refreshTokenHash := hash.HashToken(refreshToken, cfg.RefreshSecret)
+		repo.SeedRefreshToken(repository.RefreshToken{
+			UserID:    userID,
+			Token:     refreshTokenHash,
+			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
+		req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: refreshToken})
+		rr := httptest.NewRecorder()
+
+		authHandler.Logout(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("expected status %d, got %d", http.StatusNoContent, rr.Code)
+		}
+
+		storedToken, ok := repo.StoredRefreshToken(userID, refreshTokenHash)
+		if !ok {
+			t.Fatal("expected refresh token to still exist in storage as revoked")
+		}
+		if storedToken.RevokedAt == nil {
+			t.Fatal("expected refresh token to be revoked")
+		}
+
+		cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+		if cookie.Path != refreshTokenCookiePath {
+			t.Fatalf("expected cookie path %q, got %q", refreshTokenCookiePath, cookie.Path)
+		}
+		if cookie.MaxAge >= 0 {
+			t.Fatalf("expected negative MaxAge for expired cookie, got %d", cookie.MaxAge)
+		}
+		if cookie.Value != "" {
+			t.Fatal("expected expired cookie value to be empty")
+		}
+	})
+
+	t.Run("missing_cookie", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := testJWTConfig()
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
+		rr := httptest.NewRecorder()
+
+		authHandler.Logout(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("expected status %d, got %d", http.StatusNoContent, rr.Code)
+		}
+
+		cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+		if cookie.Value != "" {
+			t.Fatal("expected expired cookie value to be empty")
+		}
+	})
+
+	t.Run("repository_failure", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := testJWTConfig()
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
+		repo.SetRevokeRefreshTokenError(errors.New("database unavailable"))
+
+		userID := uuid.New()
+		refreshToken, err := jwt.Generate(jwt.Config{
+			Secret:     cfg.RefreshSecret,
+			Expiration: cfg.RefreshExpiration,
+			Issuer:     cfg.Issuer,
+			Audience:   cfg.Audience,
+		}, userID.String())
+		if err != nil {
+			t.Fatalf("failed to generate refresh token: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/auth/logout", nil)
+		req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: refreshToken})
+		rr := httptest.NewRecorder()
+
+		authHandler.Logout(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrInternalError.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
+		}
+
+		cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+		if cookie.Value != "" {
+			t.Fatal("expected expired cookie value to be empty")
 		}
 	})
 }

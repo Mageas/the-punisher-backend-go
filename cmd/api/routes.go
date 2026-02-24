@@ -49,7 +49,7 @@ func (app *application) mount() http.Handler {
 	userHandler := handler.NewUserHandler(userService, app.config)
 
 	authService := service.NewAuthService(repo, app.config.JWT)
-	authHandler := handler.NewAuthHandler(authService, app.config.JWT, "/v1/auth/refresh")
+	authHandler := handler.NewAuthHandler(authService, app.config.JWT, "/v1/auth")
 	authMiddleware := auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience)
 
 	app.mountAuthRoutes(r, userHandler, authHandler)

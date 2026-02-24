@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ import (
 type AuthService interface {
 	Login(ctx context.Context, req dto.LoginRequestDto) (*dto.LoginResponseDto, error)
 	Refresh(ctx context.Context, refreshToken string) (*dto.RefreshResponseDto, error)
+	Logout(ctx context.Context, refreshToken string) error
 }
 
 type authService struct {
@@ -183,4 +185,24 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.Re
 		AccessToken:  accessToken,
 		RefreshToken: rotatedRefreshToken,
 	}, nil
+}
+
+func (s *authService) Logout(ctx context.Context, refreshToken string) error {
+	refreshToken = strings.TrimSpace(refreshToken)
+	if refreshToken == "" {
+		return nil
+	}
+
+	refreshTokenHash := hash.HashToken(refreshToken, s.cfg.RefreshSecret)
+
+	_, err := s.repo.RevokeRefreshToken(ctx, refreshTokenHash)
+	if err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return nil
+		}
+
+		return fmt.Errorf("failed to revoke refresh token: %w", err)
+	}
+
+	return nil
 }
