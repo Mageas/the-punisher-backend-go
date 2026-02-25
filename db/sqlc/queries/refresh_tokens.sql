@@ -23,6 +23,10 @@ RETURNING id, user_id, token, revoked_at, expires_at;
 DELETE FROM refresh_tokens
 WHERE token = sqlc.arg(token);
 
+-- name: DeleteRefreshTokensByUserId :execrows
+DELETE FROM refresh_tokens
+WHERE user_id = sqlc.arg(user_id);
+
 -- name: ListRefreshTokensByUserId :many
 SELECT id, user_id, token, user_agent, client_ip, revoked_at, expires_at, created_at
 FROM refresh_tokens

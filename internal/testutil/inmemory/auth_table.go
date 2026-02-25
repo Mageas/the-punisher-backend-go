@@ -15,6 +15,7 @@ const (
 	OpCreateRefreshToken               = "CreateRefreshToken"
 	OpGetRefreshToken                  = "GetRefreshToken"
 	OpRevokeRefreshToken               = "RevokeRefreshToken"
+	OpDeleteRefreshTokensByUserId      = "DeleteRefreshTokensByUserId"
 )
 
 func (r *Repository) SetGetUserCredentialsError(err error) {
@@ -31,6 +32,10 @@ func (r *Repository) SetGetRefreshTokenError(err error) {
 
 func (r *Repository) SetRevokeRefreshTokenError(err error) {
 	r.SetError(OpRevokeRefreshToken, err)
+}
+
+func (r *Repository) SetDeleteRefreshTokensByUserIdError(err error) {
+	r.SetError(OpDeleteRefreshTokensByUserId, err)
 }
 
 func (r *Repository) SeedAuthUser(id uuid.UUID, email, passwordHash string) {
@@ -142,6 +147,27 @@ func (r *Repository) RevokeRefreshToken(_ context.Context, token string) (reposi
 	}
 
 	return repository.RevokeRefreshTokenRow{}, pgx.ErrNoRows
+}
+
+func (r *Repository) DeleteRefreshTokensByUserId(_ context.Context, userID uuid.UUID) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeleteRefreshTokensByUserId); err != nil {
+		return 0, err
+	}
+
+	var deletedCount int64
+	for key, stored := range r.refreshTokens {
+		if stored.UserID != userID {
+			continue
+		}
+
+		delete(r.refreshTokens, key)
+		deletedCount++
+	}
+
+	return deletedCount, nil
 }
 
 func refreshTokenKey(userID uuid.UUID, token string) string {

@@ -60,6 +60,7 @@ type Querier interface {
 	DeletePunishmentByUser(ctx context.Context, arg DeletePunishmentByUserParams) (int64, error)
 	DeletePunishmentTypeByUser(ctx context.Context, arg DeletePunishmentTypeByUserParams) (int64, error)
 	DeleteRefreshToken(ctx context.Context, token string) error
+	DeleteRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeleteRuleByUser(ctx context.Context, arg DeleteRuleByUserParams) (int64, error)
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
 	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error)
