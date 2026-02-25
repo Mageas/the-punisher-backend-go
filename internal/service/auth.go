@@ -21,6 +21,7 @@ type AuthService interface {
 	Login(ctx context.Context, req dto.LoginRequestDto) (*dto.LoginResponseDto, error)
 	Refresh(ctx context.Context, refreshToken string) (*dto.RefreshResponseDto, error)
 	Logout(ctx context.Context, refreshToken string) error
+	LogoutAll(ctx context.Context, userID uuid.UUID) error
 }
 
 type authService struct {
@@ -204,5 +205,15 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 		return fmt.Errorf("failed to revoke refresh token: %w", err)
 	}
 
+	return nil
+}
+
+func (s *authService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
+	deletedCount, err := s.repo.DeleteRefreshTokensByUserId(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete refresh tokens by user id: %w", err)
+	}
+
+	slog.Info("all user refresh tokens invalidated", "user_id", userID, "deleted_count", deletedCount)
 	return nil
 }

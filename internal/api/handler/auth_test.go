@@ -8,15 +8,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/hash"
 	"github.com/mageas/the-punisher-backend/internal/platform/jwt"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
+	"github.com/mageas/the-punisher-backend/internal/testutil/handlertest"
 	"github.com/mageas/the-punisher-backend/internal/testutil/httpx"
 	"github.com/mageas/the-punisher-backend/internal/testutil/inmemory"
 )
@@ -663,6 +666,108 @@ func TestAuthHandlerLogout(t *testing.T) {
 		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
 		if resp.Error != api.ErrInternalError.Error() {
 			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
+		}
+
+		cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+		if cookie.Value != "" {
+			t.Fatal("expected expired cookie value to be empty")
+		}
+	})
+}
+
+func TestAuthHandlerLogoutAll(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := testJWTConfig()
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
+
+		userID := uuid.New()
+		otherUserID := uuid.New()
+		tokenA := "token-a"
+		tokenB := "token-b"
+		tokenC := "token-c"
+
+		repo.SeedRefreshToken(repository.RefreshToken{
+			UserID:    userID,
+			Token:     tokenA,
+			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
+		})
+		repo.SeedRefreshToken(repository.RefreshToken{
+			UserID:    userID,
+			Token:     tokenB,
+			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
+		})
+		repo.SeedRefreshToken(repository.RefreshToken{
+			UserID:    otherUserID,
+			Token:     tokenC,
+			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
+		})
+
+		router := chi.NewRouter()
+		router.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
+		router.Delete("/v1/auth/refresh-tokens", authHandler.LogoutAll)
+
+		req := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/auth/refresh-tokens", userID, cfg)
+		req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "session-token"})
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("expected status %d, got %d", http.StatusNoContent, rr.Code)
+		}
+
+		if _, ok := repo.StoredRefreshToken(userID, tokenA); ok {
+			t.Fatal("expected first current-user refresh token to be deleted")
+		}
+		if _, ok := repo.StoredRefreshToken(userID, tokenB); ok {
+			t.Fatal("expected second current-user refresh token to be deleted")
+		}
+		if _, ok := repo.StoredRefreshToken(otherUserID, tokenC); !ok {
+			t.Fatal("expected other-user refresh token to remain")
+		}
+
+		cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)
+		if cookie.Value != "" {
+			t.Fatal("expected expired cookie value to be empty")
+		}
+	})
+
+	t.Run("repository_failure", func(t *testing.T) {
+		repo := inmemory.NewRepository()
+		cfg := testJWTConfig()
+		authHandler := handler.NewAuthHandler(service.NewAuthService(repo, cfg), cfg, refreshTokenCookiePath)
+		repo.SetDeleteRefreshTokensByUserIdError(errors.New("database unavailable"))
+
+		userID := uuid.New()
+		tokenA := "token-a"
+		repo.SeedRefreshToken(repository.RefreshToken{
+			UserID:    userID,
+			Token:     tokenA,
+			ExpiresAt: time.Now().Add(cfg.RefreshExpiration),
+		})
+
+		router := chi.NewRouter()
+		router.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
+		router.Delete("/v1/auth/refresh-tokens", authHandler.LogoutAll)
+
+		req := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/auth/refresh-tokens", userID, cfg)
+		req.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "session-token"})
+		rr := httptest.NewRecorder()
+
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrInternalError.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
+		}
+
+		if _, ok := repo.StoredRefreshToken(userID, tokenA); !ok {
+			t.Fatal("expected refresh token to remain when repository delete fails")
 		}
 
 		cookie := httpx.MustCookie(t, rr, refreshTokenCookieName)

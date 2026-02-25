@@ -322,6 +322,18 @@ Comportement :
 Réponse :
 - `204` (aucun body)
 
+### DELETE `/auth/refresh-tokens`
+
+Auth :
+- Bearer token requis
+
+Comportement :
+- supprime tous les refresh tokens de l'utilisateur authentifié courant
+- invalide donc toutes ses sessions basées sur refresh token
+
+Réponse :
+- `204` (aucun body)
+
 ### GET `/user/me`
 
 Auth :

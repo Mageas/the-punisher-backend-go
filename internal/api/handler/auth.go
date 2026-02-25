@@ -6,6 +6,7 @@ import (
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
+	platformauth "github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
@@ -83,6 +84,19 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 			web.WriteFromError(w, err)
 			return
 		}
+	}
+
+	h.clearRefreshTokenCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
+	userID := platformauth.MustUserIDFromContext(r.Context())
+
+	if err := h.service.LogoutAll(r.Context(), userID); err != nil {
+		h.clearRefreshTokenCookie(w)
+		web.WriteFromError(w, err)
+		return
 	}
 
 	h.clearRefreshTokenCookie(w)
