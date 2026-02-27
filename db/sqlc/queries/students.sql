@@ -101,3 +101,7 @@ RETURNING
 -- name: DeleteStudentByUser :execrows
 DELETE FROM students
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- name: DeleteAllStudentsByUser :execrows
+DELETE FROM students
+WHERE user_id = sqlc.arg(user_id);

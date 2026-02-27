@@ -20,6 +20,7 @@ type ClassroomService interface {
 	ListClassrooms(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error)
 	UpdateClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, req dto.UpdateClassroomDto) (*dto.ReturnClassroomDto, error)
 	DeleteClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) error
+	DeleteAllClassrooms(ctx context.Context, userID uuid.UUID) error
 
 	AddStudentToClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, studentID uuid.UUID) error
 	RemoveStudentFromClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, studentID uuid.UUID) error
@@ -176,6 +177,17 @@ func (s *classroomService) DeleteClassroom(ctx context.Context, userID uuid.UUID
 	}
 
 	slog.Info("classroom deleted", "classroom_id", classroomID, "user_id", userID)
+
+	return nil
+}
+
+func (s *classroomService) DeleteAllClassrooms(ctx context.Context, userID uuid.UUID) error {
+	rowsAffected, err := s.repo.DeleteAllClassroomsByUser(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete classrooms in bulk: %w", err)
+	}
+
+	slog.Info("classrooms deleted in bulk", "deleted_count", rowsAffected, "user_id", userID)
 
 	return nil
 }

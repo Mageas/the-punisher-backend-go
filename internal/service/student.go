@@ -21,6 +21,7 @@ type StudentService interface {
 	ListStudents(ctx context.Context, userID uuid.UUID, search *string, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error)
 	UpdateStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, req dto.UpdateStudentDto) (*dto.ReturnStudentDto, error)
 	DeleteStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) error
+	DeleteAllStudents(ctx context.Context, userID uuid.UUID) error
 }
 
 type studentService struct {
@@ -143,6 +144,17 @@ func (s *studentService) DeleteStudent(ctx context.Context, userID uuid.UUID, st
 	}
 
 	slog.Info("student deleted", "student_id", studentID, "user_id", userID)
+
+	return nil
+}
+
+func (s *studentService) DeleteAllStudents(ctx context.Context, userID uuid.UUID) error {
+	rowsAffected, err := s.repo.DeleteAllStudentsByUser(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete students in bulk: %w", err)
+	}
+
+	slog.Info("students deleted in bulk", "deleted_count", rowsAffected, "user_id", userID)
 
 	return nil
 }

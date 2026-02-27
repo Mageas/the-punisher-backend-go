@@ -134,6 +134,17 @@ func (h *ClassroomHandler) DeleteClassroom(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *ClassroomHandler) DeleteAllClassrooms(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	if err := h.service.DeleteAllClassrooms(r.Context(), userID); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *ClassroomHandler) AddStudentToClassroom(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 

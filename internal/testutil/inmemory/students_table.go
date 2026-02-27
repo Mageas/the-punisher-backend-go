@@ -16,6 +16,7 @@ const (
 	OpListStudentsByUser            = "ListStudentsByUser"
 	OpUpdateStudentByUser           = "UpdateStudentByUser"
 	OpDeleteStudentByUser           = "DeleteStudentByUser"
+	OpDeleteAllStudentsByUser       = "DeleteAllStudentsByUser"
 	OpListClassroomRefsByStudentIDs = "ListClassroomRefsByStudentIDs"
 )
 
@@ -260,15 +261,58 @@ func (r *Repository) DeleteStudentByUser(_ context.Context, arg repository.Delet
 	}
 
 	delete(r.students, arg.ID)
+	r.cascadeDeleteStudentDataLocked(arg.ID)
 
-	// Simulate ON DELETE CASCADE for join table.
+	return 1, nil
+}
+
+func (r *Repository) DeleteAllStudentsByUser(_ context.Context, userID uuid.UUID) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeleteAllStudentsByUser); err != nil {
+		return 0, err
+	}
+
+	var rowsAffected int64
+	for studentID, student := range r.students {
+		if student.UserID != userID {
+			continue
+		}
+
+		delete(r.students, studentID)
+		r.cascadeDeleteStudentDataLocked(studentID)
+		rowsAffected++
+	}
+
+	return rowsAffected, nil
+}
+
+func (r *Repository) cascadeDeleteStudentDataLocked(studentID uuid.UUID) {
+	// Simulate ON DELETE CASCADE for join table and student-owned entities.
 	for key, relation := range r.studentClassrooms {
-		if relation.StudentID == arg.ID {
+		if relation.StudentID == studentID {
 			delete(r.studentClassrooms, key)
 		}
 	}
 
-	return 1, nil
+	for bonusID, bonus := range r.bonuses {
+		if bonus.StudentID == studentID {
+			delete(r.bonuses, bonusID)
+		}
+	}
+
+	for penaltyID, penalty := range r.penalties {
+		if penalty.StudentID == studentID {
+			delete(r.penalties, penaltyID)
+		}
+	}
+
+	for punishmentID, punishment := range r.punishments {
+		if punishment.StudentID == studentID {
+			delete(r.punishments, punishmentID)
+		}
+	}
 }
 
 func (r *Repository) ListClassroomRefsByStudentIDs(_ context.Context, arg repository.ListClassroomRefsByStudentIDsParams) ([]repository.ListClassroomRefsByStudentIDsRow, error) {

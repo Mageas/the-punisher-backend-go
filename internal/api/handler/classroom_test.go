@@ -36,6 +36,7 @@ func newClassroomRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Ha
 	r.Route("/v1/classrooms", func(r chi.Router) {
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
+		r.Delete("/", classroomHandler.DeleteAllClassrooms)
 		r.Get("/{classroom_id}", classroomHandler.GetClassroom)
 		r.Get("/{classroom_id}/kpis", classroomHandler.GetClassroomKpis)
 		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
@@ -302,6 +303,57 @@ func TestClassroomHandlerCRUDAndRelationsSuccess(t *testing.T) {
 	}
 }
 
+func TestClassroomHandlerDeleteAllSuccessAndTenantIsolation(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newClassroomRouter(repo, cfg)
+
+	userID := uuid.New()
+	otherUserID := uuid.New()
+	otherClassroomID := uuid.New()
+
+	repo.SeedClassroom(repository.Classroom{ID: uuid.New(), UserID: userID, Name: "CM1 A"})
+	repo.SeedClassroom(repository.Classroom{ID: uuid.New(), UserID: userID, Name: "CM2 B"})
+	repo.SeedClassroom(repository.Classroom{ID: otherClassroomID, UserID: otherUserID, Name: "Outside"})
+
+	deleteAllReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/classrooms/", userID, cfg)
+	deleteAllRR := httptest.NewRecorder()
+	router.ServeHTTP(deleteAllRR, deleteAllReq)
+
+	if deleteAllRR.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, deleteAllRR.Code)
+	}
+
+	userListReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/", userID, cfg)
+	userListRR := httptest.NewRecorder()
+	router.ServeHTTP(userListRR, userListReq)
+
+	if userListRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, userListRR.Code)
+	}
+
+	userListResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnClassroomDto]](t, userListRR)
+	if userListResp.TotalCount != 0 || len(userListResp.Data) != 0 {
+		t.Fatalf("expected empty list after bulk delete, got %+v", userListResp)
+	}
+
+	otherListReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/classrooms/", otherUserID, cfg)
+	otherListRR := httptest.NewRecorder()
+	router.ServeHTTP(otherListRR, otherListReq)
+
+	if otherListRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, otherListRR.Code)
+	}
+
+	otherListResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnClassroomDto]](t, otherListRR)
+	if otherListResp.TotalCount != 1 || len(otherListResp.Data) != 1 {
+		t.Fatalf("expected tenant isolation with one remaining external classroom, got %+v", otherListResp)
+	}
+	if otherListResp.Data[0].ID != otherClassroomID {
+		t.Fatalf("expected external classroom id %s, got %s", otherClassroomID, otherListResp.Data[0].ID)
+	}
+}
+
 // --- Business & Internal Errors Tests ---
 
 func TestClassroomHandlerBusinessAndInternalErrors(t *testing.T) {
@@ -469,6 +521,28 @@ func TestClassroomHandlerBusinessAndInternalErrors(t *testing.T) {
 	getKpisInternalResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, getKpisInternalRR)
 	if getKpisInternalResp.Error != api.ErrInternalError.Error() {
 		t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), getKpisInternalResp.Error)
+	}
+}
+
+func TestClassroomHandlerDeleteAllInternalError(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newClassroomRouter(repo, cfg)
+	userID := uuid.New()
+
+	repo.SetError(inmemory.OpDeleteAllClassroomsByUser, errors.New("database unavailable"))
+
+	req := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/classrooms/", userID, cfg)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+	}
+
+	resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+	if resp.Error != api.ErrInternalError.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
 	}
 }
 
