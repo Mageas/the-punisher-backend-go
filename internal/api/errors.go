@@ -9,8 +9,10 @@ type ErrorResponse struct {
 }
 
 type ErrorDetail struct {
+	Row   *int   `json:"row,omitempty"`
 	Field string `json:"field"`
 	Error string `json:"error"`
+	Value string `json:"value,omitempty"`
 }
 
 type APIError struct {
@@ -61,6 +63,11 @@ var (
 	ErrClassroomNotFound              = NewAPIError(http.StatusNotFound, "classroom_not_found")
 	ErrStudentClassroomRelationExists = NewAPIError(http.StatusConflict, "student_classroom_relation_exists")
 	ErrStudentOrClassroomNotFound     = NewAPIError(http.StatusNotFound, "student_or_classroom_not_found")
+
+	ErrImportFileMissing      = NewAPIError(http.StatusBadRequest, "import_file_missing")
+	ErrImportFileInvalid      = NewAPIError(http.StatusBadRequest, "import_file_invalid")
+	ErrImportTemplateInvalid  = NewAPIError(http.StatusBadRequest, "import_template_invalid")
+	ErrImportValidationFailed = NewAPIError(http.StatusBadRequest, "import_validation_failed")
 )
 
 const (

@@ -253,6 +253,40 @@ func (q *Queries) ListStudentsByUser(ctx context.Context, arg ListStudentsByUser
 	return items, nil
 }
 
+const listStudentsByUserForImport = `-- name: ListStudentsByUserForImport :many
+SELECT
+    s.id, s.first_name, s.last_name
+FROM students s
+WHERE s.user_id = $1
+ORDER BY s.created_at ASC, s.id ASC
+`
+
+type ListStudentsByUserForImportRow struct {
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+}
+
+func (q *Queries) ListStudentsByUserForImport(ctx context.Context, userID uuid.UUID) ([]ListStudentsByUserForImportRow, error) {
+	rows, err := q.db.Query(ctx, listStudentsByUserForImport, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStudentsByUserForImportRow
+	for rows.Next() {
+		var i ListStudentsByUserForImportRow
+		if err := rows.Scan(&i.ID, &i.FirstName, &i.LastName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateStudentByUser = `-- name: UpdateStudentByUser :one
 UPDATE students
 SET

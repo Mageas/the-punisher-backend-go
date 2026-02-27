@@ -16,6 +16,7 @@ const (
 	OpGetClassroomByUser                = "GetClassroomByUser"
 	OpCountClassroomsByUser             = "CountClassroomsByUser"
 	OpListClassroomsByUser              = "ListClassroomsByUser"
+	OpListClassroomsByUserForImport     = "ListClassroomsByUserForImport"
 	OpUpdateClassroomByUser             = "UpdateClassroomByUser"
 	OpDeleteClassroomByUser             = "DeleteClassroomByUser"
 	OpDeleteAllClassroomsByUser         = "DeleteAllClassroomsByUser"
@@ -243,6 +244,42 @@ func (r *Repository) ListClassroomsByUser(_ context.Context, arg repository.List
 	rows := make([]repository.ListClassroomsByUserRow, 0, len(paginated))
 	for _, classroom := range paginated {
 		rows = append(rows, r.buildListClassroomByUserRowLocked(classroom))
+	}
+
+	return rows, nil
+}
+
+func (r *Repository) ListClassroomsByUserForImport(_ context.Context, userID uuid.UUID) ([]repository.ListClassroomsByUserForImportRow, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if err := r.errFor(OpListClassroomsByUserForImport); err != nil {
+		return nil, err
+	}
+
+	items := make([]repository.Classroom, 0)
+	for _, classroom := range r.classrooms {
+		if classroom.UserID != userID {
+			continue
+		}
+
+		items = append(items, classroom)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() < items[j].ID.String()
+		}
+
+		return items[i].CreatedAt.Before(items[j].CreatedAt)
+	})
+
+	rows := make([]repository.ListClassroomsByUserForImportRow, 0, len(items))
+	for _, classroom := range items {
+		rows = append(rows, repository.ListClassroomsByUserForImportRow{
+			ID:   classroom.ID,
+			Name: classroom.Name,
+		})
 	}
 
 	return rows, nil

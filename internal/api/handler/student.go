@@ -2,13 +2,17 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
 )
+
+const studentImportMaxUploadSizeBytes int64 = 10 * 1024 * 1024
 
 type StudentHandler struct {
 	service service.StudentService
@@ -39,6 +43,47 @@ func (h *StudentHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	web.WriteJSON(w, http.StatusCreated, student, nil)
+}
+
+func (h *StudentHandler) ImportStudents(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		web.WriteAPIError(w, api.ErrImportFileInvalid, []api.ErrorDetail{{
+			Field: "content_type",
+			Error: "expected_multipart_form_data",
+			Value: contentType,
+		}})
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, studentImportMaxUploadSizeBytes)
+	if err := r.ParseMultipartForm(studentImportMaxUploadSizeBytes); err != nil {
+		web.WriteAPIError(w, api.ErrImportFileInvalid, []api.ErrorDetail{{
+			Field: "file",
+			Error: "failed_to_parse_multipart_form",
+		}})
+		return
+	}
+
+	file, fileHeader, err := r.FormFile("file")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrImportFileMissing, []api.ErrorDetail{{
+			Field: "file",
+			Error: "file_field_is_required",
+		}})
+		return
+	}
+	defer file.Close()
+
+	importResult, err := h.service.ImportStudents(r.Context(), userID, file, fileHeader.Filename)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, importResult, nil)
 }
 
 func (h *StudentHandler) GetStudent(w http.ResponseWriter, r *http.Request) {
