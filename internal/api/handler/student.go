@@ -154,3 +154,14 @@ func (h *StudentHandler) DeleteStudent(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *StudentHandler) DeleteAllStudents(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	if err := h.service.DeleteAllStudents(r.Context(), userID); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -92,6 +92,19 @@ func (q *Queries) CreateStudent(ctx context.Context, arg CreateStudentParams) (C
 	return i, err
 }
 
+const deleteAllStudentsByUser = `-- name: DeleteAllStudentsByUser :execrows
+DELETE FROM students
+WHERE user_id = $1
+`
+
+func (q *Queries) DeleteAllStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteAllStudentsByUser, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteStudentByUser = `-- name: DeleteStudentByUser :execrows
 DELETE FROM students
 WHERE id = $1 AND user_id = $2

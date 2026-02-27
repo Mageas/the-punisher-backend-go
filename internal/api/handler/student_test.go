@@ -34,6 +34,7 @@ func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Post("/", h.CreateStudent)
 		r.Get("/", h.ListStudents)
+		r.Delete("/", h.DeleteAllStudents)
 		r.Get("/{student_id}", h.GetStudent)
 		r.Get("/{student_id}/kpis", h.GetStudentKpis)
 		r.Get("/{student_id}/history", h.GetStudentHistory)
@@ -188,6 +189,57 @@ func TestStudentHandlerCRUDSuccess(t *testing.T) {
 	errResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, getDeletedRR)
 	if errResp.Error != api.ErrStudentNotFound.Error() {
 		t.Fatalf("expected error %q, got %q", api.ErrStudentNotFound.Error(), errResp.Error)
+	}
+}
+
+func TestStudentHandlerDeleteAllSuccessAndTenantIsolation(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+
+	userID := uuid.New()
+	otherUserID := uuid.New()
+	otherStudentID := uuid.New()
+
+	repo.SeedStudent(inmemoryStudent(uuid.New(), userID, "Jean", "Dupont"))
+	repo.SeedStudent(inmemoryStudent(uuid.New(), userID, "Emma", "Martin"))
+	repo.SeedStudent(inmemoryStudent(otherStudentID, otherUserID, "Lucas", "Outside"))
+
+	deleteAllReq := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/students/", userID, cfg)
+	deleteAllRR := httptest.NewRecorder()
+	router.ServeHTTP(deleteAllRR, deleteAllReq)
+
+	if deleteAllRR.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, deleteAllRR.Code)
+	}
+
+	userListReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/", userID, cfg)
+	userListRR := httptest.NewRecorder()
+	router.ServeHTTP(userListRR, userListReq)
+
+	if userListRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, userListRR.Code)
+	}
+
+	userListResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnStudentDto]](t, userListRR)
+	if userListResp.TotalCount != 0 || len(userListResp.Data) != 0 {
+		t.Fatalf("expected empty list after bulk delete, got %+v", userListResp)
+	}
+
+	otherListReq := handlertest.NewAuthorizedRequest(t, http.MethodGet, "/v1/students/", otherUserID, cfg)
+	otherListRR := httptest.NewRecorder()
+	router.ServeHTTP(otherListRR, otherListReq)
+
+	if otherListRR.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, otherListRR.Code)
+	}
+
+	otherListResp := httpx.DecodeJSONResponse[web.PaginatedResponse[*dto.ReturnStudentDto]](t, otherListRR)
+	if otherListResp.TotalCount != 1 || len(otherListResp.Data) != 1 {
+		t.Fatalf("expected tenant isolation with one remaining external student, got %+v", otherListResp)
+	}
+	if otherListResp.Data[0].ID != otherStudentID {
+		t.Fatalf("expected external student id %s, got %s", otherStudentID, otherListResp.Data[0].ID)
 	}
 }
 
@@ -498,6 +550,28 @@ func TestStudentHandlerNotFoundAndInternalErrors(t *testing.T) {
 	listResp := httpx.DecodeJSONResponse[api.ErrorResponse](t, listRR)
 	if listResp.Error != api.ErrInternalError.Error() {
 		t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), listResp.Error)
+	}
+}
+
+func TestStudentHandlerDeleteAllInternalError(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+
+	repo.SetError(inmemory.OpDeleteAllStudentsByUser, errors.New("database unavailable"))
+
+	req := handlertest.NewAuthorizedRequest(t, http.MethodDelete, "/v1/students/", userID, cfg)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, rr.Code)
+	}
+
+	resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+	if resp.Error != api.ErrInternalError.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrInternalError.Error(), resp.Error)
 	}
 }
 

@@ -18,6 +18,7 @@ const (
 	OpListClassroomsByUser              = "ListClassroomsByUser"
 	OpUpdateClassroomByUser             = "UpdateClassroomByUser"
 	OpDeleteClassroomByUser             = "DeleteClassroomByUser"
+	OpDeleteAllClassroomsByUser         = "DeleteAllClassroomsByUser"
 	OpAddStudentToClassroom             = "AddStudentToClassroom"
 	OpRemoveStudentFromClassroom        = "RemoveStudentFromClassroom"
 	OpCountStudentsByClassroom          = "CountStudentsByClassroom"
@@ -299,6 +300,41 @@ func (r *Repository) DeleteClassroomByUser(_ context.Context, arg repository.Del
 	}
 
 	return 1, nil
+}
+
+func (r *Repository) DeleteAllClassroomsByUser(_ context.Context, userID uuid.UUID) (int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if err := r.errFor(OpDeleteAllClassroomsByUser); err != nil {
+		return 0, err
+	}
+
+	deletedClassroomIDs := make(map[uuid.UUID]struct{})
+	var rowsAffected int64
+
+	for classroomID, classroom := range r.classrooms {
+		if classroom.UserID != userID {
+			continue
+		}
+
+		delete(r.classrooms, classroomID)
+		deletedClassroomIDs[classroomID] = struct{}{}
+		rowsAffected++
+	}
+
+	if len(deletedClassroomIDs) == 0 {
+		return 0, nil
+	}
+
+	// Simulate ON DELETE CASCADE for join table.
+	for key, relation := range r.studentClassrooms {
+		if _, ok := deletedClassroomIDs[relation.ClassroomID]; ok {
+			delete(r.studentClassrooms, key)
+		}
+	}
+
+	return rowsAffected, nil
 }
 
 func (r *Repository) AddStudentToClassroom(_ context.Context, arg repository.AddStudentToClassroomParams) (int64, error) {

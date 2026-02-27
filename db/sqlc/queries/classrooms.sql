@@ -128,3 +128,7 @@ RETURNING
 -- name: DeleteClassroomByUser :execrows
 DELETE FROM classrooms
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id);
+
+-- name: DeleteAllClassroomsByUser :execrows
+DELETE FROM classrooms
+WHERE user_id = sqlc.arg(user_id);

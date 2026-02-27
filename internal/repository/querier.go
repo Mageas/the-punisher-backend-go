@@ -52,6 +52,8 @@ type Querier interface {
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (CreateStudentRow, error)
 	// ==================== User ====================
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	DeleteAllClassroomsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	DeleteAllStudentsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeleteBonusByUser(ctx context.Context, arg DeleteBonusByUserParams) (int64, error)
 	DeleteBonusTypeByUser(ctx context.Context, arg DeleteBonusTypeByUserParams) (int64, error)
 	DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error)

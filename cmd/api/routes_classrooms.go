@@ -9,6 +9,7 @@ func (app *application) mountClassroomRoutes(r chi.Router, classroomHandler *han
 	r.Route("/classrooms", func(r chi.Router) {
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
+		r.Delete("/", classroomHandler.DeleteAllClassrooms)
 		r.Get("/{classroom_id}", classroomHandler.GetClassroom)
 		r.Get("/{classroom_id}/kpis", classroomHandler.GetClassroomKpis)
 		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
