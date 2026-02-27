@@ -371,6 +371,47 @@ Body :
 Réponse :
 - `201` -> `ReturnStudentDto`
 
+### POST `/students/import`
+
+Request :
+- `Content-Type: multipart/form-data`
+- champ fichier obligatoire : `file`
+- formats supportés : `.xlsx`, `.csv`
+- en-têtes attendus : `Eleves`, `Classes`
+
+Règles :
+- validation complète avant écriture (aucun import partiel)
+- réutilisation d’un élève existant via `(first_name, last_name)` exact
+- création des classes manquantes (unicité applicative par `name`)
+- séparateurs de classes acceptés : `,` et `;`
+- limite : `1000` lignes de données
+
+Réponse :
+- `200` -> `StudentImportResultDto`
+- `400 import_file_missing`
+- `400 import_file_invalid`
+- `400 import_template_invalid`
+- `400 import_validation_failed` (avec détails `row`, `field`, `value`)
+
+Exemple de succès :
+
+```json
+{
+  "summary": {
+    "rows_total": 3,
+    "rows_processed": 3,
+    "classrooms_created": 2,
+    "classrooms_existing": 1,
+    "students_created": 1,
+    "students_existing": 2,
+    "links_created": 3,
+    "links_existing": 2,
+    "rows_failed": 0
+  },
+  "errors": []
+}
+```
+
 ### GET `/students/`
 
 Query params :

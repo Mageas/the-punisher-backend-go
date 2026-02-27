@@ -2,6 +2,7 @@ package inmemory
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,6 +15,7 @@ const (
 	OpGetStudentByUser              = "GetStudentByUser"
 	OpCountStudentsByUser           = "CountStudentsByUser"
 	OpListStudentsByUser            = "ListStudentsByUser"
+	OpListStudentsByUserForImport   = "ListStudentsByUserForImport"
 	OpUpdateStudentByUser           = "UpdateStudentByUser"
 	OpDeleteStudentByUser           = "DeleteStudentByUser"
 	OpDeleteAllStudentsByUser       = "DeleteAllStudentsByUser"
@@ -216,6 +218,43 @@ func (r *Repository) ListStudentsByUser(_ context.Context, arg repository.ListSt
 	rows := make([]repository.ListStudentsByUserRow, 0, len(paginated))
 	for _, student := range paginated {
 		rows = append(rows, r.buildListStudentByUserRowLocked(student))
+	}
+
+	return rows, nil
+}
+
+func (r *Repository) ListStudentsByUserForImport(_ context.Context, userID uuid.UUID) ([]repository.ListStudentsByUserForImportRow, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if err := r.errFor(OpListStudentsByUserForImport); err != nil {
+		return nil, err
+	}
+
+	items := make([]repository.Student, 0)
+	for _, student := range r.students {
+		if student.UserID != userID {
+			continue
+		}
+
+		items = append(items, student)
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() < items[j].ID.String()
+		}
+
+		return items[i].CreatedAt.Before(items[j].CreatedAt)
+	})
+
+	rows := make([]repository.ListStudentsByUserForImportRow, 0, len(items))
+	for _, student := range items {
+		rows = append(rows, repository.ListStudentsByUserForImportRow{
+			ID:        student.ID,
+			FirstName: student.FirstName,
+			LastName:  student.LastName,
+		})
 	}
 
 	return rows, nil

@@ -15,6 +15,7 @@ func (app *application) mountStudentRoutes(
 ) {
 	r.Route("/students", func(r chi.Router) {
 		r.Post("/", studentHandler.CreateStudent)
+		r.Post("/import", studentHandler.ImportStudents)
 		r.Get("/", studentHandler.ListStudents)
 		r.Delete("/", studentHandler.DeleteAllStudents)
 		r.Get("/{student_id}", studentHandler.GetStudent)

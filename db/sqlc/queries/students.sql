@@ -41,6 +41,13 @@ SELECT
 FROM students s
 WHERE s.id = sqlc.arg(id) AND s.user_id = sqlc.arg(user_id) LIMIT 1;
 
+-- name: ListStudentsByUserForImport :many
+SELECT
+    s.id, s.first_name, s.last_name
+FROM students s
+WHERE s.user_id = sqlc.arg(user_id)
+ORDER BY s.created_at ASC, s.id ASC;
+
 -- name: CountStudentsByUser :one
 SELECT COUNT(*)
 FROM students s

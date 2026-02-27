@@ -1,8 +1,11 @@
 package handler_test
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -33,6 +36,7 @@ func newStudentRouter(repo *inmemory.Repository, cfg config.JWTConfig) http.Hand
 	r.Use(platformauth.AuthMiddleware(cfg.AccessSecret, cfg.Issuer, cfg.Audience))
 	r.Route("/v1/students", func(r chi.Router) {
 		r.Post("/", h.CreateStudent)
+		r.Post("/import", h.ImportStudents)
 		r.Get("/", h.ListStudents)
 		r.Delete("/", h.DeleteAllStudents)
 		r.Get("/{student_id}", h.GetStudent)
@@ -54,6 +58,37 @@ func inmemoryStudent(id, userID uuid.UUID, firstName, lastName string) repositor
 	}
 }
 
+func newAuthorizedMultipartImportRequest(
+	t *testing.T,
+	target string,
+	userID uuid.UUID,
+	cfg config.JWTConfig,
+	filename string,
+	payload []byte,
+) *http.Request {
+	t.Helper()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	fileWriter, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		t.Fatalf("failed to create multipart file part: %v", err)
+	}
+	if _, err := fileWriter.Write(payload); err != nil {
+		t.Fatalf("failed to write multipart payload: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("failed to close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, target, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+handlertest.MustAccessToken(t, userID, cfg))
+
+	return req
+}
+
 // --- CRUD Tests ---
 
 func TestStudentHandlerUnauthorized(t *testing.T) {
@@ -67,6 +102,140 @@ func TestStudentHandlerUnauthorized(t *testing.T) {
 
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, rr.Code)
+	}
+}
+
+func TestStudentHandlerImportStudentsSuccess(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+
+	existingStudentID := uuid.New()
+	existingClassroomID := uuid.New()
+	repo.SeedStudent(inmemoryStudent(existingStudentID, userID, "Anna", "BRUN"))
+	repo.SeedClassroom(repository.Classroom{
+		ID:     existingClassroomID,
+		UserID: userID,
+		Name:   "6eme3",
+	})
+
+	rowsAffected, err := repo.AddStudentToClassroom(context.Background(), repository.AddStudentToClassroomParams{
+		StudentID:   existingStudentID,
+		ClassroomID: existingClassroomID,
+		UserID:      userID,
+	})
+	if err != nil || rowsAffected != 1 {
+		t.Fatalf("failed to seed existing student-classroom relation: rows=%d err=%v", rowsAffected, err)
+	}
+
+	csvPayload := strings.Join([]string{
+		"Eleves,Classes",
+		"\"BRUN Anna\",\"6eme3;6eme3 latin\"",
+		"\"BRUN Anna\",\"6eme3\"",
+		"\"DUPONT Jean\",\"6eme3,5eme1\"",
+	}, "\n")
+
+	req := newAuthorizedMultipartImportRequest(t, "/v1/students/import", userID, cfg, "students.csv", []byte(csvPayload))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, rr.Code)
+	}
+
+	resp := httpx.DecodeJSONResponse[dto.StudentImportResultDto](t, rr)
+	if resp.Summary.RowsTotal != 3 || resp.Summary.RowsProcessed != 3 {
+		t.Fatalf("unexpected rows summary: %+v", resp.Summary)
+	}
+	if resp.Summary.ClassroomsExisting != 1 || resp.Summary.ClassroomsCreated != 2 {
+		t.Fatalf("unexpected classroom summary: %+v", resp.Summary)
+	}
+	if resp.Summary.StudentsExisting != 2 || resp.Summary.StudentsCreated != 1 {
+		t.Fatalf("unexpected student summary: %+v", resp.Summary)
+	}
+	if resp.Summary.LinksCreated != 3 || resp.Summary.LinksExisting != 2 {
+		t.Fatalf("unexpected links summary: %+v", resp.Summary)
+	}
+}
+
+func TestStudentHandlerImportStudentsBadRequests(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+
+	t.Run("invalid_content_type", func(t *testing.T) {
+		req := handlertest.NewAuthorizedRequest(t, http.MethodPost, "/v1/students/import", userID, cfg)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrImportFileInvalid.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrImportFileInvalid.Error(), resp.Error)
+		}
+	})
+
+	t.Run("missing_file", func(t *testing.T) {
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		if err := writer.Close(); err != nil {
+			t.Fatalf("failed to close multipart writer: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/students/import", &body)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req.Header.Set("Authorization", "Bearer "+handlertest.MustAccessToken(t, userID, cfg))
+
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+
+		resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+		if resp.Error != api.ErrImportFileMissing.Error() {
+			t.Fatalf("expected error %q, got %q", api.ErrImportFileMissing.Error(), resp.Error)
+		}
+	})
+}
+
+func TestStudentHandlerImportStudentsValidationDetails(t *testing.T) {
+	repo := inmemory.NewRepository()
+	cfg := shared.TestJWTConfig()
+	router := newStudentRouter(repo, cfg)
+	userID := uuid.New()
+
+	csvPayload := strings.Join([]string{
+		"Eleves,Classes",
+		"\"Anna BRUN\",\"6eme3\"",
+	}, "\n")
+
+	req := newAuthorizedMultipartImportRequest(t, "/v1/students/import", userID, cfg, "students.csv", []byte(csvPayload))
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rr.Code)
+	}
+
+	resp := httpx.DecodeJSONResponse[api.ErrorResponse](t, rr)
+	if resp.Error != api.ErrImportValidationFailed.Error() {
+		t.Fatalf("expected error %q, got %q", api.ErrImportValidationFailed.Error(), resp.Error)
+	}
+	if len(resp.ErrorDetails) == 0 {
+		t.Fatal("expected error details")
+	}
+	if resp.ErrorDetails[0].Row == nil || *resp.ErrorDetails[0].Row != 2 {
+		t.Fatalf("expected row=2 in first error detail, got %+v", resp.ErrorDetails[0])
+	}
+	if resp.ErrorDetails[0].Value == "" {
+		t.Fatalf("expected non-empty failing value in first error detail, got %+v", resp.ErrorDetails[0])
 	}
 }
 

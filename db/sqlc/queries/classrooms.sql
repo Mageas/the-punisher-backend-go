@@ -59,6 +59,13 @@ SELECT
 FROM classrooms c
 WHERE c.id = sqlc.arg(id) AND c.user_id = sqlc.arg(user_id) LIMIT 1;
 
+-- name: ListClassroomsByUserForImport :many
+SELECT
+    c.id, c.name
+FROM classrooms c
+WHERE c.user_id = sqlc.arg(user_id)
+ORDER BY c.created_at ASC, c.id ASC;
+
 -- name: CountClassroomsByUser :one
 SELECT COUNT(*) FROM classrooms WHERE user_id = sqlc.arg(user_id);
 
