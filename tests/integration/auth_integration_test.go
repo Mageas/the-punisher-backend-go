@@ -1,0 +1,221 @@
+//go:build integration
+
+package integration
+
+import (
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/mageas/the-punisher-backend/internal/api"
+	"github.com/mageas/the-punisher-backend/internal/dto"
+	"github.com/mageas/the-punisher-backend/internal/platform/config"
+	"github.com/mageas/the-punisher-backend/internal/platform/hash"
+	platformjwt "github.com/mageas/the-punisher-backend/internal/platform/jwt"
+	. "github.com/mageas/the-punisher-backend/internal/service"
+)
+
+func integrationJWTConfig() config.JWTConfig {
+	return config.JWTConfig{
+		AccessSecret:      "access-secret",
+		AccessExpiration:  15 * time.Minute,
+		RefreshSecret:     "refresh-secret",
+		RefreshExpiration: 7 * 24 * time.Hour,
+		Issuer:            "test-issuer",
+		Audience:          "test-audience",
+	}
+}
+
+func TestAuthService_LoginRefreshLogoutFlow_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	userSvc := NewUserService(repo)
+	user, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123",
+	})
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	cfg := integrationJWTConfig()
+	authSvc := NewAuthService(repo, cfg)
+
+	loginResp, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      "john@example.com",
+		Password:   "VeryStrongPassword123",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("Login returned error: %v", err)
+	}
+	if loginResp.AccessToken == "" || loginResp.RefreshToken == "" {
+		t.Fatalf("expected non-empty tokens")
+	}
+
+	if _, err := platformjwt.Verify(loginResp.AccessToken, platformjwt.VerifyConfig{
+		Secret:   cfg.AccessSecret,
+		Issuer:   cfg.Issuer,
+		Audience: cfg.Audience,
+	}); err != nil {
+		t.Fatalf("access token verification failed: %v", err)
+	}
+
+	tokens, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("expected 1 refresh token row, got %d", len(tokens))
+	}
+	if tokens[0].Token != hash.HashToken(loginResp.RefreshToken, cfg.RefreshSecret) {
+		t.Fatalf("expected stored hashed refresh token")
+	}
+
+	refreshResp, err := authSvc.Refresh(ctx, loginResp.RefreshToken)
+	if err != nil {
+		t.Fatalf("Refresh returned error: %v", err)
+	}
+	if refreshResp.RefreshToken == "" || refreshResp.AccessToken == "" {
+		t.Fatalf("expected non-empty rotated tokens")
+	}
+	if refreshResp.RefreshToken == loginResp.RefreshToken {
+		t.Fatalf("expected rotated refresh token to differ")
+	}
+
+	tokensAfterRefresh, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens after refresh: %v", err)
+	}
+	if len(tokensAfterRefresh) != 2 {
+		t.Fatalf("expected 2 refresh token rows after rotation, got %d", len(tokensAfterRefresh))
+	}
+
+	activeCount := 0
+	for _, tk := range tokensAfterRefresh {
+		if tk.RevokedAt == nil {
+			activeCount++
+		}
+	}
+	if activeCount != 1 {
+		t.Fatalf("expected exactly one active refresh token, got %d", activeCount)
+	}
+
+	if err := authSvc.Logout(ctx, refreshResp.RefreshToken); err != nil {
+		t.Fatalf("Logout returned error: %v", err)
+	}
+
+	tokensAfterLogout, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens after logout: %v", err)
+	}
+	for _, tk := range tokensAfterLogout {
+		if tk.RevokedAt == nil {
+			t.Fatalf("expected all refresh tokens to be revoked")
+		}
+	}
+}
+
+func TestAuthService_LoginInvalidCredentials_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	userSvc := NewUserService(repo)
+	_, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123",
+	})
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      "john@example.com",
+		Password:   "WrongPassword123",
+		RemoteAddr: "127.0.0.1",
+	})
+	if !errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
+		t.Fatalf("expected ErrInvalidCredentialsOrUserDoesntExist, got %v", err)
+	}
+}
+
+func TestAuthService_RefreshWithRevokedTokenReturnsUnauthorized_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	userSvc := NewUserService(repo)
+	_, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123",
+	})
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+	loginResp, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      "john@example.com",
+		Password:   "VeryStrongPassword123",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("Login returned error: %v", err)
+	}
+
+	if err := authSvc.Logout(ctx, loginResp.RefreshToken); err != nil {
+		t.Fatalf("Logout returned error: %v", err)
+	}
+
+	_, err = authSvc.Refresh(ctx, loginResp.RefreshToken)
+	if !errors.Is(err, api.ErrUnauthorized) {
+		t.Fatalf("expected ErrUnauthorized, got %v", err)
+	}
+}
+
+func TestAuthService_LogoutAll_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	userSvc := NewUserService(repo)
+	user, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123",
+	})
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123", RemoteAddr: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("first login failed: %v", err)
+	}
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123", RemoteAddr: "127.0.0.1"})
+	if err != nil {
+		t.Fatalf("second login failed: %v", err)
+	}
+
+	if err := authSvc.LogoutAll(ctx, user.ID); err != nil {
+		t.Fatalf("LogoutAll returned error: %v", err)
+	}
+
+	tokens, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Fatalf("expected no refresh tokens after logout all, got %d", len(tokens))
+	}
+}

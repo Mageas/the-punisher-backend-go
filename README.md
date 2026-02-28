@@ -84,12 +84,21 @@ make build
 
 ## Tests
 
-Tous les tests:
+Tests unitaires (par défaut):
 ```bash
 go test ./...
+# ou
+make test
 ```
 
-Package spécifique:
+Tests d'intégration (Testcontainers + Docker requis):
+```bash
+go test -tags=integration ./tests/integration/...
+# ou
+make test-integration
+```
+
+Package spécifique (unitaires):
 ```bash
 go test ./internal/service
 go test ./internal/api/handler
