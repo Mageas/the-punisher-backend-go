@@ -1,8 +1,16 @@
-include .env
+-include .env
 
 .PHONY: dev
 dev:
 	air
+
+.PHONY: test
+test:
+	go test ./...
+
+.PHONY: test-integration
+test-integration:
+	go test -tags=integration ./tests/integration/...
 
 .PHONY: build
 build:
