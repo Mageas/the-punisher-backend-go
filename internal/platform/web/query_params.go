@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/api"
 )
 
@@ -55,6 +57,80 @@ func ParseEnumQueryParamToBool(r *http.Request, name string, trueValue string, f
 
 	isTrue := strings.EqualFold(value, trueValue)
 	return &isTrue, nil, nil
+}
+
+// ParseOptionalUUIDQueryParam parses an optional UUID query param.
+func ParseOptionalUUIDQueryParam(r *http.Request, name string) (*uuid.UUID, []api.ErrorDetail, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(name))
+	if raw == "" {
+		return nil, nil, nil
+	}
+
+	parsed, err := uuid.Parse(raw)
+	if err != nil {
+		return nil, []api.ErrorDetail{
+			{Field: name, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "uuid")},
+		}, err
+	}
+
+	return &parsed, nil, nil
+}
+
+// ParseOptionalBoolQueryParam parses an optional bool query param with true/false values.
+func ParseOptionalBoolQueryParam(r *http.Request, name string) (*bool, []api.ErrorDetail, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(name))
+	if raw == "" {
+		return nil, nil, nil
+	}
+
+	switch strings.ToLower(raw) {
+	case "true":
+		v := true
+		return &v, nil, nil
+	case "false":
+		v := false
+		return &v, nil, nil
+	default:
+		return nil, []api.ErrorDetail{
+			{Field: name, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "true_or_false")},
+		}, fmt.Errorf("invalid %s", name)
+	}
+}
+
+// ParseOptionalDateQueryParam parses an optional YYYY-MM-DD query param into a UTC date.
+func ParseOptionalDateQueryParam(r *http.Request, name string) (*time.Time, []api.ErrorDetail, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get(name))
+	if raw == "" {
+		return nil, nil, nil
+	}
+
+	parsed, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return nil, []api.ErrorDetail{
+			{Field: name, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "yyyy-mm-dd")},
+		}, err
+	}
+
+	parsed = parsed.UTC()
+	return &parsed, nil, nil
+}
+
+// ValidateDateRange ensures from <= to when both bounds are provided.
+func ValidateDateRange(from, to *time.Time, fromField, toField string) ([]api.ErrorDetail, error) {
+	if from == nil || to == nil {
+		return nil, nil
+	}
+
+	if from.After(*to) {
+		return []api.ErrorDetail{
+			{
+				Field: fromField,
+				Error: fmt.Sprintf(api.KeyValidationMalformedParameter, fmt.Sprintf("%s_lte_%s", fromField, toField)),
+			},
+		}, fmt.Errorf("invalid range %s > %s", fromField, toField)
+	}
+
+	return nil, nil
 }
 
 // ParseSearchQueryParam returns a normalized search value (single-spaced, trimmed) or nil if empty.

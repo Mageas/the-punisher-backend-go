@@ -52,11 +52,44 @@ func (q *Queries) CountPenaltiesByStudentAndType(ctx context.Context, arg CountP
 }
 
 const countPenaltiesByUser = `-- name: CountPenaltiesByUser :one
-SELECT COUNT(*) FROM penalties WHERE user_id = $1
+SELECT COUNT(*)
+FROM penalties p
+WHERE p.user_id = $1
+  AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
+  AND ($4::date IS NULL OR p.created_at >= $4::date)
+  AND ($5::date IS NULL OR p.created_at < ($5::date + INTERVAL '1 day'))
+  AND (
+    $6::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = $6::uuid
+        AND c.user_id = p.user_id
+    )
+  )
 `
 
-func (q *Queries) CountPenaltiesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countPenaltiesByUser, userID)
+type CountPenaltiesByUserParams struct {
+	UserID        uuid.UUID  `json:"user_id"`
+	StudentID     *uuid.UUID `json:"student_id"`
+	PenaltyTypeID *uuid.UUID `json:"penalty_type_id"`
+	CreatedFrom   *time.Time `json:"created_from"`
+	CreatedTo     *time.Time `json:"created_to"`
+	ClassroomID   *uuid.UUID `json:"classroom_id"`
+}
+
+func (q *Queries) CountPenaltiesByUser(ctx context.Context, arg CountPenaltiesByUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPenaltiesByUser,
+		arg.UserID,
+		arg.StudentID,
+		arg.PenaltyTypeID,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.ClassroomID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -248,14 +281,34 @@ FROM penalties p
 JOIN students s ON s.id = p.student_id
 JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.user_id = $1
+  AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
+  AND ($4::date IS NULL OR p.created_at >= $4::date)
+  AND ($5::date IS NULL OR p.created_at < ($5::date + INTERVAL '1 day'))
+  AND (
+    $6::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = $6::uuid
+        AND c.user_id = p.user_id
+    )
+  )
 ORDER BY p.created_at DESC
-LIMIT $3 OFFSET $2
+LIMIT $8 OFFSET $7
 `
 
 type ListPenaltiesByUserParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	QueryOffset int32     `json:"query_offset"`
-	QueryLimit  int32     `json:"query_limit"`
+	UserID        uuid.UUID  `json:"user_id"`
+	StudentID     *uuid.UUID `json:"student_id"`
+	PenaltyTypeID *uuid.UUID `json:"penalty_type_id"`
+	CreatedFrom   *time.Time `json:"created_from"`
+	CreatedTo     *time.Time `json:"created_to"`
+	ClassroomID   *uuid.UUID `json:"classroom_id"`
+	QueryOffset   int32      `json:"query_offset"`
+	QueryLimit    int32      `json:"query_limit"`
 }
 
 type ListPenaltiesByUserRow struct {
@@ -270,7 +323,16 @@ type ListPenaltiesByUserRow struct {
 }
 
 func (q *Queries) ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUserParams) ([]ListPenaltiesByUserRow, error) {
-	rows, err := q.db.Query(ctx, listPenaltiesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	rows, err := q.db.Query(ctx, listPenaltiesByUser,
+		arg.UserID,
+		arg.StudentID,
+		arg.PenaltyTypeID,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.ClassroomID,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
@@ -56,15 +57,76 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
-	search := web.ParseSearchQueryParam(r, "search")
+	stateValue, hasState, err := web.ParseEnumQueryParam(r, "state", []string{
+		string(service.BonusStateUsed),
+		string(service.BonusStateUnused),
+	})
+	if err != nil {
+		expected := web.EnumExpected([]string{string(service.BonusStateUsed), string(service.BonusStateUnused)})
+		details := []api.ErrorDetail{
+			{
+				Field: "state",
+				Error: fmt.Sprintf(api.KeyValidationMalformedParameter, expected),
+			},
+		}
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
 
-	used, details, err := web.ParseEnumQueryParamToBool(r, "state", "used", "unused")
+	var state *service.BonusState
+	if hasState {
+		parsedState := service.BonusState(stateValue)
+		state = &parsedState
+	}
+
+	studentID, details, err := web.ParseOptionalUUIDQueryParam(r, "student_id")
 	if err != nil {
 		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 
-	bonuses, totalCount, err := h.service.ListBonuses(r.Context(), userID, used, search, limit, offset)
+	classroomID, details, err := web.ParseOptionalUUIDQueryParam(r, "classroom_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	bonusTypeID, details, err := web.ParseOptionalUUIDQueryParam(r, "bonus_type_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	createdFrom, details, err := web.ParseOptionalDateQueryParam(r, "created_from")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	createdTo, details, err := web.ParseOptionalDateQueryParam(r, "created_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	details, err = web.ValidateDateRange(createdFrom, createdTo, "created_from", "created_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	filters := service.ListBonusesFilters{
+		StudentID:   studentID,
+		ClassroomID: classroomID,
+		BonusTypeID: bonusTypeID,
+		State:       state,
+		CreatedFrom: createdFrom,
+		CreatedTo:   createdTo,
+		Limit:       limit,
+		Offset:      offset,
+	}
+
+	bonuses, totalCount, err := h.service.ListBonuses(r.Context(), userID, filters)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
@@ -61,15 +62,110 @@ func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Reque
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
-	search := web.ParseSearchQueryParam(r, "search")
+	stateValue, hasState, err := web.ParseEnumQueryParam(r, "state", []string{
+		string(service.PunishmentStatePending),
+		string(service.PunishmentStateResolved),
+	})
+	if err != nil {
+		expected := web.EnumExpected([]string{string(service.PunishmentStatePending), string(service.PunishmentStateResolved)})
+		details := []api.ErrorDetail{
+			{
+				Field: "state",
+				Error: fmt.Sprintf(api.KeyValidationMalformedParameter, expected),
+			},
+		}
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
 
-	resolved, details, err := web.ParseEnumQueryParamToBool(r, "state", "resolved", "pending")
+	var state *service.PunishmentState
+	if hasState {
+		parsedState := service.PunishmentState(stateValue)
+		state = &parsedState
+	}
+
+	studentID, details, err := web.ParseOptionalUUIDQueryParam(r, "student_id")
 	if err != nil {
 		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 
-	punishments, totalCount, err := h.service.ListPunishments(r.Context(), userID, resolved, search, limit, offset)
+	classroomID, details, err := web.ParseOptionalUUIDQueryParam(r, "classroom_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	punishmentTypeID, details, err := web.ParseOptionalUUIDQueryParam(r, "punishment_type_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	automated, details, err := web.ParseOptionalBoolQueryParam(r, "automated")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	overdue, details, err := web.ParseOptionalBoolQueryParam(r, "overdue")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	createdFrom, details, err := web.ParseOptionalDateQueryParam(r, "created_from")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	createdTo, details, err := web.ParseOptionalDateQueryParam(r, "created_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	details, err = web.ValidateDateRange(createdFrom, createdTo, "created_from", "created_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	dueFrom, details, err := web.ParseOptionalDateQueryParam(r, "due_from")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	dueTo, details, err := web.ParseOptionalDateQueryParam(r, "due_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	details, err = web.ValidateDateRange(dueFrom, dueTo, "due_from", "due_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	filters := service.ListPunishmentsFilters{
+		StudentID:        studentID,
+		ClassroomID:      classroomID,
+		PunishmentTypeID: punishmentTypeID,
+		State:            state,
+		Automated:        automated,
+		Overdue:          overdue,
+		CreatedFrom:      createdFrom,
+		CreatedTo:        createdTo,
+		DueFrom:          dueFrom,
+		DueTo:            dueTo,
+		Limit:            limit,
+		Offset:           offset,
+	}
+
+	punishments, totalCount, err := h.service.ListPunishments(r.Context(), userID, filters)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

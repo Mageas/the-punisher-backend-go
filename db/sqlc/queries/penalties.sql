@@ -24,7 +24,24 @@ JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.id = sqlc.arg(id) AND p.user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountPenaltiesByUser :one
-SELECT COUNT(*) FROM penalties WHERE user_id = sqlc.arg(user_id);
+SELECT COUNT(*)
+FROM penalties p
+WHERE p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
+  AND (sqlc.narg(penalty_type_id)::uuid IS NULL OR p.penalty_type_id = sqlc.narg(penalty_type_id)::uuid)
+  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (
+    sqlc.narg(classroom_id)::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = sqlc.narg(classroom_id)::uuid
+        AND c.user_id = p.user_id
+    )
+  );
 
 -- name: ListPenaltiesByUser :many
 SELECT
@@ -36,6 +53,21 @@ FROM penalties p
 JOIN students s ON s.id = p.student_id
 JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
+  AND (sqlc.narg(penalty_type_id)::uuid IS NULL OR p.penalty_type_id = sqlc.narg(penalty_type_id)::uuid)
+  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (
+    sqlc.narg(classroom_id)::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = sqlc.narg(classroom_id)::uuid
+        AND c.user_id = p.user_id
+    )
+  )
 ORDER BY p.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 

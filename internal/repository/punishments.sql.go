@@ -36,23 +36,63 @@ func (q *Queries) CountPunishmentsByStudent(ctx context.Context, arg CountPunish
 const countPunishmentsByUser = `-- name: CountPunishmentsByUser :one
 SELECT COUNT(*)
 FROM punishments p
-JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
 WHERE p.user_id = $1
-  AND ($2::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $2::boolean)
+  AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR p.punishment_type_id = $3::uuid)
+  AND ($4::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $4::boolean)
+  AND ($5::boolean IS NULL OR p.automated = $5::boolean)
   AND (
-    $3::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+    $6::boolean IS NULL
+    OR (
+      ($6::boolean = TRUE AND p.resolved_at IS NULL AND p.due_at < NOW())
+      OR ($6::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
+    )
+  )
+  AND ($7::date IS NULL OR p.created_at >= $7::date)
+  AND ($8::date IS NULL OR p.created_at < ($8::date + INTERVAL '1 day'))
+  AND ($9::date IS NULL OR p.due_at >= $9::date)
+  AND ($10::date IS NULL OR p.due_at < ($10::date + INTERVAL '1 day'))
+  AND (
+    $11::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = $11::uuid
+        AND c.user_id = p.user_id
+    )
   )
 `
 
 type CountPunishmentsByUserParams struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Resolved *bool     `json:"resolved"`
-	Search   *string   `json:"search"`
+	UserID           uuid.UUID  `json:"user_id"`
+	StudentID        *uuid.UUID `json:"student_id"`
+	PunishmentTypeID *uuid.UUID `json:"punishment_type_id"`
+	Resolved         *bool      `json:"resolved"`
+	Automated        *bool      `json:"automated"`
+	Overdue          *bool      `json:"overdue"`
+	CreatedFrom      *time.Time `json:"created_from"`
+	CreatedTo        *time.Time `json:"created_to"`
+	DueFrom          *time.Time `json:"due_from"`
+	DueTo            *time.Time `json:"due_to"`
+	ClassroomID      *uuid.UUID `json:"classroom_id"`
 }
 
 func (q *Queries) CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countPunishmentsByUser, arg.UserID, arg.Resolved, arg.Search)
+	row := q.db.QueryRow(ctx, countPunishmentsByUser,
+		arg.UserID,
+		arg.StudentID,
+		arg.PunishmentTypeID,
+		arg.Resolved,
+		arg.Automated,
+		arg.Overdue,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.DueFrom,
+		arg.DueTo,
+		arg.ClassroomID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -372,21 +412,50 @@ JOIN students s ON s.id = p.student_id
 JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = $1
-  AND ($2::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $2::boolean)
+  AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR p.punishment_type_id = $3::uuid)
+  AND ($4::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $4::boolean)
+  AND ($5::boolean IS NULL OR p.automated = $5::boolean)
   AND (
-    $3::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+    $6::boolean IS NULL
+    OR (
+      ($6::boolean = TRUE AND p.resolved_at IS NULL AND p.due_at < NOW())
+      OR ($6::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
+    )
+  )
+  AND ($7::date IS NULL OR p.created_at >= $7::date)
+  AND ($8::date IS NULL OR p.created_at < ($8::date + INTERVAL '1 day'))
+  AND ($9::date IS NULL OR p.due_at >= $9::date)
+  AND ($10::date IS NULL OR p.due_at < ($10::date + INTERVAL '1 day'))
+  AND (
+    $11::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = $11::uuid
+        AND c.user_id = p.user_id
+    )
   )
 ORDER BY p.created_at DESC
-LIMIT $5 OFFSET $4
+LIMIT $13 OFFSET $12
 `
 
 type ListPunishmentsByUserParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	Resolved    *bool     `json:"resolved"`
-	Search      *string   `json:"search"`
-	QueryOffset int32     `json:"query_offset"`
-	QueryLimit  int32     `json:"query_limit"`
+	UserID           uuid.UUID  `json:"user_id"`
+	StudentID        *uuid.UUID `json:"student_id"`
+	PunishmentTypeID *uuid.UUID `json:"punishment_type_id"`
+	Resolved         *bool      `json:"resolved"`
+	Automated        *bool      `json:"automated"`
+	Overdue          *bool      `json:"overdue"`
+	CreatedFrom      *time.Time `json:"created_from"`
+	CreatedTo        *time.Time `json:"created_to"`
+	DueFrom          *time.Time `json:"due_from"`
+	DueTo            *time.Time `json:"due_to"`
+	ClassroomID      *uuid.UUID `json:"classroom_id"`
+	QueryOffset      int32      `json:"query_offset"`
+	QueryLimit       int32      `json:"query_limit"`
 }
 
 type ListPunishmentsByUserRow struct {
@@ -408,8 +477,16 @@ type ListPunishmentsByUserRow struct {
 func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]ListPunishmentsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listPunishmentsByUser,
 		arg.UserID,
+		arg.StudentID,
+		arg.PunishmentTypeID,
 		arg.Resolved,
-		arg.Search,
+		arg.Automated,
+		arg.Overdue,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.DueFrom,
+		arg.DueTo,
+		arg.ClassroomID,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)
