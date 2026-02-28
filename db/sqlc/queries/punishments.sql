@@ -56,12 +56,32 @@ WHERE p.id = sqlc.arg(id) AND p.user_id = sqlc.arg(user_id) LIMIT 1;
 -- name: CountPunishmentsByUser :one
 SELECT COUNT(*)
 FROM punishments p
-JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
 WHERE p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
+  AND (sqlc.narg(punishment_type_id)::uuid IS NULL OR p.punishment_type_id = sqlc.narg(punishment_type_id)::uuid)
   AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+  AND (sqlc.narg(automated)::boolean IS NULL OR p.automated = sqlc.narg(automated)::boolean)
   AND (
-    sqlc.narg(search)::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+    sqlc.narg(overdue)::boolean IS NULL
+    OR (
+      (sqlc.narg(overdue)::boolean = TRUE AND p.resolved_at IS NULL AND p.due_at < NOW())
+      OR (sqlc.narg(overdue)::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
+    )
+  )
+  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(due_from)::date IS NULL OR p.due_at >= sqlc.narg(due_from)::date)
+  AND (sqlc.narg(due_to)::date IS NULL OR p.due_at < (sqlc.narg(due_to)::date + INTERVAL '1 day'))
+  AND (
+    sqlc.narg(classroom_id)::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = sqlc.narg(classroom_id)::uuid
+        AND c.user_id = p.user_id
+    )
   );
 
 -- name: ListPunishmentsByUser :many
@@ -76,10 +96,31 @@ JOIN students s ON s.id = p.student_id
 JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
+  AND (sqlc.narg(punishment_type_id)::uuid IS NULL OR p.punishment_type_id = sqlc.narg(punishment_type_id)::uuid)
   AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
+  AND (sqlc.narg(automated)::boolean IS NULL OR p.automated = sqlc.narg(automated)::boolean)
   AND (
-    sqlc.narg(search)::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+    sqlc.narg(overdue)::boolean IS NULL
+    OR (
+      (sqlc.narg(overdue)::boolean = TRUE AND p.resolved_at IS NULL AND p.due_at < NOW())
+      OR (sqlc.narg(overdue)::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
+    )
+  )
+  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(due_from)::date IS NULL OR p.due_at >= sqlc.narg(due_from)::date)
+  AND (sqlc.narg(due_to)::date IS NULL OR p.due_at < (sqlc.narg(due_to)::date + INTERVAL '1 day'))
+  AND (
+    sqlc.narg(classroom_id)::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = p.student_id
+        AND sc.classroom_id = sqlc.narg(classroom_id)::uuid
+        AND c.user_id = p.user_id
+    )
   )
 ORDER BY p.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);

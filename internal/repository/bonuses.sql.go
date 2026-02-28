@@ -36,23 +36,45 @@ func (q *Queries) CountBonusesByStudent(ctx context.Context, arg CountBonusesByS
 const countBonusesByUser = `-- name: CountBonusesByUser :one
 SELECT COUNT(*)
 FROM bonuses b
-JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
 WHERE b.user_id = $1
-  AND ($2::boolean IS NULL OR (b.used_at IS NOT NULL) = $2::boolean)
+  AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
+  AND ($4::boolean IS NULL OR (b.used_at IS NOT NULL) = $4::boolean)
+  AND ($5::date IS NULL OR b.created_at >= $5::date)
+  AND ($6::date IS NULL OR b.created_at < ($6::date + INTERVAL '1 day'))
   AND (
-    $3::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+    $7::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = b.student_id
+        AND sc.classroom_id = $7::uuid
+        AND c.user_id = b.user_id
+    )
   )
 `
 
 type CountBonusesByUserParams struct {
-	UserID uuid.UUID `json:"user_id"`
-	Used   *bool     `json:"used"`
-	Search *string   `json:"search"`
+	UserID      uuid.UUID  `json:"user_id"`
+	StudentID   *uuid.UUID `json:"student_id"`
+	BonusTypeID *uuid.UUID `json:"bonus_type_id"`
+	Used        *bool      `json:"used"`
+	CreatedFrom *time.Time `json:"created_from"`
+	CreatedTo   *time.Time `json:"created_to"`
+	ClassroomID *uuid.UUID `json:"classroom_id"`
 }
 
 func (q *Queries) CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countBonusesByUser, arg.UserID, arg.Used, arg.Search)
+	row := q.db.QueryRow(ctx, countBonusesByUser,
+		arg.UserID,
+		arg.StudentID,
+		arg.BonusTypeID,
+		arg.Used,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.ClassroomID,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -266,21 +288,36 @@ FROM bonuses b
 JOIN students s ON s.id = b.student_id
 JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.user_id = $1
-  AND ($2::boolean IS NULL OR (b.used_at IS NOT NULL) = $2::boolean)
+  AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
+  AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
+  AND ($4::boolean IS NULL OR (b.used_at IS NOT NULL) = $4::boolean)
+  AND ($5::date IS NULL OR b.created_at >= $5::date)
+  AND ($6::date IS NULL OR b.created_at < ($6::date + INTERVAL '1 day'))
   AND (
-    $3::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+    $7::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = b.student_id
+        AND sc.classroom_id = $7::uuid
+        AND c.user_id = b.user_id
+    )
   )
 ORDER BY b.created_at DESC
-LIMIT $5 OFFSET $4
+LIMIT $9 OFFSET $8
 `
 
 type ListBonusesByUserParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	Used        *bool     `json:"used"`
-	Search      *string   `json:"search"`
-	QueryOffset int32     `json:"query_offset"`
-	QueryLimit  int32     `json:"query_limit"`
+	UserID      uuid.UUID  `json:"user_id"`
+	StudentID   *uuid.UUID `json:"student_id"`
+	BonusTypeID *uuid.UUID `json:"bonus_type_id"`
+	Used        *bool      `json:"used"`
+	CreatedFrom *time.Time `json:"created_from"`
+	CreatedTo   *time.Time `json:"created_to"`
+	ClassroomID *uuid.UUID `json:"classroom_id"`
+	QueryOffset int32      `json:"query_offset"`
+	QueryLimit  int32      `json:"query_limit"`
 }
 
 type ListBonusesByUserRow struct {
@@ -299,8 +336,12 @@ type ListBonusesByUserRow struct {
 func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserParams) ([]ListBonusesByUserRow, error) {
 	rows, err := q.db.Query(ctx, listBonusesByUser,
 		arg.UserID,
+		arg.StudentID,
+		arg.BonusTypeID,
 		arg.Used,
-		arg.Search,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.ClassroomID,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)

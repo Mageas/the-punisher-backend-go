@@ -39,7 +39,7 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 		t.Fatalf("expected same bonus id")
 	}
 
-	bonuses, total, err := svc.ListBonuses(ctx, user.ID, nil, nil, 20, 0)
+	bonuses, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{Limit: 20, Offset: 0})
 	if err != nil {
 		t.Fatalf("ListBonuses returned error: %v", err)
 	}
@@ -100,6 +100,86 @@ func TestBonusService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	}
 }
 
+func TestBonusService_ListBonusesFilters_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	studentInClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentOutClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   studentInClass.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	bonusTypeA := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	bonusTypeB := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	svc := NewBonusService(repo)
+
+	bonusInClass, err := svc.CreateBonus(ctx, user.ID, studentInClass.ID, bonusTypeA.ID, 2)
+	if err != nil {
+		t.Fatalf("CreateBonus(in class) returned error: %v", err)
+	}
+	bonusOutClass, err := svc.CreateBonus(ctx, user.ID, studentOutClass.ID, bonusTypeB.ID, 3)
+	if err != nil {
+		t.Fatalf("CreateBonus(out class) returned error: %v", err)
+	}
+	if _, err := svc.UseBonus(ctx, user.ID, bonusOutClass.ID); err != nil {
+		t.Fatalf("UseBonus(out class) returned error: %v", err)
+	}
+
+	unused := BonusStateUnused
+	filtered, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		State:  &unused,
+		Limit:  20,
+		Offset: 0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses(state=unused) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != bonusInClass.ID {
+		t.Fatalf("unexpected state=unused result: total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	studentInClassID := studentInClass.ID
+	classroomID := classroom.ID
+	bonusTypeAID := bonusTypeA.ID
+	filtered, total, err = svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		StudentID:   &studentInClassID,
+		ClassroomID: &classroomID,
+		BonusTypeID: &bonusTypeAID,
+		CreatedFrom: &today,
+		CreatedTo:   &today,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses(combined filters) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != bonusInClass.ID {
+		t.Fatalf("unexpected combined filters result: total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+
+	used := BonusStateUsed
+	filtered, total, err = svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		State:       &used,
+		ClassroomID: &classroomID,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses(state=used,classroom) returned error: %v", err)
+	}
+	if total != 0 || len(filtered) != 0 {
+		t.Fatalf("expected no used bonus in classroom, got total=%d len=%d", total, len(filtered))
+	}
+}
+
 func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
@@ -123,7 +203,7 @@ func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 		t.Fatalf("unexpected punishment: %+v", got)
 	}
 
-	all, total, err := svc.ListPunishments(ctx, user.ID, nil, nil, 20, 0)
+	all, total, err := svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{Limit: 20, Offset: 0})
 	if err != nil {
 		t.Fatalf("ListPunishments returned error: %v", err)
 	}
@@ -181,6 +261,118 @@ func TestPunishmentService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	_, err = svc.ResolvePunishment(ctx, user.ID, uuid.New())
 	if !errors.Is(err, api.ErrPunishmentNotFound) {
 		t.Fatalf("expected ErrPunishmentNotFound for missing resolve, got %v", err)
+	}
+}
+
+func TestPunishmentService_ListPunishmentsFilters_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	studentInClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentOutClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   studentInClass.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	punishmentTypeA := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	punishmentTypeB := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPunishmentService(repo)
+
+	duePast := time.Now().UTC().Add(-24 * time.Hour)
+	dueFuture := time.Now().UTC().Add(24 * time.Hour)
+
+	manualOverdue, err := svc.CreatePunishment(ctx, user.ID, studentInClass.ID, punishmentTypeA.ID, duePast)
+	if err != nil {
+		t.Fatalf("CreatePunishment(manual overdue) returned error: %v", err)
+	}
+
+	resolvedPunishment, err := svc.CreatePunishment(ctx, user.ID, studentOutClass.ID, punishmentTypeB.ID, dueFuture)
+	if err != nil {
+		t.Fatalf("CreatePunishment(resolved candidate) returned error: %v", err)
+	}
+	if _, err := svc.ResolvePunishment(ctx, user.ID, resolvedPunishment.ID); err != nil {
+		t.Fatalf("ResolvePunishment returned error: %v", err)
+	}
+
+	automatedOverdue, err := repo.CreatePunishmentFromRule(ctx, repository.CreatePunishmentFromRuleParams{
+		UserID:           user.ID,
+		StudentID:        studentInClass.ID,
+		PunishmentTypeID: punishmentTypeA.ID,
+		TriggeringRuleID: nil,
+		Automated:        true,
+		DueAt:            duePast,
+	})
+	if err != nil {
+		t.Fatalf("CreatePunishmentFromRule returned error: %v", err)
+	}
+
+	overdue := true
+	filtered, total, err := svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		Overdue: &overdue,
+		Limit:   20,
+		Offset:  0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments(overdue=true) returned error: %v", err)
+	}
+	if total != 2 || len(filtered) != 2 {
+		t.Fatalf("expected two overdue punishments, got total=%d len=%d", total, len(filtered))
+	}
+
+	automated := true
+	filtered, total, err = svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		Overdue:   &overdue,
+		Automated: &automated,
+		Limit:     20,
+		Offset:    0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments(overdue=true,automated=true) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != automatedOverdue.ID {
+		t.Fatalf("unexpected overdue+automated result: total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+
+	resolved := PunishmentStateResolved
+	filtered, total, err = svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		State:  &resolved,
+		Limit:  20,
+		Offset: 0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments(state=resolved) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != resolvedPunishment.ID {
+		t.Fatalf("unexpected state=resolved result: total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+
+	pending := PunishmentStatePending
+	studentInClassID := studentInClass.ID
+	classroomID := classroom.ID
+	punishmentTypeAID := punishmentTypeA.ID
+	manual := false
+	dueTo := time.Now().UTC().Truncate(24 * time.Hour)
+	filtered, total, err = svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		State:            &pending,
+		StudentID:        &studentInClassID,
+		ClassroomID:      &classroomID,
+		PunishmentTypeID: &punishmentTypeAID,
+		Automated:        &manual,
+		DueTo:            &dueTo,
+		Limit:            20,
+		Offset:           0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments(combined filters) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != manualOverdue.ID {
+		t.Fatalf("unexpected combined filters result: total=%d len=%d data=%+v", total, len(filtered), filtered)
 	}
 }
 
@@ -303,7 +495,7 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 		t.Fatalf("unexpected penalty id")
 	}
 
-	all, total, err := penaltySvc.ListPenalties(ctx, user.ID, 20, 0)
+	all, total, err := penaltySvc.ListPenalties(ctx, user.ID, ListPenaltiesFilters{Limit: 20, Offset: 0})
 	if err != nil {
 		t.Fatalf("ListPenalties returned error: %v", err)
 	}
@@ -362,6 +554,70 @@ func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	_, _, err = penaltySvc.ListPenaltiesByStudent(ctx, user.ID, uuid.New(), 20, 0)
 	if !errors.Is(err, api.ErrStudentNotFound) {
 		t.Fatalf("expected ErrStudentNotFound on ListPenaltiesByStudent, got %v", err)
+	}
+}
+
+func TestPenaltyService_ListPenaltiesFilters_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	studentInClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentOutClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   studentInClass.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	penaltyTypeA := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	penaltyTypeB := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPenaltyService(repo)
+
+	penaltyInClass, err := svc.CreatePenalty(ctx, user.ID, studentInClass.ID, penaltyTypeA.ID)
+	if err != nil {
+		t.Fatalf("CreatePenalty(in class) returned error: %v", err)
+	}
+	if _, err := svc.CreatePenalty(ctx, user.ID, studentOutClass.ID, penaltyTypeB.ID); err != nil {
+		t.Fatalf("CreatePenalty(out class) returned error: %v", err)
+	}
+
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	studentInClassID := studentInClass.ID
+	classroomID := classroom.ID
+	penaltyTypeAID := penaltyTypeA.ID
+
+	filtered, total, err := svc.ListPenalties(ctx, user.ID, ListPenaltiesFilters{
+		StudentID:     &studentInClassID,
+		ClassroomID:   &classroomID,
+		PenaltyTypeID: &penaltyTypeAID,
+		CreatedFrom:   &today,
+		CreatedTo:     &today,
+		Limit:         20,
+		Offset:        0,
+	})
+	if err != nil {
+		t.Fatalf("ListPenalties(combined filters) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != penaltyInClass.ID {
+		t.Fatalf("unexpected combined filters result: total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+
+	penaltyTypeBID := penaltyTypeB.ID
+	filtered, total, err = svc.ListPenalties(ctx, user.ID, ListPenaltiesFilters{
+		ClassroomID:   &classroomID,
+		PenaltyTypeID: &penaltyTypeBID,
+		Limit:         20,
+		Offset:        0,
+	})
+	if err != nil {
+		t.Fatalf("ListPenalties(classroom+type mismatch) returned error: %v", err)
+	}
+	if total != 0 || len(filtered) != 0 {
+		t.Fatalf("expected no penalties for classroom+type mismatch, got total=%d len=%d", total, len(filtered))
 	}
 }
 

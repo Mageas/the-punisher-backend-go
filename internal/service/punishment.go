@@ -17,7 +17,7 @@ import (
 type PunishmentService interface {
 	CreatePunishment(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, punishmentTypeID uuid.UUID, dueAt time.Time) (*dto.ReturnPunishmentDto, error)
 	GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
-	ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, search *string, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
+	ListPunishments(ctx context.Context, userID uuid.UUID, filters ListPunishmentsFilters) ([]*dto.ReturnPunishmentDto, int64, error)
 	ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
 	ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
 	DeletePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) error
@@ -73,22 +73,44 @@ func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID,
 	return sqlcmapper.PunishmentFromGetRow(&punishment), nil
 }
 
-func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, resolved *bool, search *string, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error) {
+func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUID, filters ListPunishmentsFilters) ([]*dto.ReturnPunishmentDto, int64, error) {
+	var resolved *bool
+	if filters.State != nil {
+		resolvedValue := filters.State.Resolved()
+		resolved = &resolvedValue
+	}
+
 	totalCount, err := s.repo.CountPunishmentsByUser(ctx, repository.CountPunishmentsByUserParams{
-		UserID:   userID,
-		Resolved: resolved,
-		Search:   search,
+		UserID:           userID,
+		StudentID:        filters.StudentID,
+		PunishmentTypeID: filters.PunishmentTypeID,
+		Resolved:         resolved,
+		Automated:        filters.Automated,
+		Overdue:          filters.Overdue,
+		CreatedFrom:      filters.CreatedFrom,
+		CreatedTo:        filters.CreatedTo,
+		DueFrom:          filters.DueFrom,
+		DueTo:            filters.DueTo,
+		ClassroomID:      filters.ClassroomID,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count punishments: %w", err)
 	}
 
 	punishments, err := s.repo.ListPunishmentsByUser(ctx, repository.ListPunishmentsByUserParams{
-		UserID:      userID,
-		Resolved:    resolved,
-		Search:      search,
-		QueryLimit:  limit,
-		QueryOffset: offset,
+		UserID:           userID,
+		StudentID:        filters.StudentID,
+		PunishmentTypeID: filters.PunishmentTypeID,
+		Resolved:         resolved,
+		Automated:        filters.Automated,
+		Overdue:          filters.Overdue,
+		CreatedFrom:      filters.CreatedFrom,
+		CreatedTo:        filters.CreatedTo,
+		DueFrom:          filters.DueFrom,
+		DueTo:            filters.DueTo,
+		ClassroomID:      filters.ClassroomID,
+		QueryOffset:      filters.Offset,
+		QueryLimit:       filters.Limit,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list punishments: %w", err)

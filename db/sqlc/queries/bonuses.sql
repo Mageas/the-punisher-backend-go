@@ -26,12 +26,22 @@ WHERE b.id = sqlc.arg(id) AND b.user_id = sqlc.arg(user_id) LIMIT 1;
 -- name: CountBonusesByUser :one
 SELECT COUNT(*)
 FROM bonuses b
-JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
 WHERE b.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(student_id)::uuid IS NULL OR b.student_id = sqlc.narg(student_id)::uuid)
+  AND (sqlc.narg(bonus_type_id)::uuid IS NULL OR b.bonus_type_id = sqlc.narg(bonus_type_id)::uuid)
   AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
+  AND (sqlc.narg(created_from)::date IS NULL OR b.created_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR b.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
   AND (
-    sqlc.narg(search)::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+    sqlc.narg(classroom_id)::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = b.student_id
+        AND sc.classroom_id = sqlc.narg(classroom_id)::uuid
+        AND c.user_id = b.user_id
+    )
   );
 
 -- name: ListBonusesByUser :many
@@ -44,10 +54,21 @@ FROM bonuses b
 JOIN students s ON s.id = b.student_id
 JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(student_id)::uuid IS NULL OR b.student_id = sqlc.narg(student_id)::uuid)
+  AND (sqlc.narg(bonus_type_id)::uuid IS NULL OR b.bonus_type_id = sqlc.narg(bonus_type_id)::uuid)
   AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
+  AND (sqlc.narg(created_from)::date IS NULL OR b.created_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR b.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
   AND (
-    sqlc.narg(search)::text IS NULL
-    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+    sqlc.narg(classroom_id)::uuid IS NULL
+    OR EXISTS (
+      SELECT 1
+      FROM student_classrooms sc
+      JOIN classrooms c ON c.id = sc.classroom_id
+      WHERE sc.student_id = b.student_id
+        AND sc.classroom_id = sqlc.narg(classroom_id)::uuid
+        AND c.user_id = b.user_id
+    )
   )
 ORDER BY b.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);

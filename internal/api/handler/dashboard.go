@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"net/http"
+
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/service"
-	"net/http"
 )
 
 type DashboardHandler struct {
@@ -18,8 +20,9 @@ func NewDashboardHandler(service service.DashboardService) *DashboardHandler {
 func (h *DashboardHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
-	classroomID, ok := parseOptionalQueryUUID(w, r, "classroom_id")
-	if !ok {
+	classroomID, details, err := web.ParseOptionalUUIDQueryParam(r, "classroom_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
 		return
 	}
 

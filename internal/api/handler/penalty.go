@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
 	"github.com/mageas/the-punisher-backend/internal/platform/validator"
@@ -56,7 +57,53 @@ func (h *PenaltyHandler) ListPenalties(w http.ResponseWriter, r *http.Request) {
 
 	limit, offset, page := web.ParsePagination(r)
 
-	penalties, totalCount, err := h.service.ListPenalties(r.Context(), userID, limit, offset)
+	studentID, details, err := web.ParseOptionalUUIDQueryParam(r, "student_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	classroomID, details, err := web.ParseOptionalUUIDQueryParam(r, "classroom_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	penaltyTypeID, details, err := web.ParseOptionalUUIDQueryParam(r, "penalty_type_id")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	createdFrom, details, err := web.ParseOptionalDateQueryParam(r, "created_from")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	createdTo, details, err := web.ParseOptionalDateQueryParam(r, "created_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	details, err = web.ValidateDateRange(createdFrom, createdTo, "created_from", "created_to")
+	if err != nil {
+		web.WriteAPIError(w, api.ErrMalformedParameter, details)
+		return
+	}
+
+	filters := service.ListPenaltiesFilters{
+		StudentID:     studentID,
+		ClassroomID:   classroomID,
+		PenaltyTypeID: penaltyTypeID,
+		CreatedFrom:   createdFrom,
+		CreatedTo:     createdTo,
+		Limit:         limit,
+		Offset:        offset,
+	}
+
+	penalties, totalCount, err := h.service.ListPenalties(r.Context(), userID, filters)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

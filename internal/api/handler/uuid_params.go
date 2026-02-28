@@ -32,21 +32,6 @@ func parseBodyUUID(w http.ResponseWriter, rawValue string, field string) (uuid.U
 	return parsed, true
 }
 
-func parseOptionalQueryUUID(w http.ResponseWriter, r *http.Request, name string) (*uuid.UUID, bool) {
-	rawValue := strings.TrimSpace(r.URL.Query().Get(name))
-	if rawValue == "" {
-		return nil, true
-	}
-
-	parsed, err := uuid.Parse(rawValue)
-	if err != nil {
-		writeUUIDParseError(w, api.ErrNotFound, name)
-		return nil, false
-	}
-
-	return &parsed, true
-}
-
 func writeUUIDParseError(w http.ResponseWriter, apiErr *api.APIError, field string) {
 	web.WriteAPIError(w, apiErr, []api.ErrorDetail{
 		{Field: field, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "uuid")},

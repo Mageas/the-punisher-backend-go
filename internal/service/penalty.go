@@ -17,7 +17,7 @@ import (
 type PenaltyService interface {
 	CreatePenalty(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyDto, error)
 	GetPenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) (*dto.ReturnPenaltyDto, error)
-	ListPenalties(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error)
+	ListPenalties(ctx context.Context, userID uuid.UUID, filters ListPenaltiesFilters) ([]*dto.ReturnPenaltyDto, int64, error)
 	ListPenaltiesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error)
 	DeletePenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) error
 }
@@ -176,16 +176,28 @@ func (s *penaltyService) GetPenalty(ctx context.Context, userID uuid.UUID, penal
 	return sqlcmapper.PenaltyFromGetRow(&penalty), nil
 }
 
-func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error) {
-	totalCount, err := s.repo.CountPenaltiesByUser(ctx, userID)
+func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, filters ListPenaltiesFilters) ([]*dto.ReturnPenaltyDto, int64, error) {
+	totalCount, err := s.repo.CountPenaltiesByUser(ctx, repository.CountPenaltiesByUserParams{
+		UserID:        userID,
+		StudentID:     filters.StudentID,
+		PenaltyTypeID: filters.PenaltyTypeID,
+		CreatedFrom:   filters.CreatedFrom,
+		CreatedTo:     filters.CreatedTo,
+		ClassroomID:   filters.ClassroomID,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count penalties: %w", err)
 	}
 
 	penalties, err := s.repo.ListPenaltiesByUser(ctx, repository.ListPenaltiesByUserParams{
-		UserID:      userID,
-		QueryLimit:  limit,
-		QueryOffset: offset,
+		UserID:        userID,
+		StudentID:     filters.StudentID,
+		PenaltyTypeID: filters.PenaltyTypeID,
+		CreatedFrom:   filters.CreatedFrom,
+		CreatedTo:     filters.CreatedTo,
+		ClassroomID:   filters.ClassroomID,
+		QueryOffset:   filters.Offset,
+		QueryLimit:    filters.Limit,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list penalties: %w", err)
