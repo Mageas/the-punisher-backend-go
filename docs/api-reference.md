@@ -617,7 +617,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/bonus-types/`
 - Auth: oui
-- Query params: `page`
+- Query params:
+  - `page` (optionnel)
+  - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnBonusTypeDto>`
 - Erreurs: `unauthorized`
 
@@ -703,7 +705,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/penalty-types/`
 - Auth: oui
-- Query params: `page`
+- Query params:
+  - `page` (optionnel)
+  - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnPenaltyTypeDto>`
 - Erreurs: `unauthorized`
 
@@ -781,7 +785,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/punishment-types/`
 - Auth: oui
-- Query params: `page`
+- Query params:
+  - `page` (optionnel)
+  - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnPunishmentTypeDto>`
 - Erreurs: `unauthorized`
 
@@ -939,6 +945,7 @@ Exemple 200 (tronque):
 
 - Les listes `bonuses`, `penalties`, `punishments` sont maintenant basees sur filtres metier (pas de `search` texte sur l eleve).
 - La recherche eleve reste sur `GET /v1/students/?search=...`.
+- Les listes `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
 - Pour filtrer des evenements d un eleve: utiliser `student_id`.
 - Les bornes `created_to` / `due_to` sont inclusives sur la journee (backend fait `< date + 1 day`).
 - `overdue=true` sur punishments signifie: `resolved_at IS NULL` ET `due_at < now()`.

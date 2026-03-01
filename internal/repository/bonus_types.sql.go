@@ -12,11 +12,22 @@ import (
 )
 
 const countBonusTypesByUser = `-- name: CountBonusTypesByUser :one
-SELECT COUNT(*) FROM bonus_types WHERE user_id = $1
+SELECT COUNT(*)
+FROM bonus_types
+WHERE user_id = $1
+  AND (
+    $2::text IS NULL
+    OR name ILIKE '%' || $2::text || '%'
+  )
 `
 
-func (q *Queries) CountBonusTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countBonusTypesByUser, userID)
+type CountBonusTypesByUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Search *string   `json:"search"`
+}
+
+func (q *Queries) CountBonusTypesByUser(ctx context.Context, arg CountBonusTypesByUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countBonusTypesByUser, arg.UserID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -97,18 +108,28 @@ const listBonusTypesByUser = `-- name: ListBonusTypesByUser :many
 SELECT id, user_id, name, created_at, updated_at
 FROM bonus_types
 WHERE user_id = $1
+  AND (
+    $2::text IS NULL
+    OR name ILIKE '%' || $2::text || '%'
+  )
 ORDER BY created_at DESC
-LIMIT $3 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListBonusTypesByUserParams struct {
 	UserID      uuid.UUID `json:"user_id"`
+	Search      *string   `json:"search"`
 	QueryOffset int32     `json:"query_offset"`
 	QueryLimit  int32     `json:"query_limit"`
 }
 
 func (q *Queries) ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error) {
-	rows, err := q.db.Query(ctx, listBonusTypesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	rows, err := q.db.Query(ctx, listBonusTypesByUser,
+		arg.UserID,
+		arg.Search,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

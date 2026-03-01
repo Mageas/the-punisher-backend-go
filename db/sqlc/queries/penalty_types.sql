@@ -14,12 +14,22 @@ FROM penalty_types
 WHERE id = sqlc.arg(id) AND user_id = sqlc.arg(user_id) LIMIT 1;
 
 -- name: CountPenaltyTypesByUser :one
-SELECT COUNT(*) FROM penalty_types WHERE user_id = sqlc.arg(user_id);
+SELECT COUNT(*)
+FROM penalty_types
+WHERE user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR name ILIKE '%' || sqlc.narg(search)::text || '%'
+  );
 
 -- name: ListPenaltyTypesByUser :many
 SELECT id, user_id, name, created_at, updated_at
 FROM penalty_types
 WHERE user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR name ILIKE '%' || sqlc.narg(search)::text || '%'
+  )
 ORDER BY created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 

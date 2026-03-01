@@ -47,8 +47,9 @@ func (h *PenaltyTypeHandler) ListPenaltyTypes(w http.ResponseWriter, r *http.Req
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
+	search := web.ParseSearchQueryParam(r, "search")
 
-	items, totalCount, err := h.service.ListPenaltyTypes(r.Context(), userID, limit, offset)
+	items, totalCount, err := h.service.ListPenaltyTypes(r.Context(), userID, search, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

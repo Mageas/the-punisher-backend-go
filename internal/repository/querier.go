@@ -13,7 +13,7 @@ import (
 type Querier interface {
 	// ==================== StudentClassroom ====================
 	AddStudentToClassroom(ctx context.Context, arg AddStudentToClassroomParams) (int64, error)
-	CountBonusTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountBonusTypesByUser(ctx context.Context, arg CountBonusTypesByUserParams) (int64, error)
 	CountBonusesByStudent(ctx context.Context, arg CountBonusesByStudentParams) (int64, error)
 	CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error)
 	CountClassroomsByStudent(ctx context.Context, arg CountClassroomsByStudentParams) (int64, error)
@@ -21,8 +21,8 @@ type Querier interface {
 	CountPenaltiesByStudent(ctx context.Context, arg CountPenaltiesByStudentParams) (int64, error)
 	CountPenaltiesByStudentAndType(ctx context.Context, arg CountPenaltiesByStudentAndTypeParams) (int64, error)
 	CountPenaltiesByUser(ctx context.Context, arg CountPenaltiesByUserParams) (int64, error)
-	CountPenaltyTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error)
-	CountPunishmentTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountPenaltyTypesByUser(ctx context.Context, arg CountPenaltyTypesByUserParams) (int64, error)
+	CountPunishmentTypesByUser(ctx context.Context, arg CountPunishmentTypesByUserParams) (int64, error)
 	CountPunishmentsByStudent(ctx context.Context, arg CountPunishmentsByStudentParams) (int64, error)
 	CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error)
 	CountRulesByUser(ctx context.Context, userID uuid.UUID) (int64, error)

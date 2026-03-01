@@ -12,11 +12,22 @@ import (
 )
 
 const countPunishmentTypesByUser = `-- name: CountPunishmentTypesByUser :one
-SELECT COUNT(*) FROM punishment_types WHERE user_id = $1
+SELECT COUNT(*)
+FROM punishment_types
+WHERE user_id = $1
+  AND (
+    $2::text IS NULL
+    OR name ILIKE '%' || $2::text || '%'
+  )
 `
 
-func (q *Queries) CountPunishmentTypesByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countPunishmentTypesByUser, userID)
+type CountPunishmentTypesByUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Search *string   `json:"search"`
+}
+
+func (q *Queries) CountPunishmentTypesByUser(ctx context.Context, arg CountPunishmentTypesByUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPunishmentTypesByUser, arg.UserID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -97,18 +108,28 @@ const listPunishmentTypesByUser = `-- name: ListPunishmentTypesByUser :many
 SELECT id, user_id, name, created_at, updated_at
 FROM punishment_types
 WHERE user_id = $1
+  AND (
+    $2::text IS NULL
+    OR name ILIKE '%' || $2::text || '%'
+  )
 ORDER BY created_at DESC
-LIMIT $3 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListPunishmentTypesByUserParams struct {
 	UserID      uuid.UUID `json:"user_id"`
+	Search      *string   `json:"search"`
 	QueryOffset int32     `json:"query_offset"`
 	QueryLimit  int32     `json:"query_limit"`
 }
 
 func (q *Queries) ListPunishmentTypesByUser(ctx context.Context, arg ListPunishmentTypesByUserParams) ([]PunishmentType, error) {
-	rows, err := q.db.Query(ctx, listPunishmentTypesByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	rows, err := q.db.Query(ctx, listPunishmentTypesByUser,
+		arg.UserID,
+		arg.Search,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

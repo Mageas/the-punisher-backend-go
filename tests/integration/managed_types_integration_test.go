@@ -32,6 +32,9 @@ func TestBonusTypeService_CRUD_WithQuerier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateBonusType returned error: %v", err)
 	}
+	if _, err := svc.CreateBonusType(ctx, user.ID, dto.RequestBonusTypeDto{Name: "Aide"}); err != nil {
+		t.Fatalf("CreateBonusType (extra fixture) returned error: %v", err)
+	}
 
 	got, err := svc.GetBonusType(ctx, user.ID, created.ID)
 	if err != nil {
@@ -41,12 +44,24 @@ func TestBonusTypeService_CRUD_WithQuerier(t *testing.T) {
 		t.Fatalf("unexpected name: %s", got.Name)
 	}
 
-	all, total, err := svc.ListBonusTypes(ctx, user.ID, 20, 0)
+	all, total, err := svc.ListBonusTypes(ctx, user.ID, nil, 20, 0)
 	if err != nil {
 		t.Fatalf("ListBonusTypes returned error: %v", err)
 	}
-	if total != 1 || len(all) != 1 {
-		t.Fatalf("expected one row, got total=%d len=%d", total, len(all))
+	if total != 2 || len(all) != 2 {
+		t.Fatalf("expected two rows, got total=%d len=%d", total, len(all))
+	}
+
+	search := "parti"
+	filtered, filteredTotal, err := svc.ListBonusTypes(ctx, user.ID, &search, 20, 0)
+	if err != nil {
+		t.Fatalf("ListBonusTypes (with search) returned error: %v", err)
+	}
+	if filteredTotal != 1 || len(filtered) != 1 {
+		t.Fatalf("expected one filtered row, got total=%d len=%d", filteredTotal, len(filtered))
+	}
+	if filtered[0].ID != created.ID {
+		t.Fatalf("unexpected filtered bonus type id: %s", filtered[0].ID)
 	}
 
 	newName := "Assiduite"
@@ -88,6 +103,9 @@ func TestPenaltyTypeService_CRUD_WithQuerier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreatePenaltyType returned error: %v", err)
 	}
+	if _, err := svc.CreatePenaltyType(ctx, user.ID, dto.RequestPenaltyTypeDto{Name: "Bavardage"}); err != nil {
+		t.Fatalf("CreatePenaltyType (extra fixture) returned error: %v", err)
+	}
 
 	got, err := svc.GetPenaltyType(ctx, user.ID, created.ID)
 	if err != nil {
@@ -97,12 +115,24 @@ func TestPenaltyTypeService_CRUD_WithQuerier(t *testing.T) {
 		t.Fatalf("unexpected name: %s", got.Name)
 	}
 
-	all, total, err := svc.ListPenaltyTypes(ctx, user.ID, 20, 0)
+	all, total, err := svc.ListPenaltyTypes(ctx, user.ID, nil, 20, 0)
 	if err != nil {
 		t.Fatalf("ListPenaltyTypes returned error: %v", err)
 	}
-	if total != 1 || len(all) != 1 {
-		t.Fatalf("expected one row, got total=%d len=%d", total, len(all))
+	if total != 2 || len(all) != 2 {
+		t.Fatalf("expected two rows, got total=%d len=%d", total, len(all))
+	}
+
+	search := "reta"
+	filtered, filteredTotal, err := svc.ListPenaltyTypes(ctx, user.ID, &search, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPenaltyTypes (with search) returned error: %v", err)
+	}
+	if filteredTotal != 1 || len(filtered) != 1 {
+		t.Fatalf("expected one filtered row, got total=%d len=%d", filteredTotal, len(filtered))
+	}
+	if filtered[0].ID != created.ID {
+		t.Fatalf("unexpected filtered penalty type id: %s", filtered[0].ID)
 	}
 
 	newName := "Bavardage"
@@ -144,6 +174,9 @@ func TestPunishmentTypeService_CRUD_WithQuerier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreatePunishmentType returned error: %v", err)
 	}
+	if _, err := svc.CreatePunishmentType(ctx, user.ID, dto.RequestPunishmentTypeDto{Name: "Heure de colle"}); err != nil {
+		t.Fatalf("CreatePunishmentType (extra fixture) returned error: %v", err)
+	}
 
 	got, err := svc.GetPunishmentType(ctx, user.ID, created.ID)
 	if err != nil {
@@ -153,12 +186,24 @@ func TestPunishmentTypeService_CRUD_WithQuerier(t *testing.T) {
 		t.Fatalf("unexpected name: %s", got.Name)
 	}
 
-	all, total, err := svc.ListPunishmentTypes(ctx, user.ID, 20, 0)
+	all, total, err := svc.ListPunishmentTypes(ctx, user.ID, nil, 20, 0)
 	if err != nil {
 		t.Fatalf("ListPunishmentTypes returned error: %v", err)
 	}
-	if total != 1 || len(all) != 1 {
-		t.Fatalf("expected one row, got total=%d len=%d", total, len(all))
+	if total != 2 || len(all) != 2 {
+		t.Fatalf("expected two rows, got total=%d len=%d", total, len(all))
+	}
+
+	search := "copi"
+	filtered, filteredTotal, err := svc.ListPunishmentTypes(ctx, user.ID, &search, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPunishmentTypes (with search) returned error: %v", err)
+	}
+	if filteredTotal != 1 || len(filtered) != 1 {
+		t.Fatalf("expected one filtered row, got total=%d len=%d", filteredTotal, len(filtered))
+	}
+	if filtered[0].ID != created.ID {
+		t.Fatalf("unexpected filtered punishment type id: %s", filtered[0].ID)
 	}
 
 	newName := "Heure de colle"
