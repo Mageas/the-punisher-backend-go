@@ -12,6 +12,16 @@ test:
 test-integration:
 	go test -tags=integration ./tests/integration/...
 
+.PHONY: coverage
+coverage:
+	go test -count=1 -tags=integration -covermode=atomic -coverpkg=./internal/service/... -coverprofile=coverage-service.out ./internal/service ./tests/integration/...
+	bash -lc "set -o pipefail; go tool cover -func=coverage-service.out | grep '^total:'"
+
+.PHONY: coverage-full
+coverage-full:
+	go test -count=1 -tags=integration -covermode=atomic -coverpkg=./internal/api/...,./internal/platform/...,./internal/service/... -coverprofile=coverage-full.out ./internal/api/... ./internal/platform/... ./internal/service ./tests/integration/...
+	bash -lc "set -o pipefail; go tool cover -func=coverage-full.out | grep '^total:'"
+
 .PHONY: build
 build:
 	go build -o ./bin/main ./cmd/api
