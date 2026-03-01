@@ -79,8 +79,9 @@ func (h *ClassroomHandler) ListClassrooms(w http.ResponseWriter, r *http.Request
 	userID := auth.MustUserIDFromContext(r.Context())
 
 	limit, offset, page := web.ParsePagination(r)
+	search := web.ParseSearchQueryParam(r, "search")
 
-	classrooms, totalCount, err := h.service.ListClassrooms(r.Context(), userID, limit, offset)
+	classrooms, totalCount, err := h.service.ListClassrooms(r.Context(), userID, search, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

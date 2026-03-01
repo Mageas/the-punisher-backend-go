@@ -436,7 +436,7 @@ func TestClassroomService_ListClassrooms_WithQuerier(t *testing.T) {
 		t.Fatalf("failed to create student-classroom relation fixture: %v", err)
 	}
 
-	classrooms, total, err := svc.ListClassrooms(ctx, user.ID, 20, 0)
+	classrooms, total, err := svc.ListClassrooms(ctx, user.ID, nil, 20, 0)
 	if err != nil {
 		t.Fatalf("ListClassrooms returned error: %v", err)
 	}
@@ -463,6 +463,18 @@ func TestClassroomService_ListClassrooms_WithQuerier(t *testing.T) {
 	}
 	if secondListed.StudentCount != 0 || len(secondListed.StudentsPreview) != 0 {
 		t.Fatalf("unexpected second classroom counters/preview: %+v", secondListed)
+	}
+
+	search := "6A"
+	filtered, filteredTotal, err := svc.ListClassrooms(ctx, user.ID, &search, 20, 0)
+	if err != nil {
+		t.Fatalf("ListClassrooms (with search) returned error: %v", err)
+	}
+	if filteredTotal != 1 || len(filtered) != 1 {
+		t.Fatalf("expected one classroom with search, got total=%d len=%d", filteredTotal, len(filtered))
+	}
+	if filtered[0].ID != firstClassroom.ID {
+		t.Fatalf("unexpected searched classroom: %+v", filtered[0])
 	}
 }
 

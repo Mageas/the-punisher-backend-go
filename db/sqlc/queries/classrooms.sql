@@ -67,7 +67,13 @@ WHERE c.user_id = sqlc.arg(user_id)
 ORDER BY c.created_at ASC, c.id ASC;
 
 -- name: CountClassroomsByUser :one
-SELECT COUNT(*) FROM classrooms WHERE user_id = sqlc.arg(user_id);
+SELECT COUNT(*)
+FROM classrooms c
+WHERE c.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR c.name ILIKE '%' || sqlc.narg(search)::text || '%'
+  );
 
 -- name: ListClassroomsByUser :many
 SELECT
@@ -96,6 +102,10 @@ SELECT
     ), 0)::bigint AS total_penalty_count
 FROM classrooms c
 WHERE c.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR c.name ILIKE '%' || sqlc.narg(search)::text || '%'
+  )
 ORDER BY c.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 

@@ -543,7 +543,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/classrooms/`
 - Auth: oui
-- Query params: `page`
+- Query params:
+  - `page` (optionnel)
+  - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnClassroomDto>`
 - Erreurs: `unauthorized`
 
@@ -947,7 +949,7 @@ Exemple 200 (tronque):
 
 - Les listes `bonuses`, `penalties`, `punishments` sont maintenant basees sur filtres metier (pas de `search` texte sur l eleve).
 - La recherche eleve est disponible sur `GET /v1/students/?search=...` et `GET /v1/classrooms/{classroom_id}/students?search=...`.
-- Les listes `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
+- Les listes `classrooms`, `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
 - Pour filtrer des evenements d un eleve: utiliser `student_id`.
 - Les bornes `created_to` / `due_to` sont inclusives sur la journee (backend fait `< date + 1 day`).
 - `overdue=true` sur punishments signifie: `resolved_at IS NULL` ET `due_at < now()`.
