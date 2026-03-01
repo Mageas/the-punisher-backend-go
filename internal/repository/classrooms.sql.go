@@ -13,11 +13,22 @@ import (
 )
 
 const countClassroomsByUser = `-- name: CountClassroomsByUser :one
-SELECT COUNT(*) FROM classrooms WHERE user_id = $1
+SELECT COUNT(*)
+FROM classrooms c
+WHERE c.user_id = $1
+  AND (
+    $2::text IS NULL
+    OR c.name ILIKE '%' || $2::text || '%'
+  )
 `
 
-func (q *Queries) CountClassroomsByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countClassroomsByUser, userID)
+type CountClassroomsByUserParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Search *string   `json:"search"`
+}
+
+func (q *Queries) CountClassroomsByUser(ctx context.Context, arg CountClassroomsByUserParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countClassroomsByUser, arg.UserID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -223,12 +234,17 @@ SELECT
     ), 0)::bigint AS total_penalty_count
 FROM classrooms c
 WHERE c.user_id = $1
+  AND (
+    $2::text IS NULL
+    OR c.name ILIKE '%' || $2::text || '%'
+  )
 ORDER BY c.created_at DESC
-LIMIT $3 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListClassroomsByUserParams struct {
 	UserID      uuid.UUID `json:"user_id"`
+	Search      *string   `json:"search"`
 	QueryOffset int32     `json:"query_offset"`
 	QueryLimit  int32     `json:"query_limit"`
 }
@@ -247,7 +263,12 @@ type ListClassroomsByUserRow struct {
 }
 
 func (q *Queries) ListClassroomsByUser(ctx context.Context, arg ListClassroomsByUserParams) ([]ListClassroomsByUserRow, error) {
-	rows, err := q.db.Query(ctx, listClassroomsByUser, arg.UserID, arg.QueryOffset, arg.QueryLimit)
+	rows, err := q.db.Query(ctx, listClassroomsByUser,
+		arg.UserID,
+		arg.Search,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

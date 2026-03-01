@@ -17,7 +17,7 @@ type ClassroomService interface {
 	CreateClassroom(ctx context.Context, userID uuid.UUID, req dto.RequestClassroomDto) (*dto.ReturnClassroomDto, error)
 	GetClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) (*dto.ReturnClassroomDto, error)
 	GetClassroomKpis(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) (*dto.DashboardKpisDto, error)
-	ListClassrooms(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error)
+	ListClassrooms(ctx context.Context, userID uuid.UUID, search *string, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error)
 	UpdateClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, req dto.UpdateClassroomDto) (*dto.ReturnClassroomDto, error)
 	DeleteClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) error
 	DeleteAllClassrooms(ctx context.Context, userID uuid.UUID) error
@@ -108,14 +108,18 @@ func (s *classroomService) GetClassroomKpis(ctx context.Context, userID uuid.UUI
 	return sqlcmapper.DashboardKpisFromRow(&kpis), nil
 }
 
-func (s *classroomService) ListClassrooms(ctx context.Context, userID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error) {
-	totalCount, err := s.repo.CountClassroomsByUser(ctx, userID)
+func (s *classroomService) ListClassrooms(ctx context.Context, userID uuid.UUID, search *string, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error) {
+	totalCount, err := s.repo.CountClassroomsByUser(ctx, repository.CountClassroomsByUserParams{
+		UserID: userID,
+		Search: search,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count classrooms: %w", err)
 	}
 
 	classrooms, err := s.repo.ListClassroomsByUser(ctx, repository.ListClassroomsByUserParams{
 		UserID:      userID,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
