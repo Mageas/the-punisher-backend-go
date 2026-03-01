@@ -207,8 +207,9 @@ func (h *ClassroomHandler) ListStudentsByClassroom(w http.ResponseWriter, r *htt
 	}
 
 	limit, offset, page := web.ParsePagination(r)
+	search := web.ParseSearchQueryParam(r, "search")
 
-	students, totalCount, err := h.service.ListStudentsByClassroom(r.Context(), userID, classroomID, limit, offset)
+	students, totalCount, err := h.service.ListStudentsByClassroom(r.Context(), userID, classroomID, search, limit, offset)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

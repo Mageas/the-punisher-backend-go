@@ -305,7 +305,7 @@ func TestClassroomService_CRUDMembershipAndList_WithQuerier(t *testing.T) {
 		t.Fatalf("AddStudentToClassroom returned error: %v", err)
 	}
 
-	students, totalStudents, err := classroomSvc.ListStudentsByClassroom(ctx, user.ID, created.ID, 20, 0)
+	students, totalStudents, err := classroomSvc.ListStudentsByClassroom(ctx, user.ID, created.ID, nil, 20, 0)
 	if err != nil {
 		t.Fatalf("ListStudentsByClassroom returned error: %v", err)
 	}
@@ -350,6 +350,59 @@ func TestClassroomService_CRUDMembershipAndList_WithQuerier(t *testing.T) {
 	}
 	if err := classroomSvc.DeleteClassroom(ctx, user.ID, created.ID); !errors.Is(err, api.ErrClassroomNotFound) {
 		t.Fatalf("expected ErrClassroomNotFound, got %v", err)
+	}
+}
+
+func TestClassroomService_ListStudentsByClassroom_Search_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+
+	alice, err := repo.CreateStudent(ctx, repository.CreateStudentParams{
+		UserID:    user.ID,
+		FirstName: "Alice",
+		LastName:  "DUPONT",
+	})
+	if err != nil {
+		t.Fatalf("failed to create Alice fixture: %v", err)
+	}
+	bob, err := repo.CreateStudent(ctx, repository.CreateStudentParams{
+		UserID:    user.ID,
+		FirstName: "Bob",
+		LastName:  "MARTIN",
+	})
+	if err != nil {
+		t.Fatalf("failed to create Bob fixture: %v", err)
+	}
+
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   alice.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to link Alice to classroom: %v", err)
+	}
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   bob.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to link Bob to classroom: %v", err)
+	}
+
+	svc := NewClassroomService(repo)
+	search := "alice dup"
+	students, total, err := svc.ListStudentsByClassroom(ctx, user.ID, classroom.ID, &search, 20, 0)
+	if err != nil {
+		t.Fatalf("ListStudentsByClassroom (with search) returned error: %v", err)
+	}
+	if total != 1 || len(students) != 1 {
+		t.Fatalf("expected one student with search, got total=%d len=%d", total, len(students))
+	}
+	if students[0].FirstName != "Alice" || students[0].LastName != "DUPONT" {
+		t.Fatalf("unexpected searched student: %+v", students[0])
 	}
 }
 
@@ -479,7 +532,7 @@ func TestClassroomService_NotFoundBranches_WithQuerier(t *testing.T) {
 	if err := svc.AddStudentToClassroom(ctx, userID, classroomID, studentID); !errors.Is(err, api.ErrStudentOrClassroomNotFound) {
 		t.Fatalf("expected ErrStudentOrClassroomNotFound from AddStudentToClassroom, got %v", err)
 	}
-	if _, _, err := svc.ListStudentsByClassroom(ctx, userID, classroomID, 20, 0); !errors.Is(err, api.ErrClassroomNotFound) {
+	if _, _, err := svc.ListStudentsByClassroom(ctx, userID, classroomID, nil, 20, 0); !errors.Is(err, api.ErrClassroomNotFound) {
 		t.Fatalf("expected ErrClassroomNotFound from ListStudentsByClassroom, got %v", err)
 	}
 	if _, _, err := svc.ListClassroomsByStudent(ctx, userID, studentID, 20, 0); !errors.Is(err, api.ErrStudentNotFound) {

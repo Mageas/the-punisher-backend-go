@@ -24,7 +24,7 @@ type ClassroomService interface {
 
 	AddStudentToClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, studentID uuid.UUID) error
 	RemoveStudentFromClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, studentID uuid.UUID) error
-	ListStudentsByClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error)
+	ListStudentsByClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, search *string, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error)
 	ListClassroomsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnClassroomDto, int64, error)
 }
 
@@ -235,7 +235,7 @@ func (s *classroomService) RemoveStudentFromClassroom(ctx context.Context, userI
 	return nil
 }
 
-func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error) {
+func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID, search *string, limit int32, offset int32) ([]*dto.ReturnStudentDto, int64, error) {
 	_, err := s.repo.GetClassroomByUser(ctx, repository.GetClassroomByUserParams{
 		ID:     classroomID,
 		UserID: userID,
@@ -250,6 +250,7 @@ func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID u
 	totalCount, err := s.repo.CountStudentsByClassroom(ctx, repository.CountStudentsByClassroomParams{
 		ClassroomID: classroomID,
 		UserID:      userID,
+		Search:      search,
 	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count students by classroom: %w", err)
@@ -258,6 +259,7 @@ func (s *classroomService) ListStudentsByClassroom(ctx context.Context, userID u
 	students, err := s.repo.ListStudentsByClassroom(ctx, repository.ListStudentsByClassroomParams{
 		ClassroomID: classroomID,
 		UserID:      userID,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
