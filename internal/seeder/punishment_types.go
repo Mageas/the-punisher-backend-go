@@ -9,7 +9,10 @@ import (
 )
 
 func ensurePunishmentTypes(ctx context.Context, repo repository.Querier, userID uuid.UUID) ([]uuid.UUID, error) {
-	count, err := repo.CountPunishmentTypesByUser(ctx, userID)
+	count, err := repo.CountPunishmentTypesByUser(ctx, repository.CountPunishmentTypesByUserParams{
+		UserID: userID,
+		Search: nil,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to count punishment types: %w", err)
 	}

@@ -9,7 +9,10 @@ import (
 )
 
 func ensureBonusTypes(ctx context.Context, repo repository.Querier, userID uuid.UUID) ([]uuid.UUID, error) {
-	count, err := repo.CountBonusTypesByUser(ctx, userID)
+	count, err := repo.CountBonusTypesByUser(ctx, repository.CountBonusTypesByUserParams{
+		UserID: userID,
+		Search: nil,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to count bonus types: %w", err)
 	}

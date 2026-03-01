@@ -16,7 +16,7 @@ import (
 type BonusTypeService interface {
 	CreateBonusType(ctx context.Context, userID uuid.UUID, req dto.RequestBonusTypeDto) (*dto.ReturnBonusTypeDto, error)
 	GetBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) (*dto.ReturnBonusTypeDto, error)
-	ListBonusTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusTypeDto, int64, error)
+	ListBonusTypes(ctx context.Context, userID uuid.UUID, search *string, limit, offset int32) ([]*dto.ReturnBonusTypeDto, int64, error)
 	UpdateBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID, req dto.UpdateBonusTypeDto) (*dto.ReturnBonusTypeDto, error)
 	DeleteBonusType(ctx context.Context, userID, bonusTypeID uuid.UUID) error
 }
@@ -60,14 +60,18 @@ func (s *bonusTypeService) GetBonusType(ctx context.Context, userID, bonusTypeID
 	return sqlcmapper.BonusTypeFromRepository(&entity), nil
 }
 
-func (s *bonusTypeService) ListBonusTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnBonusTypeDto, int64, error) {
-	totalCount, err := s.repo.CountBonusTypesByUser(ctx, userID)
+func (s *bonusTypeService) ListBonusTypes(ctx context.Context, userID uuid.UUID, search *string, limit, offset int32) ([]*dto.ReturnBonusTypeDto, int64, error) {
+	totalCount, err := s.repo.CountBonusTypesByUser(ctx, repository.CountBonusTypesByUserParams{
+		UserID: userID,
+		Search: search,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count bonus types: %w", err)
 	}
 
 	entities, err := s.repo.ListBonusTypesByUser(ctx, repository.ListBonusTypesByUserParams{
 		UserID:      userID,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})

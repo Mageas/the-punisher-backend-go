@@ -16,7 +16,7 @@ import (
 type PunishmentTypeService interface {
 	CreatePunishmentType(ctx context.Context, userID uuid.UUID, req dto.RequestPunishmentTypeDto) (*dto.ReturnPunishmentTypeDto, error)
 	GetPunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) (*dto.ReturnPunishmentTypeDto, error)
-	ListPunishmentTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPunishmentTypeDto, int64, error)
+	ListPunishmentTypes(ctx context.Context, userID uuid.UUID, search *string, limit, offset int32) ([]*dto.ReturnPunishmentTypeDto, int64, error)
 	UpdatePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID, req dto.UpdatePunishmentTypeDto) (*dto.ReturnPunishmentTypeDto, error)
 	DeletePunishmentType(ctx context.Context, userID, punishmentTypeID uuid.UUID) error
 }
@@ -60,14 +60,18 @@ func (s *punishmentTypeService) GetPunishmentType(ctx context.Context, userID, p
 	return sqlcmapper.PunishmentTypeFromRepository(&entity), nil
 }
 
-func (s *punishmentTypeService) ListPunishmentTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPunishmentTypeDto, int64, error) {
-	totalCount, err := s.repo.CountPunishmentTypesByUser(ctx, userID)
+func (s *punishmentTypeService) ListPunishmentTypes(ctx context.Context, userID uuid.UUID, search *string, limit, offset int32) ([]*dto.ReturnPunishmentTypeDto, int64, error) {
+	totalCount, err := s.repo.CountPunishmentTypesByUser(ctx, repository.CountPunishmentTypesByUserParams{
+		UserID: userID,
+		Search: search,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count punishment types: %w", err)
 	}
 
 	entities, err := s.repo.ListPunishmentTypesByUser(ctx, repository.ListPunishmentTypesByUserParams{
 		UserID:      userID,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})

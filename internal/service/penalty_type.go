@@ -16,7 +16,7 @@ import (
 type PenaltyTypeService interface {
 	CreatePenaltyType(ctx context.Context, userID uuid.UUID, req dto.RequestPenaltyTypeDto) (*dto.ReturnPenaltyTypeDto, error)
 	GetPenaltyType(ctx context.Context, userID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyTypeDto, error)
-	ListPenaltyTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyTypeDto, int64, error)
+	ListPenaltyTypes(ctx context.Context, userID uuid.UUID, search *string, limit, offset int32) ([]*dto.ReturnPenaltyTypeDto, int64, error)
 	UpdatePenaltyType(ctx context.Context, userID, penaltyTypeID uuid.UUID, req dto.UpdatePenaltyTypeDto) (*dto.ReturnPenaltyTypeDto, error)
 	DeletePenaltyType(ctx context.Context, userID, penaltyTypeID uuid.UUID) error
 }
@@ -60,14 +60,18 @@ func (s *penaltyTypeService) GetPenaltyType(ctx context.Context, userID, penalty
 	return sqlcmapper.PenaltyTypeFromRepository(&entity), nil
 }
 
-func (s *penaltyTypeService) ListPenaltyTypes(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyTypeDto, int64, error) {
-	totalCount, err := s.repo.CountPenaltyTypesByUser(ctx, userID)
+func (s *penaltyTypeService) ListPenaltyTypes(ctx context.Context, userID uuid.UUID, search *string, limit, offset int32) ([]*dto.ReturnPenaltyTypeDto, int64, error) {
+	totalCount, err := s.repo.CountPenaltyTypesByUser(ctx, repository.CountPenaltyTypesByUserParams{
+		UserID: userID,
+		Search: search,
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count penalty types: %w", err)
 	}
 
 	entities, err := s.repo.ListPenaltyTypesByUser(ctx, repository.ListPenaltyTypesByUserParams{
 		UserID:      userID,
+		Search:      search,
 		QueryLimit:  limit,
 		QueryOffset: offset,
 	})
