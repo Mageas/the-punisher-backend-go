@@ -46,6 +46,12 @@ migrate-down:
 seed:
 	go run ./cmd/seed
 
+.PHONY: seed-api
+seed-api:
+	@if [ -z "$(SEED_API_URL)" ]; then echo "SEED_API_URL is required, ex: make seed-api SEED_API_URL=http://localhost:8080"; exit 1; fi
+	go run ./cmd/seed-api --base-url "$(SEED_API_URL)" $(SEED_API_ARGS)
+# make seed-api SEED_API_ARGS="--max-penalties=20 --max-bonuses=10 --students-per-class=35 --max-punishments=20"
+
 .PHONY: reset-seed
 reset-seed:
 	@migrate -path $(MIGRATIONS_DIR) -database $(APP_DATABASE_URL) down -all

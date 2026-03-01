@@ -47,6 +47,25 @@ make migrate-up
 make seed
 ```
 
+Seed d'une instance distante via API
+```bash
+go run ./cmd/seed-api --base-url http://localhost:8080
+# ou
+make seed-api SEED_API_URL=http://localhost:8080
+```
+
+Options utiles:
+- `--email` (default `admin@test.fr`)
+- `--password` (default `admin@test.fr`)
+- `--class-count`, `--students-per-class`
+- `--bonus-chance`, `--penalty-chance`, `--punishment-chance`
+- `--max-bonuses`, `--max-penalties`, `--max-punishments`
+
+Variables d'environnement possibles:
+- `SEED_API_URL`
+- `SEED_API_EMAIL`
+- `SEED_API_PASSWORD`
+
 ## Lancer l'application
 
 Mode dev (hot reload via Air):
@@ -112,6 +131,7 @@ make migrate-create <name>
 make migrate-up
 make migrate-down
 make seed
+make seed-api SEED_API_URL=http://localhost:8080
 make reset-seed
 ```
 
