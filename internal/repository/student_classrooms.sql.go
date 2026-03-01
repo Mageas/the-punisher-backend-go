@@ -60,17 +60,24 @@ func (q *Queries) CountClassroomsByStudent(ctx context.Context, arg CountClassro
 const countStudentsByClassroom = `-- name: CountStudentsByClassroom :one
 SELECT COUNT(*)
 FROM student_classrooms sc
+JOIN students s ON s.id = sc.student_id
 JOIN classrooms c ON c.id = sc.classroom_id
-WHERE sc.classroom_id = $1 AND c.user_id = $2
+WHERE sc.classroom_id = $1
+  AND c.user_id = $2
+  AND (
+    $3::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+  )
 `
 
 type CountStudentsByClassroomParams struct {
 	ClassroomID uuid.UUID `json:"classroom_id"`
 	UserID      uuid.UUID `json:"user_id"`
+	Search      *string   `json:"search"`
 }
 
 func (q *Queries) CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countStudentsByClassroom, arg.ClassroomID, arg.UserID)
+	row := q.db.QueryRow(ctx, countStudentsByClassroom, arg.ClassroomID, arg.UserID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -228,14 +235,20 @@ SELECT
 FROM students s
 JOIN student_classrooms sc ON sc.student_id = s.id
 JOIN classrooms c ON c.id = sc.classroom_id
-WHERE sc.classroom_id = $1 AND c.user_id = $2
+WHERE sc.classroom_id = $1
+  AND c.user_id = $2
+  AND (
+    $3::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
+  )
 ORDER BY s.created_at DESC
-LIMIT $4 OFFSET $3
+LIMIT $5 OFFSET $4
 `
 
 type ListStudentsByClassroomParams struct {
 	ClassroomID uuid.UUID `json:"classroom_id"`
 	UserID      uuid.UUID `json:"user_id"`
+	Search      *string   `json:"search"`
 	QueryOffset int32     `json:"query_offset"`
 	QueryLimit  int32     `json:"query_limit"`
 }
@@ -255,6 +268,7 @@ func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsB
 	rows, err := q.db.Query(ctx, listStudentsByClassroom,
 		arg.ClassroomID,
 		arg.UserID,
+		arg.Search,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)

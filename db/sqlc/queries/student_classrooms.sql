@@ -20,8 +20,14 @@ WHERE student_id = sqlc.arg(student_id)
 -- name: CountStudentsByClassroom :one
 SELECT COUNT(*)
 FROM student_classrooms sc
+JOIN students s ON s.id = sc.student_id
 JOIN classrooms c ON c.id = sc.classroom_id
-WHERE sc.classroom_id = sqlc.arg(classroom_id) AND c.user_id = sqlc.arg(user_id);
+WHERE sc.classroom_id = sqlc.arg(classroom_id)
+  AND c.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  );
 
 -- name: ListStudentsByClassroom :many
 SELECT
@@ -42,7 +48,12 @@ SELECT
 FROM students s
 JOIN student_classrooms sc ON sc.student_id = s.id
 JOIN classrooms c ON c.id = sc.classroom_id
-WHERE sc.classroom_id = sqlc.arg(classroom_id) AND c.user_id = sqlc.arg(user_id)
+WHERE sc.classroom_id = sqlc.arg(classroom_id)
+  AND c.user_id = sqlc.arg(user_id)
+  AND (
+    sqlc.narg(search)::text IS NULL
+    OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || sqlc.narg(search)::text || '%'
+  )
 ORDER BY s.created_at DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 

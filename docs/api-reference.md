@@ -598,7 +598,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/classrooms/{classroom_id}/students`
 - Auth: oui
-- Query params: `page`
+- Query params:
+  - `page` (optionnel)
+  - `search` (optionnel, recherche sur `first_name + last_name`)
 - 200: `PaginatedResponse<ReturnStudentDto>`
 - Erreurs: `classroom_not_found`, `not_found`, `unauthorized`
 
@@ -944,7 +946,7 @@ Exemple 200 (tronque):
 ## 4) Notes importantes pour le frontend IA
 
 - Les listes `bonuses`, `penalties`, `punishments` sont maintenant basees sur filtres metier (pas de `search` texte sur l eleve).
-- La recherche eleve reste sur `GET /v1/students/?search=...`.
+- La recherche eleve est disponible sur `GET /v1/students/?search=...` et `GET /v1/classrooms/{classroom_id}/students?search=...`.
 - Les listes `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
 - Pour filtrer des evenements d un eleve: utiliser `student_id`.
 - Les bornes `created_to` / `due_to` sont inclusives sur la journee (backend fait `< date + 1 day`).
