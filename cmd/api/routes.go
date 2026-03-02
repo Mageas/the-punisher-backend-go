@@ -10,6 +10,7 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 	"github.com/mageas/the-punisher-backend/internal/platform/auth"
+	"github.com/mageas/the-punisher-backend/internal/platform/mailer"
 	"github.com/mageas/the-punisher-backend/internal/platform/web"
 	"github.com/mageas/the-punisher-backend/internal/repository"
 	"github.com/mageas/the-punisher-backend/internal/service"
@@ -45,7 +46,8 @@ func (app *application) mount() http.Handler {
 
 	repo := repository.New(app.db)
 
-	userService := service.NewUserService(repo)
+	smtpMailer := mailer.NewSMTPMailer(app.config.SMTP)
+	userService := service.NewUserServiceWithEmailConfirmation(repo, app.config.EmailConfirm, smtpMailer)
 	userHandler := handler.NewUserHandler(userService, app.config)
 
 	authService := service.NewAuthService(repo, app.config.JWT)

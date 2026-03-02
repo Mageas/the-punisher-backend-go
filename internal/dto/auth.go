@@ -19,3 +19,15 @@ type RefreshResponseDto struct {
 type RegisterStatusResponseDto struct {
 	RegisterAllowed bool `json:"register_allowed"`
 }
+
+type ConfirmEmailResponseDto struct {
+	Status string `json:"status"`
+}
+
+type ResendConfirmEmailRequestDto struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type ResendConfirmEmailResponseDto struct {
+	Status string `json:"status"`
+}

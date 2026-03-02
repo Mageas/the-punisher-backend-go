@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestGetEnvHelpers(t *testing.T) {
@@ -72,6 +73,16 @@ func TestLoad(t *testing.T) {
 	t.Setenv("JWT_REFRESH_COOKIE_SECURE", "true")
 	t.Setenv("JWT_ISSUER", "issuer")
 	t.Setenv("JWT_AUDIENCE", "aud")
+	t.Setenv("EMAIL_CONFIRMATION_SECRET", "email-confirm-secret")
+	t.Setenv("EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS", "48")
+	t.Setenv("EMAIL_CONFIRMATION_BASE_URL", "http://localhost:8080/v1/auth/confirm-email")
+
+	t.Setenv("SMTP_HOST", "localhost")
+	t.Setenv("SMTP_PORT", "1025")
+	t.Setenv("SMTP_USERNAME", "smtp-user")
+	t.Setenv("SMTP_PASSWORD", "smtp-password")
+	t.Setenv("SMTP_FROM_EMAIL", "no-reply@test.local")
+	t.Setenv("SMTP_FROM_NAME", "Punisher Bot")
 
 	cfg := Load()
 	if cfg.Env != "test" || cfg.Addr != ":9090" || cfg.Version != "9.9.9" {
@@ -85,6 +96,12 @@ func TestLoad(t *testing.T) {
 	}
 	if cfg.JWT.Issuer != "issuer" || cfg.JWT.Audience != "aud" {
 		t.Fatalf("unexpected jwt config: %+v", cfg.JWT)
+	}
+	if cfg.EmailConfirm.Secret != "email-confirm-secret" || cfg.EmailConfirm.Expiration.Hours() != 48 {
+		t.Fatalf("unexpected email confirmation config: %+v", cfg.EmailConfirm)
+	}
+	if cfg.SMTP.Host != "localhost" || cfg.SMTP.Port != 1025 || cfg.SMTP.FromEmail != "no-reply@test.local" {
+		t.Fatalf("unexpected smtp config: %+v", cfg.SMTP)
 	}
 }
 
@@ -139,6 +156,22 @@ func TestValidateCORSConfigWildcardWithCredentialsExits(t *testing.T) {
 	runFatalHelper(t, "cors_wildcard_credentials")
 }
 
+func TestValidateSMTPConfigEmptyHostExits(t *testing.T) {
+	runFatalHelper(t, "smtp_empty_host")
+}
+
+func TestValidateSMTPConfigInvalidPortExits(t *testing.T) {
+	runFatalHelper(t, "smtp_invalid_port")
+}
+
+func TestValidateEmailConfirmationConfigInvalidDurationExits(t *testing.T) {
+	runFatalHelper(t, "email_confirmation_invalid_duration")
+}
+
+func TestValidateEmailConfirmationConfigInvalidBaseURLExits(t *testing.T) {
+	runFatalHelper(t, "email_confirmation_invalid_base_url")
+}
+
 func TestHelperProcessForFatalConfig(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
@@ -153,6 +186,22 @@ func TestHelperProcessForFatalConfig(t *testing.T) {
 		validateCORSConfig(CORSConfig{AllowedOrigins: []string{"http://localhost"}, MaxAge: -1})
 	case "cors_wildcard_credentials":
 		validateCORSConfig(CORSConfig{AllowedOrigins: []string{"*"}, AllowCredentials: true, MaxAge: 1})
+	case "smtp_empty_host":
+		validateSMTPConfig(SMTPConfig{Host: "", Port: 1025, FromEmail: "no-reply@test.local"})
+	case "smtp_invalid_port":
+		validateSMTPConfig(SMTPConfig{Host: "localhost", Port: 0, FromEmail: "no-reply@test.local"})
+	case "email_confirmation_invalid_duration":
+		validateEmailConfirmationConfig(EmailConfirmationConfig{
+			Secret:     "secret",
+			Expiration: 0,
+			BaseURL:    "http://localhost:8080/v1/auth/confirm-email",
+		})
+	case "email_confirmation_invalid_base_url":
+		validateEmailConfirmationConfig(EmailConfirmationConfig{
+			Secret:     "secret",
+			Expiration: 24 * time.Hour,
+			BaseURL:    "/v1/auth/confirm-email",
+		})
 	default:
 		os.Exit(2)
 	}

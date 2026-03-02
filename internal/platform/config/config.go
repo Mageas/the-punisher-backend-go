@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -18,6 +19,8 @@ type Config struct {
 	CORS          CORSConfig
 	DB            DBConfig
 	JWT           JWTConfig
+	SMTP          SMTPConfig
+	EmailConfirm  EmailConfirmationConfig
 }
 
 type CORSConfig struct {
@@ -43,10 +46,29 @@ type JWTConfig struct {
 	Audience            string
 }
 
+type SMTPConfig struct {
+	Host      string
+	Port      int
+	Username  string
+	Password  string
+	FromEmail string
+	FromName  string
+}
+
+type EmailConfirmationConfig struct {
+	Secret     string
+	Expiration time.Duration
+	BaseURL    string
+	Issuer     string
+	Audience   string
+}
+
 func Load() *Config {
 	godotenv.Load()
 
 	appEnv := GetEnv("APP_ENV", "development")
+	jwtIssuer := GetEnvOrFatal("JWT_ISSUER")
+	jwtAudience := GetEnvOrFatal("JWT_AUDIENCE")
 
 	cfg := &Config{
 		Addr:          GetEnv("APP_ADDRESS", ":8080"),
@@ -70,12 +92,29 @@ func Load() *Config {
 			RefreshSecret:       GetEnvOrFatal("JWT_REFRESH_SECRET"),
 			RefreshExpiration:   GetEnvDuration("JWT_REFRESH_EXPIRATION_IN_DAYS", 7) * time.Hour * 24,
 			RefreshCookieSecure: GetEnvBool("JWT_REFRESH_COOKIE_SECURE", strings.EqualFold(appEnv, "production")),
-			Issuer:              GetEnvOrFatal("JWT_ISSUER"),
-			Audience:            GetEnvOrFatal("JWT_AUDIENCE"),
+			Issuer:              jwtIssuer,
+			Audience:            jwtAudience,
+		},
+		SMTP: SMTPConfig{
+			Host:      GetEnv("SMTP_HOST", "localhost"),
+			Port:      GetEnvInt("SMTP_PORT", 1025),
+			Username:  GetEnv("SMTP_USERNAME", ""),
+			Password:  GetEnv("SMTP_PASSWORD", ""),
+			FromEmail: GetEnv("SMTP_FROM_EMAIL", "no-reply@the-punisher.local"),
+			FromName:  GetEnv("SMTP_FROM_NAME", "The Punisher"),
+		},
+		EmailConfirm: EmailConfirmationConfig{
+			Secret:     GetEnv("EMAIL_CONFIRMATION_SECRET", GetEnvOrFatal("JWT_ACCESS_SECRET")),
+			Expiration: GetEnvDuration("EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS", 24) * time.Hour,
+			BaseURL:    GetEnv("EMAIL_CONFIRMATION_BASE_URL", "http://localhost:8080/v1/auth/confirm-email"),
+			Issuer:     jwtIssuer,
+			Audience:   jwtAudience,
 		},
 	}
 
 	validateCORSConfig(cfg.CORS)
+	validateSMTPConfig(cfg.SMTP)
+	validateEmailConfirmationConfig(cfg.EmailConfirm)
 	return cfg
 }
 
@@ -158,5 +197,39 @@ func validateCORSConfig(cors CORSConfig) {
 				log.Fatalf("invalid CORS config: wildcard origin %q cannot be used when CORS_ALLOW_CREDENTIALS=true", origin)
 			}
 		}
+	}
+}
+
+func validateSMTPConfig(smtp SMTPConfig) {
+	if strings.TrimSpace(smtp.Host) == "" {
+		log.Fatal("SMTP_HOST must not be empty")
+	}
+
+	if smtp.Port <= 0 {
+		log.Fatal("SMTP_PORT must be > 0")
+	}
+
+	if strings.TrimSpace(smtp.FromEmail) == "" {
+		log.Fatal("SMTP_FROM_EMAIL must not be empty")
+	}
+}
+
+func validateEmailConfirmationConfig(emailConfig EmailConfirmationConfig) {
+	if strings.TrimSpace(emailConfig.Secret) == "" {
+		log.Fatal("EMAIL_CONFIRMATION_SECRET must not be empty")
+	}
+
+	if emailConfig.Expiration <= 0 {
+		log.Fatal("EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS must be > 0")
+	}
+
+	baseURL := strings.TrimSpace(emailConfig.BaseURL)
+	if baseURL == "" {
+		log.Fatal("EMAIL_CONFIRMATION_BASE_URL must not be empty")
+	}
+
+	parsedURL, err := url.Parse(baseURL)
+	if err != nil || !parsedURL.IsAbs() || strings.TrimSpace(parsedURL.Host) == "" {
+		log.Fatal("EMAIL_CONFIRMATION_BASE_URL must be a valid absolute URL")
 	}
 }
