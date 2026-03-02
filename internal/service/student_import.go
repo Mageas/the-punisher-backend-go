@@ -25,6 +25,12 @@ const (
 
 	classroomNameMinLen = 2
 	classroomNameMaxLen = 100
+
+	importErrorKeyRequiredField = "import_required_field"
+	importErrorKeyInvalidFormat = "import_invalid_format"
+	importErrorKeyInvalidLength = "import_invalid_length"
+	importErrorKeyNoDataRows    = "import_no_data_rows"
+	importErrorKeyMaxRows       = "import_max_rows_exceeded"
 )
 
 type transactionalStudentRepo interface {
@@ -66,19 +72,20 @@ func (s *studentService) ImportStudents(ctx context.Context, userID uuid.UUID, f
 	}
 
 	if len(parsedRows) == 0 {
-		rowErrors = append(rowErrors, dto.StudentImportRowErrorDto{
-			Row:     1,
-			Field:   "file",
-			Message: "at least one non-empty data row is required",
-		})
+		rowErrors = append(rowErrors, newImportErrorDetail(1, "file", importErrorKeyNoDataRows, "", "min_rows:1"))
 	}
 	if len(parsedRows) > studentImportMaxRows {
-		rowErrors = append(rowErrors, dto.StudentImportRowErrorDto{
-			Row:     1,
-			Field:   "rows",
-			Message: fmt.Sprintf("maximum %d rows are allowed", studentImportMaxRows),
-			Value:   fmt.Sprintf("%d", len(parsedRows)),
-		})
+		rowErrors = append(
+			rowErrors,
+			newImportErrorDetail(
+				1,
+				"rows",
+				importErrorKeyMaxRows,
+				fmt.Sprintf("%d", len(parsedRows)),
+				fmt.Sprintf("max:%d", studentImportMaxRows),
+				fmt.Sprintf("received:%d", len(parsedRows)),
+			),
+		)
 	}
 	if len(rowErrors) > 0 {
 		return nil, newImportValidationError(rowErrors)
@@ -248,14 +255,14 @@ func parseCSVRows(file io.Reader) ([][]string, error) {
 	return rows, nil
 }
 
-func parseAndValidateStudentImportRows(rawRows [][]string) ([]parsedStudentImportRow, []dto.StudentImportRowErrorDto, error) {
+func parseAndValidateStudentImportRows(rawRows [][]string) ([]parsedStudentImportRow, []api.ImportErrorDetail, error) {
 	columnIndexes, err := resolveStudentImportColumnIndexes(rawRows[0])
 	if err != nil {
 		return nil, nil, err
 	}
 
 	parsedRows := make([]parsedStudentImportRow, 0, len(rawRows)-1)
-	rowErrors := make([]dto.StudentImportRowErrorDto, 0)
+	rowErrors := make([]api.ImportErrorDetail, 0)
 
 	for rowIndex, row := range rawRows[1:] {
 		excelRowNumber := rowIndex + 2
@@ -267,26 +274,28 @@ func parseAndValidateStudentImportRows(rawRows [][]string) ([]parsedStudentImpor
 		}
 
 		firstName, lastName, studentErr := parseImportStudentName(rawStudent)
-		if studentErr != "" {
-			rowErrors = append(rowErrors, dto.StudentImportRowErrorDto{
-				Row:     excelRowNumber,
-				Field:   "eleves",
-				Message: studentErr,
-				Value:   strings.TrimSpace(rawStudent),
-			})
+		if studentErr != nil {
+			rowErrors = append(rowErrors, newImportErrorDetail(
+				excelRowNumber,
+				"eleves",
+				studentErr.Key,
+				strings.TrimSpace(rawStudent),
+				studentErr.ErrorDetails...,
+			))
 		}
 
 		classNames, classErrors := parseImportClassNames(rawClasses)
 		for _, classError := range classErrors {
-			rowErrors = append(rowErrors, dto.StudentImportRowErrorDto{
-				Row:     excelRowNumber,
-				Field:   "classes",
-				Message: classError.Message,
-				Value:   classError.Value,
-			})
+			rowErrors = append(rowErrors, newImportErrorDetail(
+				excelRowNumber,
+				"classes",
+				classError.Key,
+				classError.Value,
+				classError.ErrorDetails...,
+			))
 		}
 
-		if studentErr != "" || len(classErrors) > 0 {
+		if studentErr != nil || len(classErrors) > 0 {
 			continue
 		}
 
@@ -342,16 +351,23 @@ func resolveStudentImportColumnIndexes(headerRow []string) (studentImportColumnI
 }
 
 type classImportError struct {
-	Message string
-	Value   string
+	Key          string
+	Value        string
+	ErrorDetails []string
+}
+
+type importFieldError struct {
+	Key          string
+	ErrorDetails []string
 }
 
 func parseImportClassNames(rawClasses string) ([]string, []classImportError) {
 	trimmedClasses := strings.TrimSpace(rawClasses)
 	if trimmedClasses == "" {
 		return nil, []classImportError{{
-			Message: "at least one classroom is required",
-			Value:   "",
+			Key:          importErrorKeyRequiredField,
+			Value:        "",
+			ErrorDetails: []string{"field:classes"},
 		}}
 	}
 
@@ -366,16 +382,18 @@ func parseImportClassNames(rawClasses string) ([]string, []classImportError) {
 		className := strings.TrimSpace(part)
 		if className == "" {
 			classErrors = append(classErrors, classImportError{
-				Message: "classroom name is required",
-				Value:   part,
+				Key:          importErrorKeyRequiredField,
+				Value:        part,
+				ErrorDetails: []string{"field:classroom_name"},
 			})
 			continue
 		}
 
 		if !isLengthValid(className, classroomNameMinLen, classroomNameMaxLen) {
 			classErrors = append(classErrors, classImportError{
-				Message: fmt.Sprintf("classroom name must be between %d and %d characters", classroomNameMinLen, classroomNameMaxLen),
-				Value:   className,
+				Key:          importErrorKeyInvalidLength,
+				Value:        className,
+				ErrorDetails: []string{fmt.Sprintf("min:%d", classroomNameMinLen), fmt.Sprintf("max:%d", classroomNameMaxLen)},
 			})
 			continue
 		}
@@ -390,23 +408,30 @@ func parseImportClassNames(rawClasses string) ([]string, []classImportError) {
 
 	if len(classNames) == 0 && len(classErrors) == 0 {
 		classErrors = append(classErrors, classImportError{
-			Message: "at least one classroom is required",
-			Value:   strings.TrimSpace(rawClasses),
+			Key:          importErrorKeyRequiredField,
+			Value:        strings.TrimSpace(rawClasses),
+			ErrorDetails: []string{"field:classes"},
 		})
 	}
 
 	return classNames, classErrors
 }
 
-func parseImportStudentName(rawStudent string) (firstName string, lastName string, validationError string) {
+func parseImportStudentName(rawStudent string) (firstName string, lastName string, validationError *importFieldError) {
 	trimmedStudent := strings.TrimSpace(rawStudent)
 	if trimmedStudent == "" {
-		return "", "", "student name is required"
+		return "", "", &importFieldError{
+			Key:          importErrorKeyRequiredField,
+			ErrorDetails: []string{"field:student_name"},
+		}
 	}
 
 	nameParts := strings.Fields(trimmedStudent)
 	if len(nameParts) < 2 {
-		return "", "", "student name format must be 'NOM Prenom'"
+		return "", "", &importFieldError{
+			Key:          importErrorKeyInvalidFormat,
+			ErrorDetails: []string{"expected:uppercase_last_name_then_first_name"},
+		}
 	}
 
 	lastNamePartCount := 0
@@ -414,20 +439,29 @@ func parseImportStudentName(rawStudent string) (firstName string, lastName strin
 		lastNamePartCount++
 	}
 	if lastNamePartCount == 0 || lastNamePartCount == len(nameParts) {
-		return "", "", "student name format must be 'NOM Prenom' with uppercase last name"
+		return "", "", &importFieldError{
+			Key:          importErrorKeyInvalidFormat,
+			ErrorDetails: []string{"expected:uppercase_last_name_then_first_name"},
+		}
 	}
 
 	lastName = strings.Join(nameParts[:lastNamePartCount], " ")
 	firstName = strings.Join(nameParts[lastNamePartCount:], " ")
 
 	if !isLengthValid(lastName, studentNameMinLen, studentNameMaxLen) {
-		return "", "", fmt.Sprintf("last name must be between %d and %d characters", studentNameMinLen, studentNameMaxLen)
+		return "", "", &importFieldError{
+			Key:          importErrorKeyInvalidLength,
+			ErrorDetails: []string{"field:last_name", fmt.Sprintf("min:%d", studentNameMinLen), fmt.Sprintf("max:%d", studentNameMaxLen)},
+		}
 	}
 	if !isLengthValid(firstName, studentNameMinLen, studentNameMaxLen) {
-		return "", "", fmt.Sprintf("first name must be between %d and %d characters", studentNameMinLen, studentNameMaxLen)
+		return "", "", &importFieldError{
+			Key:          importErrorKeyInvalidLength,
+			ErrorDetails: []string{"field:first_name", fmt.Sprintf("min:%d", studentNameMinLen), fmt.Sprintf("max:%d", studentNameMaxLen)},
+		}
 	}
 
-	return firstName, lastName, ""
+	return firstName, lastName, nil
 }
 
 func isUppercaseStudentLastNamePart(part string) bool {
@@ -584,17 +618,17 @@ func makeStudentImportKey(firstName string, lastName string) studentImportKey {
 	}
 }
 
-func newImportValidationError(rowErrors []dto.StudentImportRowErrorDto) error {
-	errorDetails := make([]api.ErrorDetail, 0, len(rowErrors))
-	for _, rowError := range rowErrors {
-		row := rowError.Row
-		errorDetails = append(errorDetails, api.ErrorDetail{
-			Row:   &row,
-			Field: rowError.Field,
-			Error: rowError.Message,
-			Value: rowError.Value,
-		})
-	}
+func newImportValidationError(rowErrors []api.ImportErrorDetail) error {
+	return api.NewImportValidationError(rowErrors...)
+}
 
-	return api.NewAPIError(api.ErrImportValidationFailed.StatusCode, api.ErrImportValidationFailed.Message, errorDetails...)
+func newImportErrorDetail(row int, field string, key string, value string, errorDetails ...string) api.ImportErrorDetail {
+	rowCopy := row
+	return api.ImportErrorDetail{
+		Row:          &rowCopy,
+		Field:        field,
+		Error:        key,
+		Value:        value,
+		ErrorDetails: errorDetails,
+	}
 }

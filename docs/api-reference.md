@@ -291,8 +291,9 @@ interface HealthCheckDto {
 interface StudentImportRowErrorDto {
   row: number;
   field: string;
-  message: string;
+  key: string;
   value?: string;
+  error_details?: string[];
 }
 
 interface StudentImportSummaryDto {
@@ -1263,6 +1264,15 @@ Exemple:
 ### `import_validation_failed` - 400
 - Erreurs ligne par ligne sur le contenu fichier
 - `row` est renseigne
+- `error` est une cle stable `import_*` (pas un message texte)
+- `error_details` (liste de strings) apporte le contexte de validation (min/max/expected/field)
+
+Exemples de cles possibles:
+- `import_required_field`
+- `import_invalid_format`
+- `import_invalid_length`
+- `import_no_data_rows`
+- `import_max_rows_exceeded`
 
 Exemple:
 ```json
@@ -1273,14 +1283,16 @@ Exemple:
     {
       "row": 4,
       "field": "eleves",
-      "error": "student name format must be 'NOM Prenom'",
-      "value": "Jean"
+      "error": "import_invalid_format",
+      "value": "Jean",
+      "error_details": ["expected:uppercase_last_name_then_first_name"]
     },
     {
       "row": 4,
       "field": "classes",
-      "error": "at least one classroom is required",
-      "value": ""
+      "error": "import_invalid_length",
+      "value": "A",
+      "error_details": ["min:2", "max:100"]
     }
   ]
 }

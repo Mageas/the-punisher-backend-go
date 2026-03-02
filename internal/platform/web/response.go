@@ -31,6 +31,15 @@ func WriteError(w http.ResponseWriter, status int, message error, details []api.
 	)
 }
 
+func WriteImportError(w http.ResponseWriter, status int, message error, details []api.ImportErrorDetail) {
+	WriteJSON(
+		w,
+		status,
+		&api.ImportErrorResponse{Error: message.Error(), ErrorCode: status, ErrorDetails: details},
+		nil,
+	)
+}
+
 func WriteAPIError(w http.ResponseWriter, apiErr *api.APIError, details []api.ErrorDetail) {
 	if details == nil {
 		details = apiErr.Details
@@ -94,6 +103,12 @@ func WriteValidationError(w http.ResponseWriter, err error) {
 }
 
 func WriteFromError(w http.ResponseWriter, err error) {
+	var importErr *api.ImportValidationError
+	if errors.As(err, &importErr) {
+		WriteImportError(w, importErr.StatusCode, importErr, importErr.Details)
+		return
+	}
+
 	var apiErr *api.APIError
 	if errors.As(err, &apiErr) {
 		WriteAPIError(w, apiErr, nil)

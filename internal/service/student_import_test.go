@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
-	"github.com/mageas/the-punisher-backend/internal/dto"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -23,6 +22,20 @@ func assertAPIError(t *testing.T, err error, wantMessage string) *api.APIError {
 		t.Fatalf("expected APIError message %q, got %q", wantMessage, apiErr.Message)
 	}
 	return apiErr
+}
+
+func assertImportValidationError(t *testing.T, err error) *api.ImportValidationError {
+	t.Helper()
+
+	var importErr *api.ImportValidationError
+	if !errors.As(err, &importErr) {
+		t.Fatalf("expected ImportValidationError, got %v", err)
+	}
+	if importErr.Message != api.ErrImportValidationFailed.Message {
+		t.Fatalf("expected import validation message %q, got %q", api.ErrImportValidationFailed.Message, importErr.Message)
+	}
+
+	return importErr
 }
 
 func makeXLSXBuffer(t *testing.T, rows [][]string) *bytes.Buffer {
@@ -151,12 +164,34 @@ func TestParseImportClassNamesInvalid(t *testing.T) {
 	if len(errs) == 0 {
 		t.Fatalf("expected at least one error")
 	}
+	if errs[0].Key != importErrorKeyInvalidLength {
+		t.Fatalf("expected key %q, got %+v", importErrorKeyInvalidLength, errs[0])
+	}
+	if !reflect.DeepEqual(errs[0].ErrorDetails, []string{"min:2", "max:100"}) {
+		t.Fatalf("unexpected error details: %+v", errs[0].ErrorDetails)
+	}
+}
+
+func TestParseImportClassNamesRequired(t *testing.T) {
+	classes, errs := parseImportClassNames("")
+	if len(classes) != 0 {
+		t.Fatalf("expected no classes")
+	}
+	if len(errs) != 1 {
+		t.Fatalf("expected one error, got %+v", errs)
+	}
+	if errs[0].Key != importErrorKeyRequiredField {
+		t.Fatalf("expected key %q, got %+v", importErrorKeyRequiredField, errs[0])
+	}
+	if !reflect.DeepEqual(errs[0].ErrorDetails, []string{"field:classes"}) {
+		t.Fatalf("unexpected error details: %+v", errs[0].ErrorDetails)
+	}
 }
 
 func TestParseImportStudentName(t *testing.T) {
-	first, last, errMsg := parseImportStudentName("DUPONT Jean Claude")
-	if errMsg != "" {
-		t.Fatalf("unexpected validation error: %s", errMsg)
+	first, last, errDetail := parseImportStudentName("DUPONT Jean Claude")
+	if errDetail != nil {
+		t.Fatalf("unexpected validation error: %+v", errDetail)
 	}
 	if first != "Jean Claude" || last != "DUPONT" {
 		t.Fatalf("unexpected parsed names: first=%q last=%q", first, last)
@@ -164,9 +199,15 @@ func TestParseImportStudentName(t *testing.T) {
 }
 
 func TestParseImportStudentNameInvalid(t *testing.T) {
-	_, _, errMsg := parseImportStudentName("Dupont Jean")
-	if errMsg == "" {
+	_, _, errDetail := parseImportStudentName("Dupont Jean")
+	if errDetail == nil {
 		t.Fatalf("expected validation error")
+	}
+	if errDetail.Key != importErrorKeyInvalidFormat {
+		t.Fatalf("expected key %q, got %+v", importErrorKeyInvalidFormat, errDetail)
+	}
+	if !reflect.DeepEqual(errDetail.ErrorDetails, []string{"expected:uppercase_last_name_then_first_name"}) {
+		t.Fatalf("unexpected error details: %+v", errDetail.ErrorDetails)
 	}
 }
 
@@ -187,6 +228,9 @@ func TestParseAndValidateStudentImportRows(t *testing.T) {
 	}
 	if len(rowErrors) == 0 {
 		t.Fatalf("expected row errors")
+	}
+	if rowErrors[0].Error != importErrorKeyInvalidFormat {
+		t.Fatalf("unexpected row error: %+v", rowErrors[0])
 	}
 }
 
@@ -238,18 +282,26 @@ func TestMakeStudentImportKey(t *testing.T) {
 }
 
 func TestNewImportValidationError(t *testing.T) {
-	err := newImportValidationError([]dto.StudentImportRowErrorDto{{
-		Row:     4,
-		Field:   "classes",
-		Message: "invalid",
-		Value:   "x",
+	row := 4
+	err := newImportValidationError([]api.ImportErrorDetail{{
+		Row:          &row,
+		Field:        "classes",
+		Error:        importErrorKeyInvalidLength,
+		Value:        "x",
+		ErrorDetails: []string{"min:2", "max:100"},
 	}})
 
-	apiErr := assertAPIError(t, err, api.ErrImportValidationFailed.Message)
-	if len(apiErr.Details) != 1 {
-		t.Fatalf("expected one detail, got %+v", apiErr.Details)
+	importErr := assertImportValidationError(t, err)
+	if len(importErr.Details) != 1 {
+		t.Fatalf("expected one detail, got %+v", importErr.Details)
 	}
-	if apiErr.Details[0].Row == nil || *apiErr.Details[0].Row != 4 {
-		t.Fatalf("unexpected row pointer: %+v", apiErr.Details[0])
+	if importErr.Details[0].Row == nil || *importErr.Details[0].Row != 4 {
+		t.Fatalf("unexpected row pointer: %+v", importErr.Details[0])
+	}
+	if importErr.Details[0].Error != importErrorKeyInvalidLength {
+		t.Fatalf("unexpected detail key: %+v", importErr.Details[0])
+	}
+	if !reflect.DeepEqual(importErr.Details[0].ErrorDetails, []string{"min:2", "max:100"}) {
+		t.Fatalf("unexpected detail context: %+v", importErr.Details[0])
 	}
 }
