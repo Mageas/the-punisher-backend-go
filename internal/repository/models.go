@@ -38,6 +38,15 @@ type Classroom struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type EmailConfirmationToken struct {
+	ID        uuid.UUID  `json:"id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	TokenHash string     `json:"token_hash"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	UsedAt    *time.Time `json:"used_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
 type Penalty struct {
 	ID            uuid.UUID `json:"id"`
 	UserID        uuid.UUID `json:"user_id"`
@@ -115,11 +124,12 @@ type StudentClassroom struct {
 }
 
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	Email        string    `json:"email"`
-	FirstName    string    `json:"first_name"`
-	LastName     string    `json:"last_name"`
-	PasswordHash string    `json:"password_hash"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID              uuid.UUID  `json:"id"`
+	Email           string     `json:"email"`
+	FirstName       string     `json:"first_name"`
+	LastName        string     `json:"last_name"`
+	PasswordHash    string     `json:"password_hash"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
 }

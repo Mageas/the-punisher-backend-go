@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/mageas/the-punisher-backend/internal/api"
 	"github.com/mageas/the-punisher-backend/internal/dto"
@@ -56,6 +57,41 @@ func (h *UserHandler) GetRegisterStatus(w http.ResponseWriter, r *http.Request) 
 	}
 
 	web.WriteJSON(w, http.StatusOK, resp, nil)
+}
+
+func (h *UserHandler) ConfirmEmail(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if token == "" {
+		web.WriteAPIError(w, api.ErrEmailConfirmationTokenMissing, nil)
+		return
+	}
+
+	if err := h.service.ConfirmEmail(r.Context(), token); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, dto.ConfirmEmailResponseDto{Status: "email_confirmed"}, nil)
+}
+
+func (h *UserHandler) ResendConfirmEmail(w http.ResponseWriter, r *http.Request) {
+	var req dto.ResendConfirmEmailRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	if err := h.service.ResendEmailConfirmation(r.Context(), req.Email); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, dto.ResendConfirmEmailResponseDto{Status: "confirmation_email_sent_if_needed"}, nil)
 }
 
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {

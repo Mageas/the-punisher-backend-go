@@ -44,6 +44,13 @@ var (
 
 	ErrEmailAlreadyExists                  = NewAPIError(http.StatusConflict, "conflict", ErrorDetail{Field: "email", Error: KeyValidationEmailAlreadyExists})
 	ErrInvalidCredentialsOrUserDoesntExist = NewAPIError(http.StatusUnauthorized, "invalid_credentials_or_user_doesnt_exist")
+	ErrEmailConfirmationTokenMissing       = NewAPIError(http.StatusBadRequest, "email_confirmation_token_missing")
+	ErrEmailConfirmationTokenInvalid       = NewAPIError(http.StatusBadRequest, "email_confirmation_token_invalid")
+	ErrEmailConfirmationTokenExpired       = NewAPIError(http.StatusBadRequest, "email_confirmation_token_expired")
+	ErrEmailConfirmationTokenAlreadyUsed   = NewAPIError(http.StatusConflict, "email_confirmation_token_already_used")
+	ErrEmailAlreadyVerified                = NewAPIError(http.StatusConflict, "email_already_verified")
+	ErrEmailConfirmationUserNotFound       = NewAPIError(http.StatusNotFound, "email_confirmation_user_not_found")
+	ErrEmailNotVerified                    = NewAPIError(http.StatusForbidden, "email_not_verified")
 
 	ErrJWTInvalidSigningMethod = NewAPIError(http.StatusUnauthorized, "jwt_invalid_signing_method")
 	ErrJWTInvalidToken         = NewAPIError(http.StatusUnauthorized, "jwt_invalid_token")

@@ -1,4 +1,13 @@
 services:
+  mailpit:
+    image: axllent/mailpit
+    container_name: mailpit
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+
   postgres:
     image: postgres:18.1
     container_name: the-punisher-postgres

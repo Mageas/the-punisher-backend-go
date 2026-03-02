@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/platform/config"
 	"github.com/mageas/the-punisher-backend/internal/platform/hash"
 	platformjwt "github.com/mageas/the-punisher-backend/internal/platform/jwt"
+	"github.com/mageas/the-punisher-backend/internal/repository"
 	. "github.com/mageas/the-punisher-backend/internal/service"
 )
 
@@ -26,20 +28,36 @@ func integrationJWTConfig() config.JWTConfig {
 	}
 }
 
+func createVerifiedAuthUser(t *testing.T, repo *repository.Queries, ctx context.Context, req dto.RequestUserDto) *dto.ReturnUserDto {
+	t.Helper()
+
+	userSvc := NewUserService(repo)
+	user, err := userSvc.CreateUser(ctx, req)
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	verifiedRows, err := repo.VerifyUserEmailByID(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to verify user email in test setup: %v", err)
+	}
+	if verifiedRows != 1 {
+		t.Fatalf("expected one user email to be verified, got %d", verifiedRows)
+	}
+
+	return user
+}
+
 func TestAuthService_LoginRefreshLogoutFlow_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
 
-	userSvc := NewUserService(repo)
-	user, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
 		Password:  "VeryStrongPassword123",
 	})
-	if err != nil {
-		t.Fatalf("failed to create user: %v", err)
-	}
 
 	cfg := integrationJWTConfig()
 	authSvc := NewAuthService(repo, cfg)
@@ -123,20 +141,16 @@ func TestAuthService_LoginInvalidCredentials_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
 
-	userSvc := NewUserService(repo)
-	_, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+	createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
 		Password:  "VeryStrongPassword123",
 	})
-	if err != nil {
-		t.Fatalf("failed to create user: %v", err)
-	}
 
 	authSvc := NewAuthService(repo, integrationJWTConfig())
 
-	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+	_, err := authSvc.Login(ctx, dto.LoginRequestDto{
 		Email:      "john@example.com",
 		Password:   "WrongPassword123",
 		RemoteAddr: "127.0.0.1",
@@ -150,16 +164,12 @@ func TestAuthService_RefreshWithRevokedTokenReturnsUnauthorized_WithQuerier(t *t
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
 
-	userSvc := NewUserService(repo)
-	_, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+	createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
 		Password:  "VeryStrongPassword123",
 	})
-	if err != nil {
-		t.Fatalf("failed to create user: %v", err)
-	}
 
 	authSvc := NewAuthService(repo, integrationJWTConfig())
 	loginResp, err := authSvc.Login(ctx, dto.LoginRequestDto{
@@ -185,20 +195,16 @@ func TestAuthService_LogoutAll_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
 
-	userSvc := NewUserService(repo)
-	user, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
 		Password:  "VeryStrongPassword123",
 	})
-	if err != nil {
-		t.Fatalf("failed to create user: %v", err)
-	}
 
 	authSvc := NewAuthService(repo, integrationJWTConfig())
 
-	_, err = authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123", RemoteAddr: "127.0.0.1"})
+	_, err := authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123", RemoteAddr: "127.0.0.1"})
 	if err != nil {
 		t.Fatalf("first login failed: %v", err)
 	}
@@ -217,5 +223,32 @@ func TestAuthService_LogoutAll_WithQuerier(t *testing.T) {
 	}
 	if len(tokens) != 0 {
 		t.Fatalf("expected no refresh tokens after logout all, got %d", len(tokens))
+	}
+}
+
+func TestAuthService_LoginWithUnverifiedEmailReturnsForbidden_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	userSvc := NewUserService(repo)
+	_, err := userSvc.CreateUser(ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123",
+	})
+	if err != nil {
+		t.Fatalf("failed to create user: %v", err)
+	}
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      "john@example.com",
+		Password:   "VeryStrongPassword123",
+		RemoteAddr: "127.0.0.1",
+	})
+	if !errors.Is(err, api.ErrEmailNotVerified) {
+		t.Fatalf("expected ErrEmailNotVerified, got %v", err)
 	}
 }

@@ -16,6 +16,8 @@ func (app *application) mountAuthRoutes(
 	r.Route("/v1/auth", func(r chi.Router) {
 		r.Get("/register/status", userHandler.GetRegisterStatus)
 		r.Post("/register", userHandler.CreateUser)
+		r.Get("/confirm-email", userHandler.ConfirmEmail)
+		r.Post("/confirm-email/resend", userHandler.ResendConfirmEmail)
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
 		r.Post("/logout", authHandler.Logout)

@@ -55,6 +55,10 @@ func (s *authService) Login(ctx context.Context, req dto.LoginRequestDto) (*dto.
 		return nil, api.ErrInvalidCredentialsOrUserDoesntExist
 	}
 
+	if userCredentials.EmailVerifiedAt == nil {
+		return nil, api.ErrEmailNotVerified
+	}
+
 	accessToken, err := jwt.Generate(jwt.Config{
 		Secret:     s.cfg.AccessSecret,
 		Expiration: s.cfg.AccessExpiration,

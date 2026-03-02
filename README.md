@@ -75,6 +75,26 @@ Variables disponibles (dans `.env`) :
 Note sécurité : si `CORS_ALLOW_CREDENTIALS=true`, les origins contenant `*` sont refusées au démarrage.
 Par défaut, `JWT_REFRESH_COOKIE_SECURE=true` quand `APP_ENV=production`.
 
+## Confirmation email (SMTP)
+
+Lors d'une inscription (`POST /v1/auth/register`), le backend:
+- crée un token signé de confirmation email avec expiration
+- envoie automatiquement un email via SMTP après validation de la transaction en base
+- valide l'email via `GET /v1/auth/confirm-email?token=<token>`
+- permet de renvoyer un nouveau lien via `POST /v1/auth/confirm-email/resend`
+- bloque le login tant que l'email n'est pas confirmé
+
+Variables d'environnement associées:
+- `EMAIL_CONFIRMATION_SECRET`
+- `EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS`
+- `EMAIL_CONFIRMATION_BASE_URL` (URL absolue valide requise, ex: `https://api.example.com/v1/auth/confirm-email`)
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USERNAME`
+- `SMTP_PASSWORD`
+- `SMTP_FROM_EMAIL`
+- `SMTP_FROM_NAME`
+
 ## Build
 
 ```bash

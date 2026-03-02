@@ -88,19 +88,72 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 }
 
 const getUserCredentialsByEmailForAuth = `-- name: GetUserCredentialsByEmailForAuth :one
-SELECT id, email, password_hash FROM users WHERE email = LOWER($1) LIMIT 1
+SELECT id, email, password_hash, email_verified_at
+FROM users
+WHERE email = LOWER($1)
+LIMIT 1
 `
 
 type GetUserCredentialsByEmailForAuthRow struct {
-	ID           uuid.UUID `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"password_hash"`
+	ID              uuid.UUID  `json:"id"`
+	Email           string     `json:"email"`
+	PasswordHash    string     `json:"password_hash"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
 }
 
 func (q *Queries) GetUserCredentialsByEmailForAuth(ctx context.Context, email string) (GetUserCredentialsByEmailForAuthRow, error) {
 	row := q.db.QueryRow(ctx, getUserCredentialsByEmailForAuth, email)
 	var i GetUserCredentialsByEmailForAuthRow
-	err := row.Scan(&i.ID, &i.Email, &i.PasswordHash)
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
+const getUserEmailVerificationStateByEmail = `-- name: GetUserEmailVerificationStateByEmail :one
+SELECT id, email, first_name, email_verified_at
+FROM users
+WHERE email = LOWER($1)
+LIMIT 1
+`
+
+type GetUserEmailVerificationStateByEmailRow struct {
+	ID              uuid.UUID  `json:"id"`
+	Email           string     `json:"email"`
+	FirstName       string     `json:"first_name"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
+}
+
+func (q *Queries) GetUserEmailVerificationStateByEmail(ctx context.Context, email string) (GetUserEmailVerificationStateByEmailRow, error) {
+	row := q.db.QueryRow(ctx, getUserEmailVerificationStateByEmail, email)
+	var i GetUserEmailVerificationStateByEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.FirstName,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
+const getUserEmailVerificationStateByID = `-- name: GetUserEmailVerificationStateByID :one
+SELECT id, email_verified_at
+FROM users
+WHERE id = $1 LIMIT 1
+`
+
+type GetUserEmailVerificationStateByIDRow struct {
+	ID              uuid.UUID  `json:"id"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at"`
+}
+
+func (q *Queries) GetUserEmailVerificationStateByID(ctx context.Context, id uuid.UUID) (GetUserEmailVerificationStateByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserEmailVerificationStateByID, id)
+	var i GetUserEmailVerificationStateByIDRow
+	err := row.Scan(&i.ID, &i.EmailVerifiedAt)
 	return i, err
 }
 
@@ -115,4 +168,20 @@ func (q *Queries) UserEmailExists(ctx context.Context, email string) (bool, erro
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const verifyUserEmailByID = `-- name: VerifyUserEmailByID :execrows
+UPDATE users
+SET email_verified_at = NOW(),
+    updated_at = NOW()
+WHERE id = $1
+  AND email_verified_at IS NULL
+`
+
+func (q *Queries) VerifyUserEmailByID(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, verifyUserEmailByID, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

@@ -13,10 +13,31 @@ SELECT id, email, first_name, last_name, created_at, updated_at
 FROM users
 WHERE id = sqlc.arg(id) LIMIT 1;
 
+-- name: GetUserEmailVerificationStateByID :one
+SELECT id, email_verified_at
+FROM users
+WHERE id = sqlc.arg(id) LIMIT 1;
+
+-- name: GetUserEmailVerificationStateByEmail :one
+SELECT id, email, first_name, email_verified_at
+FROM users
+WHERE email = LOWER(sqlc.arg(email))
+LIMIT 1;
+
+-- name: VerifyUserEmailByID :execrows
+UPDATE users
+SET email_verified_at = NOW(),
+    updated_at = NOW()
+WHERE id = sqlc.arg(id)
+  AND email_verified_at IS NULL;
+
 -- name: UserEmailExists :one
 SELECT EXISTS (
     SELECT 1 FROM users WHERE email = LOWER(sqlc.arg(email)) LIMIT 1
 );
 
 -- name: GetUserCredentialsByEmailForAuth :one
-SELECT id, email, password_hash FROM users WHERE email = LOWER(sqlc.arg(email)) LIMIT 1;
+SELECT id, email, password_hash, email_verified_at
+FROM users
+WHERE email = LOWER(sqlc.arg(email))
+LIMIT 1;
