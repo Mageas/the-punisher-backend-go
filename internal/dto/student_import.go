@@ -1,10 +1,11 @@
 package dto
 
 type StudentImportRowErrorDto struct {
-	Row     int    `json:"row"`
-	Field   string `json:"field"`
-	Message string `json:"message"`
-	Value   string `json:"value,omitempty"`
+	Row          int      `json:"row"`
+	Field        string   `json:"field"`
+	Key          string   `json:"key"`
+	Value        string   `json:"value,omitempty"`
+	ErrorDetails []string `json:"error_details,omitempty"`
 }
 
 type StudentImportSummaryDto struct {

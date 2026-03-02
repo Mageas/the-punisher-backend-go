@@ -22,6 +22,16 @@ func decodeErrorResponse(t *testing.T, rr *httptest.ResponseRecorder) api.ErrorR
 	return body
 }
 
+func decodeImportErrorResponse(t *testing.T, rr *httptest.ResponseRecorder) api.ImportErrorResponse {
+	t.Helper()
+
+	var body api.ImportErrorResponse
+	if err := json.NewDecoder(rr.Body).Decode(&body); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	return body
+}
+
 func TestWriteJSON(t *testing.T) {
 	rr := httptest.NewRecorder()
 	h := http.Header{}
@@ -170,5 +180,34 @@ func TestWriteFromError(t *testing.T) {
 	WriteFromError(rr2, errors.New("boom"))
 	if rr2.Code != http.StatusInternalServerError {
 		t.Fatalf("expected 500, got %d", rr2.Code)
+	}
+}
+
+func TestWriteFromErrorImportValidationError(t *testing.T) {
+	row := 4
+	importErr := api.NewImportValidationError(api.ImportErrorDetail{
+		Row:          &row,
+		Field:        "classes",
+		Error:        "import_invalid_length",
+		Value:        "A",
+		ErrorDetails: []string{"min:2", "max:100"},
+	})
+
+	rr := httptest.NewRecorder()
+	WriteFromError(rr, importErr)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", rr.Code)
+	}
+
+	body := decodeImportErrorResponse(t, rr)
+	if body.Error != api.ErrImportValidationFailed.Message {
+		t.Fatalf("unexpected error: %s", body.Error)
+	}
+	if len(body.ErrorDetails) != 1 {
+		t.Fatalf("expected one detail, got %+v", body.ErrorDetails)
+	}
+	if body.ErrorDetails[0].Error != "import_invalid_length" {
+		t.Fatalf("unexpected detail: %+v", body.ErrorDetails[0])
 	}
 }
