@@ -16,6 +16,16 @@ type RefreshResponseDto struct {
 	RefreshToken string `json:"-"`
 }
 
+type ChangePasswordRequestDto struct {
+	CurrentPassword string `json:"current_password" validate:"required,min=8"`
+	NewPassword     string `json:"new_password" validate:"required,min=8"`
+	ConfirmPassword string `json:"confirm_password" validate:"required"`
+}
+
+type ChangePasswordResponseDto struct {
+	Status string `json:"status"`
+}
+
 type RegisterStatusResponseDto struct {
 	RegisterAllowed bool `json:"register_allowed"`
 }

@@ -44,6 +44,7 @@ var (
 
 	ErrEmailAlreadyExists                  = NewAPIError(http.StatusConflict, "conflict", ErrorDetail{Field: "email", Error: KeyValidationEmailAlreadyExists})
 	ErrInvalidCredentialsOrUserDoesntExist = NewAPIError(http.StatusUnauthorized, "invalid_credentials_or_user_doesnt_exist")
+	ErrInvalidCurrentPassword              = NewAPIError(http.StatusUnauthorized, "invalid_current_password")
 	ErrEmailConfirmationTokenMissing       = NewAPIError(http.StatusBadRequest, "email_confirmation_token_missing")
 	ErrEmailConfirmationTokenInvalid       = NewAPIError(http.StatusBadRequest, "email_confirmation_token_invalid")
 	ErrEmailConfirmationTokenExpired       = NewAPIError(http.StatusBadRequest, "email_confirmation_token_expired")
@@ -87,4 +88,6 @@ const (
 
 	KeyValidationUnknownField       = "validation_unknown_field"
 	KeyValidationMalformedParameter = "validation_malformed_parameter:expected_%s"
+
+	KeyValidationPasswordConfirmationMismatch = "validation_password_confirmation_mismatch"
 )
