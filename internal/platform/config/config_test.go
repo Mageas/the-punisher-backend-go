@@ -76,6 +76,9 @@ func TestLoad(t *testing.T) {
 	t.Setenv("EMAIL_CONFIRMATION_SECRET", "email-confirm-secret")
 	t.Setenv("EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS", "48")
 	t.Setenv("EMAIL_CONFIRMATION_BASE_URL", "http://localhost:8080/v1/auth/confirm-email")
+	t.Setenv("PASSWORD_RESET_SECRET", "password-reset-secret")
+	t.Setenv("PASSWORD_RESET_EXPIRATION_IN_HOURS", "2")
+	t.Setenv("PASSWORD_RESET_BASE_URL", "http://localhost:3000/reset-password")
 
 	t.Setenv("SMTP_HOST", "localhost")
 	t.Setenv("SMTP_PORT", "1025")
@@ -99,6 +102,9 @@ func TestLoad(t *testing.T) {
 	}
 	if cfg.EmailConfirm.Secret != "email-confirm-secret" || cfg.EmailConfirm.Expiration.Hours() != 48 {
 		t.Fatalf("unexpected email confirmation config: %+v", cfg.EmailConfirm)
+	}
+	if cfg.PasswordReset.Secret != "password-reset-secret" || cfg.PasswordReset.Expiration.Hours() != 2 {
+		t.Fatalf("unexpected password reset config: %+v", cfg.PasswordReset)
 	}
 	if cfg.SMTP.Host != "localhost" || cfg.SMTP.Port != 1025 || cfg.SMTP.FromEmail != "no-reply@test.local" {
 		t.Fatalf("unexpected smtp config: %+v", cfg.SMTP)
@@ -172,6 +178,14 @@ func TestValidateEmailConfirmationConfigInvalidBaseURLExits(t *testing.T) {
 	runFatalHelper(t, "email_confirmation_invalid_base_url")
 }
 
+func TestValidatePasswordResetConfigInvalidDurationExits(t *testing.T) {
+	runFatalHelper(t, "password_reset_invalid_duration")
+}
+
+func TestValidatePasswordResetConfigInvalidBaseURLExits(t *testing.T) {
+	runFatalHelper(t, "password_reset_invalid_base_url")
+}
+
 func TestHelperProcessForFatalConfig(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
@@ -201,6 +215,18 @@ func TestHelperProcessForFatalConfig(t *testing.T) {
 			Secret:     "secret",
 			Expiration: 24 * time.Hour,
 			BaseURL:    "/v1/auth/confirm-email",
+		})
+	case "password_reset_invalid_duration":
+		validatePasswordResetConfig(PasswordResetConfig{
+			Secret:     "secret",
+			Expiration: 0,
+			BaseURL:    "http://localhost:3000/reset-password",
+		})
+	case "password_reset_invalid_base_url":
+		validatePasswordResetConfig(PasswordResetConfig{
+			Secret:     "secret",
+			Expiration: time.Hour,
+			BaseURL:    "/reset-password",
 		})
 	default:
 		os.Exit(2)

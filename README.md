@@ -75,7 +75,7 @@ Variables disponibles (dans `.env`) :
 Note sécurité : si `CORS_ALLOW_CREDENTIALS=true`, les origins contenant `*` sont refusées au démarrage.
 Par défaut, `JWT_REFRESH_COOKIE_SECURE=true` quand `APP_ENV=production`.
 
-## Confirmation email (SMTP)
+## Emails transactionnels (SMTP)
 
 Lors d'une inscription (`POST /v1/auth/register`), le backend:
 - crée un token signé de confirmation email avec expiration
@@ -94,6 +94,42 @@ Variables d'environnement associées:
 - `SMTP_PASSWORD`
 - `SMTP_FROM_EMAIL`
 - `SMTP_FROM_NAME`
+
+## Réinitialisation de mot de passe (lien email)
+
+Endpoints publics:
+- `POST /v1/auth/forgot-password`
+- `POST /v1/auth/reset-password`
+
+Body `forgot-password`:
+```json
+{
+  "email": "teacher@school.test"
+}
+```
+
+Body `reset-password`:
+```json
+{
+  "token": "<jwt_password_reset_token>",
+  "new_password": "NewSecurePass2@",
+  "confirm_password": "NewSecurePass2@"
+}
+```
+
+Regles appliquees:
+- `forgot-password` repond de maniere neutre (200) meme si l'utilisateur n'existe pas
+- si l'utilisateur existe, generation d'un token signe temporaire + envoi d'un email contenant un lien unique
+- `reset-password` verifie la validite du token (invalide/expire/deja utilise)
+- verification `new_password == confirm_password`
+- mise a jour du mot de passe (`password_hash`, `password_changed_at`)
+- invalidation des refresh tokens utilisateur
+- invalidation du token de reset apres usage
+
+Variables d'environnement associees:
+- `PASSWORD_RESET_SECRET`
+- `PASSWORD_RESET_EXPIRATION_IN_HOURS`
+- `PASSWORD_RESET_BASE_URL` (URL absolue valide requise, ex: `https://app.example.com/reset-password`)
 
 ## Changement de mot de passe (authentifie)
 

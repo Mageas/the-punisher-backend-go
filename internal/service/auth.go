@@ -24,11 +24,26 @@ type AuthService interface {
 	Logout(ctx context.Context, refreshToken string) error
 	LogoutAll(ctx context.Context, userID uuid.UUID) error
 	ChangePassword(ctx context.Context, userID uuid.UUID, req dto.ChangePasswordRequestDto) error
+	ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequestDto) error
+	ResetPassword(ctx context.Context, req dto.ResetPasswordRequestDto) error
+}
+
+type PasswordResetEmailSender interface {
+	SendPasswordResetEmail(ctx context.Context, toEmail string, firstName string, resetURL string, expiresIn time.Duration) error
+}
+
+type passwordResetEmailPayload struct {
+	toEmail   string
+	firstName string
+	resetURL  string
+	expiresIn time.Duration
 }
 
 type authService struct {
-	repo repository.Querier
-	cfg  config.JWTConfig
+	repo                repository.Querier
+	cfg                 config.JWTConfig
+	passwordResetCfg    config.PasswordResetConfig
+	passwordResetMailer PasswordResetEmailSender
 }
 
 type transactionalAuthRepo interface {
@@ -40,6 +55,20 @@ func NewAuthService(repo repository.Querier, cfg config.JWTConfig) AuthService {
 	return &authService{
 		repo: repo,
 		cfg:  cfg,
+	}
+}
+
+func NewAuthServiceWithPasswordReset(
+	repo repository.Querier,
+	cfg config.JWTConfig,
+	passwordResetCfg config.PasswordResetConfig,
+	passwordResetMailer PasswordResetEmailSender,
+) AuthService {
+	return &authService{
+		repo:                repo,
+		cfg:                 cfg,
+		passwordResetCfg:    passwordResetCfg,
+		passwordResetMailer: passwordResetMailer,
 	}
 }
 
@@ -281,7 +310,260 @@ func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, req 
 	return nil
 }
 
+func (s *authService) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequestDto) error {
+	if !s.isPasswordResetEnabled() {
+		return fmt.Errorf("password reset is not configured")
+	}
+
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		return nil
+	}
+
+	txRepo, ok := s.repo.(transactionalAuthRepo)
+	if !ok {
+		return fmt.Errorf("auth repository does not support transactions")
+	}
+
+	var pendingPasswordResetEmail *passwordResetEmailPayload
+
+	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		userVerification, getUserErr := txQuerier.GetUserEmailVerificationStateByEmail(ctx, email)
+		if getUserErr != nil {
+			if errors.Is(getUserErr, repository.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("failed to get user verification state by email: %w", getUserErr)
+		}
+
+		if _, invalidateErr := txQuerier.InvalidatePasswordResetTokensByUserID(ctx, userVerification.ID); invalidateErr != nil {
+			return fmt.Errorf("failed to invalidate previous password reset tokens: %w", invalidateErr)
+		}
+
+		passwordResetEmail, payloadErr := s.createPasswordResetEmailPayload(
+			ctx,
+			txQuerier,
+			userVerification.ID,
+			userVerification.Email,
+			userVerification.FirstName,
+		)
+		if payloadErr != nil {
+			return payloadErr
+		}
+
+		pendingPasswordResetEmail = passwordResetEmail
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if pendingPasswordResetEmail != nil {
+		if err := s.sendPasswordResetEmail(ctx, *pendingPasswordResetEmail); err != nil {
+			return err
+		}
+	}
+
+	slog.Info("password reset requested", "email", email, "email_sent", pendingPasswordResetEmail != nil)
+	return nil
+}
+
+func (s *authService) ResetPassword(ctx context.Context, req dto.ResetPasswordRequestDto) error {
+	if !s.isPasswordResetEnabled() {
+		return fmt.Errorf("password reset is not configured")
+	}
+
+	if err := validateResetPasswordRequest(req); err != nil {
+		return err
+	}
+
+	token := strings.TrimSpace(req.Token)
+	if token == "" {
+		return api.ErrPasswordResetTokenMissing
+	}
+
+	claims, err := jwt.Verify(token, jwt.VerifyConfig{
+		Secret:   s.passwordResetCfg.Secret,
+		Issuer:   s.passwordResetCfg.Issuer,
+		Audience: s.passwordResetCfg.Audience,
+	})
+	if err != nil {
+		if errors.Is(err, api.ErrJWTExpired) {
+			return api.ErrPasswordResetTokenExpired
+		}
+		return api.ErrPasswordResetTokenInvalid
+	}
+
+	subject, err := claims.GetSubject()
+	if err != nil {
+		return api.ErrPasswordResetTokenInvalid
+	}
+
+	claimedUserID, err := uuid.Parse(subject)
+	if err != nil {
+		return api.ErrPasswordResetTokenInvalid
+	}
+
+	txRepo, ok := s.repo.(transactionalAuthRepo)
+	if !ok {
+		return fmt.Errorf("auth repository does not support transactions")
+	}
+
+	tokenHash := hash.HashToken(token, s.passwordResetCfg.Secret)
+	var invalidatedCount int64
+
+	err = txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		resetToken, getTokenErr := txQuerier.GetPasswordResetTokenByHash(ctx, tokenHash)
+		if getTokenErr != nil {
+			if errors.Is(getTokenErr, repository.ErrNoRows) {
+				return api.ErrPasswordResetTokenInvalid
+			}
+			return fmt.Errorf("failed to get password reset token: %w", getTokenErr)
+		}
+
+		if resetToken.UserID != claimedUserID {
+			return api.ErrPasswordResetTokenInvalid
+		}
+
+		if resetToken.UsedAt != nil {
+			return api.ErrPasswordResetTokenAlreadyUsed
+		}
+
+		if time.Now().After(resetToken.ExpiresAt) {
+			return api.ErrPasswordResetTokenExpired
+		}
+
+		hashedPassword, hashErr := hash.HashPassword(req.NewPassword)
+		if hashErr != nil {
+			return fmt.Errorf("failed to hash password: %w", hashErr)
+		}
+
+		updatedRows, updateErr := txQuerier.UpdateUserPasswordByID(ctx, repository.UpdateUserPasswordByIDParams{
+			ID:           resetToken.UserID,
+			PasswordHash: hashedPassword,
+		})
+		if updateErr != nil {
+			return fmt.Errorf("failed to update user password: %w", updateErr)
+		}
+		if updatedRows == 0 {
+			return api.ErrPasswordResetUserNotFound
+		}
+
+		deletedCount, deleteErr := txQuerier.DeleteRefreshTokensByUserId(ctx, resetToken.UserID)
+		if deleteErr != nil {
+			return fmt.Errorf("failed to delete refresh tokens by user id: %w", deleteErr)
+		}
+		invalidatedCount = deletedCount
+
+		usedRows, markUsedErr := txQuerier.MarkPasswordResetTokenUsedByID(ctx, resetToken.ID)
+		if markUsedErr != nil {
+			return fmt.Errorf("failed to mark password reset token as used: %w", markUsedErr)
+		}
+		if usedRows == 0 {
+			return api.ErrPasswordResetTokenAlreadyUsed
+		}
+
+		if _, invalidateErr := txQuerier.InvalidatePasswordResetTokensByUserID(ctx, resetToken.UserID); invalidateErr != nil {
+			return fmt.Errorf("failed to invalidate previous password reset tokens: %w", invalidateErr)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	slog.Info("password reset completed", "user_id", claimedUserID, "invalidated_refresh_token_count", invalidatedCount)
+	return nil
+}
+
+func (s *authService) isPasswordResetEnabled() bool {
+	return strings.TrimSpace(s.passwordResetCfg.Secret) != "" &&
+		strings.TrimSpace(s.passwordResetCfg.BaseURL) != "" &&
+		s.passwordResetCfg.Expiration > 0 &&
+		s.passwordResetMailer != nil
+}
+
+func (s *authService) createPasswordResetEmailPayload(
+	ctx context.Context,
+	txQuerier repository.Querier,
+	userID uuid.UUID,
+	email string,
+	firstName string,
+) (*passwordResetEmailPayload, error) {
+	resetToken, expiresAt, tokenErr := s.generatePasswordResetToken(userID)
+	if tokenErr != nil {
+		return nil, tokenErr
+	}
+
+	_, createTokenErr := txQuerier.CreatePasswordResetToken(ctx, repository.CreatePasswordResetTokenParams{
+		UserID:    userID,
+		TokenHash: hash.HashToken(resetToken, s.passwordResetCfg.Secret),
+		ExpiresAt: expiresAt,
+	})
+	if createTokenErr != nil {
+		return nil, fmt.Errorf("failed to create password reset token: %w", createTokenErr)
+	}
+
+	resetURL, linkErr := buildTokenURL(s.passwordResetCfg.BaseURL, resetToken, "password reset")
+	if linkErr != nil {
+		return nil, linkErr
+	}
+
+	return &passwordResetEmailPayload{
+		toEmail:   email,
+		firstName: firstName,
+		resetURL:  resetURL,
+		expiresIn: s.passwordResetCfg.Expiration,
+	}, nil
+}
+
+func (s *authService) sendPasswordResetEmail(ctx context.Context, resetEmail passwordResetEmailPayload) error {
+	if err := s.passwordResetMailer.SendPasswordResetEmail(
+		ctx,
+		resetEmail.toEmail,
+		resetEmail.firstName,
+		resetEmail.resetURL,
+		resetEmail.expiresIn,
+	); err != nil {
+		return fmt.Errorf("failed to send password reset email: %w", err)
+	}
+
+	return nil
+}
+
+func (s *authService) generatePasswordResetToken(userID uuid.UUID) (string, time.Time, error) {
+	token, err := jwt.Generate(jwt.Config{
+		Secret:     s.passwordResetCfg.Secret,
+		Expiration: s.passwordResetCfg.Expiration,
+		Issuer:     s.passwordResetCfg.Issuer,
+		Audience:   s.passwordResetCfg.Audience,
+	}, userID.String())
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to generate password reset token: %w", err)
+	}
+
+	return token, time.Now().Add(s.passwordResetCfg.Expiration), nil
+}
+
 func validatePasswordChangeRequest(req dto.ChangePasswordRequestDto) error {
+	details := make([]api.ErrorDetail, 0, 1)
+
+	if req.NewPassword != req.ConfirmPassword {
+		details = append(details, api.ErrorDetail{
+			Field: "confirm_password",
+			Error: api.KeyValidationPasswordConfirmationMismatch,
+		})
+	}
+
+	if len(details) == 0 {
+		return nil
+	}
+
+	return api.NewAPIError(http.StatusBadRequest, api.ErrValidationFailed.Message, details...)
+}
+
+func validateResetPasswordRequest(req dto.ResetPasswordRequestDto) error {
 	details := make([]api.ErrorDetail, 0, 1)
 
 	if req.NewPassword != req.ConfirmPassword {

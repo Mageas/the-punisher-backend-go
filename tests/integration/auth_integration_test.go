@@ -5,6 +5,8 @@ package integration
 import (
 	"context"
 	"errors"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,6 +28,64 @@ func integrationJWTConfig() config.JWTConfig {
 		Issuer:            "test-issuer",
 		Audience:          "test-audience",
 	}
+}
+
+type capturedPasswordResetEmail struct {
+	ToEmail   string
+	FirstName string
+	ResetURL  string
+	ExpiresIn time.Duration
+}
+
+type fakePasswordResetMailer struct {
+	emails []capturedPasswordResetEmail
+	err    error
+}
+
+func (f *fakePasswordResetMailer) SendPasswordResetEmail(
+	_ context.Context,
+	toEmail string,
+	firstName string,
+	resetURL string,
+	expiresIn time.Duration,
+) error {
+	if f.err != nil {
+		return f.err
+	}
+
+	f.emails = append(f.emails, capturedPasswordResetEmail{
+		ToEmail:   toEmail,
+		FirstName: firstName,
+		ResetURL:  resetURL,
+		ExpiresIn: expiresIn,
+	})
+	return nil
+}
+
+func integrationPasswordResetConfig() config.PasswordResetConfig {
+	return config.PasswordResetConfig{
+		Secret:     "password-reset-secret",
+		Expiration: time.Hour,
+		BaseURL:    "http://localhost:3000/reset-password",
+		Issuer:     "test-issuer",
+		Audience:   "test-audience",
+	}
+}
+
+func tokenFromPasswordResetURL(t *testing.T, resetURL string) string {
+	t.Helper()
+
+	parsed, err := url.Parse(resetURL)
+	if err != nil {
+		t.Fatalf("failed to parse password reset URL: %v", err)
+	}
+
+	token := strings.TrimSpace(parsed.Query().Get("token"))
+	if token == "" {
+		t.Fatalf("missing token in password reset URL: %s", resetURL)
+	}
+
+	return token
 }
 
 func createVerifiedAuthUser(t *testing.T, repo *repository.Queries, ctx context.Context, req dto.RequestUserDto) *dto.ReturnUserDto {
@@ -412,6 +472,186 @@ func TestAuthService_ChangePasswordMismatchConfirmation_WithQuerier(t *testing.T
 	}
 	if !hasErrorDetail(apiErr.Details, "confirm_password", api.KeyValidationPasswordConfirmationMismatch) {
 		t.Fatalf("expected confirm_password mismatch detail, got %+v", apiErr.Details)
+	}
+}
+
+func TestAuthService_ForgotAndResetPasswordFlow_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "forgot-reset.success@example.com",
+		FirstName: "Forgot",
+		LastName:  "Reset",
+		Password:  "CurrentPass1!",
+	})
+
+	mailer := &fakePasswordResetMailer{}
+	authSvc := NewAuthServiceWithPasswordReset(repo, integrationJWTConfig(), integrationPasswordResetConfig(), mailer)
+
+	_, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("first login failed: %v", err)
+	}
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.2",
+	})
+	if err != nil {
+		t.Fatalf("second login failed: %v", err)
+	}
+
+	if err := authSvc.ForgotPassword(ctx, dto.ForgotPasswordRequestDto{Email: user.Email}); err != nil {
+		t.Fatalf("ForgotPassword first call failed: %v", err)
+	}
+	if len(mailer.emails) != 1 {
+		t.Fatalf("expected one password reset email, got %d", len(mailer.emails))
+	}
+	firstToken := tokenFromPasswordResetURL(t, mailer.emails[0].ResetURL)
+
+	if err := authSvc.ForgotPassword(ctx, dto.ForgotPasswordRequestDto{Email: "FORGOT-RESET.SUCCESS@EXAMPLE.COM"}); err != nil {
+		t.Fatalf("ForgotPassword second call failed: %v", err)
+	}
+	if len(mailer.emails) != 2 {
+		t.Fatalf("expected two password reset emails, got %d", len(mailer.emails))
+	}
+	secondToken := tokenFromPasswordResetURL(t, mailer.emails[1].ResetURL)
+	if secondToken == firstToken {
+		t.Fatalf("expected newly generated password reset token")
+	}
+
+	err = authSvc.ResetPassword(ctx, dto.ResetPasswordRequestDto{
+		Token:           firstToken,
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "NewSecurePass2@",
+	})
+	if !errors.Is(err, api.ErrPasswordResetTokenAlreadyUsed) {
+		t.Fatalf("expected ErrPasswordResetTokenAlreadyUsed for invalidated token, got %v", err)
+	}
+
+	err = authSvc.ResetPassword(ctx, dto.ResetPasswordRequestDto{
+		Token:           secondToken,
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "NewSecurePass2@",
+	})
+	if err != nil {
+		t.Fatalf("ResetPassword returned error: %v", err)
+	}
+
+	afterChange, err := repo.GetUserCredentialsByIDForAuth(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to load credentials after reset: %v", err)
+	}
+	if afterChange.PasswordChangedAt == nil {
+		t.Fatalf("expected password_changed_at to be set after reset")
+	}
+
+	tokens, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens after reset: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Fatalf("expected all refresh tokens to be invalidated after reset, got %d", len(tokens))
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if !errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
+		t.Fatalf("expected old password to fail, got %v", err)
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "NewSecurePass2@",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("expected login with new password to succeed, got %v", err)
+	}
+
+	err = authSvc.ResetPassword(ctx, dto.ResetPasswordRequestDto{
+		Token:           secondToken,
+		NewPassword:     "AnotherPass3#",
+		ConfirmPassword: "AnotherPass3#",
+	})
+	if !errors.Is(err, api.ErrPasswordResetTokenAlreadyUsed) {
+		t.Fatalf("expected token to be unusable after success, got %v", err)
+	}
+}
+
+func TestAuthService_ForgotPasswordUnknownUserIsNeutral_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	mailer := &fakePasswordResetMailer{}
+	authSvc := NewAuthServiceWithPasswordReset(repo, integrationJWTConfig(), integrationPasswordResetConfig(), mailer)
+
+	if err := authSvc.ForgotPassword(ctx, dto.ForgotPasswordRequestDto{Email: "missing.user@example.com"}); err != nil {
+		t.Fatalf("ForgotPassword should be neutral for unknown user, got %v", err)
+	}
+	if len(mailer.emails) != 0 {
+		t.Fatalf("expected no email for unknown user, got %d", len(mailer.emails))
+	}
+}
+
+func TestAuthService_ResetPasswordInvalidToken_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	authSvc := NewAuthServiceWithPasswordReset(repo, integrationJWTConfig(), integrationPasswordResetConfig(), &fakePasswordResetMailer{})
+
+	err := authSvc.ResetPassword(ctx, dto.ResetPasswordRequestDto{
+		Token:           "not-a-jwt",
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "NewSecurePass2@",
+	})
+	if !errors.Is(err, api.ErrPasswordResetTokenInvalid) {
+		t.Fatalf("expected ErrPasswordResetTokenInvalid, got %v", err)
+	}
+}
+
+func TestAuthService_ResetPasswordExpiredToken_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "forgot-reset.expired@example.com",
+		FirstName: "Forgot",
+		LastName:  "Reset",
+		Password:  "CurrentPass1!",
+	})
+
+	expiredConfig := integrationPasswordResetConfig()
+	expiredConfig.Expiration = time.Millisecond
+
+	mailer := &fakePasswordResetMailer{}
+	authSvc := NewAuthServiceWithPasswordReset(repo, integrationJWTConfig(), expiredConfig, mailer)
+
+	if err := authSvc.ForgotPassword(ctx, dto.ForgotPasswordRequestDto{Email: user.Email}); err != nil {
+		t.Fatalf("ForgotPassword returned error: %v", err)
+	}
+	if len(mailer.emails) != 1 {
+		t.Fatalf("expected one password reset email, got %d", len(mailer.emails))
+	}
+
+	token := tokenFromPasswordResetURL(t, mailer.emails[0].ResetURL)
+	time.Sleep(25 * time.Millisecond)
+
+	err := authSvc.ResetPassword(ctx, dto.ResetPasswordRequestDto{
+		Token:           token,
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "NewSecurePass2@",
+	})
+	if !errors.Is(err, api.ErrPasswordResetTokenExpired) {
+		t.Fatalf("expected ErrPasswordResetTokenExpired, got %v", err)
 	}
 }
 

@@ -50,7 +50,7 @@ func (app *application) mount() http.Handler {
 	userService := service.NewUserServiceWithEmailConfirmation(repo, app.config.EmailConfirm, smtpMailer)
 	userHandler := handler.NewUserHandler(userService, app.config)
 
-	authService := service.NewAuthService(repo, app.config.JWT)
+	authService := service.NewAuthServiceWithPasswordReset(repo, app.config.JWT, app.config.PasswordReset, smtpMailer)
 	authHandler := handler.NewAuthHandler(authService, app.config.JWT, "/v1/auth")
 	authMiddleware := auth.AuthMiddleware(app.config.JWT.AccessSecret, app.config.JWT.Issuer, app.config.JWT.Audience)
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"strings"
 	"time"
 
@@ -338,7 +337,7 @@ func (s *userService) createConfirmationEmailPayload(
 		return nil, fmt.Errorf("failed to create email confirmation token: %w", createTokenErr)
 	}
 
-	confirmationURL, linkErr := buildEmailConfirmationURL(s.emailConfirmCfg.BaseURL, confirmationToken)
+	confirmationURL, linkErr := buildTokenURL(s.emailConfirmCfg.BaseURL, confirmationToken, "email confirmation")
 	if linkErr != nil {
 		return nil, linkErr
 	}
@@ -377,17 +376,4 @@ func (s *userService) generateEmailConfirmationToken(userID uuid.UUID) (string, 
 	}
 
 	return token, time.Now().Add(s.emailConfirmCfg.Expiration), nil
-}
-
-func buildEmailConfirmationURL(baseURL string, token string) (string, error) {
-	parsedURL, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil {
-		return "", fmt.Errorf("invalid email confirmation base URL: %w", err)
-	}
-
-	query := parsedURL.Query()
-	query.Set("token", token)
-	parsedURL.RawQuery = query.Encode()
-
-	return parsedURL.String(), nil
 }

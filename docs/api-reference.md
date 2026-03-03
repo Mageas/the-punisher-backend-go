@@ -13,6 +13,8 @@
   - `POST /v1/auth/register`
   - `GET /v1/auth/confirm-email`
   - `POST /v1/auth/confirm-email/resend`
+  - `POST /v1/auth/forgot-password`
+  - `POST /v1/auth/reset-password`
   - `POST /v1/auth/login`
   - `POST /v1/auth/refresh`
   - `POST /v1/auth/logout`
@@ -132,6 +134,24 @@ interface ResendConfirmEmailRequestDto {
 
 interface ResendConfirmEmailResponseDto {
   status: "confirmation_email_sent_if_needed";
+}
+
+interface ForgotPasswordRequestDto {
+  email: string;
+}
+
+interface ForgotPasswordResponseDto {
+  status: "password_reset_email_sent_if_needed";
+}
+
+interface ResetPasswordRequestDto {
+  token: string;
+  new_password: string;
+  confirm_password: string;
+}
+
+interface ResetPasswordResponseDto {
+  status: "password_reset";
 }
 
 // User
@@ -421,6 +441,54 @@ Exemple 200:
 ```json
 {
   "status": "confirmation_email_sent_if_needed"
+}
+```
+
+### POST `/v1/auth/forgot-password`
+- Auth: non
+- Body:
+```json
+{
+  "email": "teacher@school.test"
+}
+```
+- 200: `ForgotPasswordResponseDto`
+- Comportement: réponse neutre. Si l'utilisateur n'existe pas, la réponse reste 200.
+- Side effects (si utilisateur trouvé):
+  - invalide les anciens tokens de reset encore actifs
+  - génère un nouveau token signé temporaire
+  - envoie un email avec un lien de reset contenant `?token=...`
+- Erreurs: `validation_failed`, `invalid_request_body`
+
+Exemple 200:
+```json
+{
+  "status": "password_reset_email_sent_if_needed"
+}
+```
+
+### POST `/v1/auth/reset-password`
+- Auth: non
+- Body:
+```json
+{
+  "token": "<jwt_password_reset_token>",
+  "new_password": "NewSecurePass2@",
+  "confirm_password": "NewSecurePass2@"
+}
+```
+- 200: `ResetPasswordResponseDto`
+- Politique mot de passe: même validation que l'inscription (`required,min=8`).
+- Side effects:
+  - met à jour `password_hash`, `password_changed_at`, `updated_at`
+  - invalide tous les refresh tokens de l'utilisateur
+  - marque le token de reset utilisé (et invalide les autres tokens actifs restants)
+- Erreurs: `validation_failed`, `invalid_request_body`, `password_reset_token_missing`, `password_reset_token_invalid`, `password_reset_token_expired`, `password_reset_token_already_used`, `password_reset_user_not_found`
+
+Exemple 200:
+```json
+{
+  "status": "password_reset"
 }
 ```
 
@@ -1085,6 +1153,18 @@ Exemple 200 (tronqué):
 ```json
 { "error": "email_confirmation_token_expired", "error_code": 400 }
 ```
+- `password_reset_token_missing`
+```json
+{ "error": "password_reset_token_missing", "error_code": 400 }
+```
+- `password_reset_token_invalid`
+```json
+{ "error": "password_reset_token_invalid", "error_code": 400 }
+```
+- `password_reset_token_expired`
+```json
+{ "error": "password_reset_token_expired", "error_code": 400 }
+```
 
 ### 500
 - `internal_error`
@@ -1140,6 +1220,10 @@ Exemple 200 (tronqué):
 - `email_confirmation_user_not_found`
 ```json
 { "error": "email_confirmation_user_not_found", "error_code": 404 }
+```
+- `password_reset_user_not_found`
+```json
+{ "error": "password_reset_user_not_found", "error_code": 404 }
 ```
 
 ### 401
@@ -1198,6 +1282,10 @@ Exemple 200 (tronqué):
 - `email_already_verified`
 ```json
 { "error": "email_already_verified", "error_code": 409 }
+```
+- `password_reset_token_already_used`
+```json
+{ "error": "password_reset_token_already_used", "error_code": 409 }
 ```
 
 ## 5.3 Erreurs avec `error_details` importantes
@@ -1282,7 +1370,7 @@ Exemple:
 }
 ```
 
-Pour `POST /v1/auth/change-password`, des clés possibles dans `error_details`:
+Pour `POST /v1/auth/change-password` et `POST /v1/auth/reset-password`, des clés possibles dans `error_details`:
 - `validation_password_confirmation_mismatch`
 - `validation_min_length:8`
 

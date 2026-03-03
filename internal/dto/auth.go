@@ -26,6 +26,24 @@ type ChangePasswordResponseDto struct {
 	Status string `json:"status"`
 }
 
+type ForgotPasswordRequestDto struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type ForgotPasswordResponseDto struct {
+	Status string `json:"status"`
+}
+
+type ResetPasswordRequestDto struct {
+	Token           string `json:"token" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=8"`
+	ConfirmPassword string `json:"confirm_password" validate:"required"`
+}
+
+type ResetPasswordResponseDto struct {
+	Status string `json:"status"`
+}
+
 type RegisterStatusResponseDto struct {
 	RegisterAllowed bool `json:"register_allowed"`
 }
