@@ -31,3 +31,9 @@ type ResendConfirmEmailRequestDto struct {
 type ResendConfirmEmailResponseDto struct {
 	Status string `json:"status"`
 }
+
+type ChangePasswordRequestDto struct {
+	CurrentPassword string `json:"current_password" validate:"required,min=8"`
+	NewPassword     string `json:"new_password" validate:"required,min=12"`
+	ConfirmPassword string `json:"confirm_password" validate:"required"`
+}

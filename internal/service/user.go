@@ -75,6 +75,10 @@ func (s *userService) CreateUser(ctx context.Context, req dto.RequestUserDto) (*
 		return nil, api.ErrEmailAlreadyExists
 	}
 
+	if err := validatePasswordComplexity(req.Password, "password"); err != nil {
+		return nil, err
+	}
+
 	hashedPassword, err := hash.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)

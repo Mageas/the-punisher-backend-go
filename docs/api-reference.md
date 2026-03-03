@@ -124,6 +124,12 @@ interface ResendConfirmEmailResponseDto {
   status: "confirmation_email_sent_if_needed";
 }
 
+interface ChangePasswordRequestDto {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
 // User
 interface ReturnUserDto {
   id: string;
@@ -374,12 +380,13 @@ Exemple:
   "email": "teacher@school.test",
   "first_name": "Ada",
   "last_name": "Lovelace",
-  "password": "super-secret-123"
+  "password": "StrongSecret123!"
 }
 ```
 - 201: `ReturnUserDto`
 - Side effect: envoi d'un email de confirmation avec un lien vers `GET /v1/auth/confirm-email?token=...`
-- Erreurs: `register_not_allowed`, `validation_failed`, `invalid_request_body`, `conflict`
+- Regles mot de passe: minimum 12 caracteres, au moins 1 minuscule, 1 majuscule, 1 chiffre, 1 caractere special.
+- Erreurs: `register_not_allowed`, `validation_failed`, `invalid_request_body`, `password_policy_violation`, `conflict`
 
 ### GET `/v1/auth/confirm-email`
 - Auth: non
@@ -420,7 +427,7 @@ Exemple 200:
 ```json
 {
   "email": "teacher@school.test",
-  "password": "super-secret-123"
+  "password": "StrongSecret123!"
 }
 ```
 - 200: `LoginResponseDto`
@@ -453,6 +460,27 @@ Exemple 200:
 - 204: no content
 - Side effect: revoke tous les refresh tokens de l utilisateur
 - Erreurs: `unauthorized`, `jwt_invalid_token`, `jwt_expired`, `jwt_invalid_signing_method`
+
+### POST `/v1/auth/change-password`
+- Auth: oui (`Bearer`)
+- Body:
+```json
+{
+  "current_password": "VeryStrongPassword123!",
+  "new_password": "EvenStrongerPassword456!",
+  "confirm_password": "EvenStrongerPassword456!"
+}
+```
+- 204: no content
+- Regles:
+  - `current_password` doit correspondre au mot de passe actuel.
+  - `new_password` doit etre identique a `confirm_password`.
+  - Politique `new_password`: minimum 12 caracteres, au moins 1 minuscule, 1 majuscule, 1 chiffre, 1 caractere special.
+- Side effects:
+  - mise a jour de `password_hash` et `password_changed_at`
+  - invalidation de tous les refresh tokens actifs de l utilisateur
+  - suppression du cookie `refresh_token` de la reponse
+- Erreurs: `validation_failed`, `invalid_request_body`, `current_password_invalid`, `password_confirmation_mismatch`, `password_policy_violation`, `unauthorized`, `jwt_invalid_token`, `jwt_expired`, `jwt_invalid_signing_method`
 
 ## 3.3 User
 
@@ -1050,6 +1078,14 @@ Exemple 200 (tronque):
 ```json
 { "error": "email_confirmation_token_expired", "error_code": 400 }
 ```
+- `password_confirmation_mismatch`
+```json
+{ "error": "password_confirmation_mismatch", "error_code": 400 }
+```
+- `password_policy_violation`
+```json
+{ "error": "password_policy_violation", "error_code": 400 }
+```
 
 ### 500
 - `internal_error`
@@ -1131,6 +1167,10 @@ Exemple 200 (tronque):
 - `jwt_expired`
 ```json
 { "error": "jwt_expired", "error_code": 401 }
+```
+- `current_password_invalid`
+```json
+{ "error": "current_password_invalid", "error_code": 401 }
 ```
 
 ### 403

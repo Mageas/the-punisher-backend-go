@@ -85,7 +85,7 @@ func TestUserService_CreateUserAndGetCurrentUser_WithQuerier(t *testing.T) {
 		Email:     "TeSt.User@example.com",
 		FirstName: "Test",
 		LastName:  "User",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)
@@ -116,7 +116,7 @@ func TestUserService_CreateUserDuplicateEmail_WithQuerier(t *testing.T) {
 		Email:     "test@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("CreateUser first call returned error: %v", err)
@@ -126,7 +126,7 @@ func TestUserService_CreateUserDuplicateEmail_WithQuerier(t *testing.T) {
 		Email:     "TEST@example.com",
 		FirstName: "Jane",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if !errors.Is(err, api.ErrEmailAlreadyExists) {
 		t.Fatalf("expected ErrEmailAlreadyExists, got %v", err)
@@ -156,7 +156,7 @@ func TestUserService_CreateUserAndConfirmEmailFlow_WithQuerier(t *testing.T) {
 		Email:     "confirm.user@example.com",
 		FirstName: "Confirm",
 		LastName:  "User",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)
@@ -211,7 +211,7 @@ func TestUserService_ConfirmEmailExpiredToken_WithQuerier(t *testing.T) {
 		Email:     "expired.confirm.user@example.com",
 		FirstName: "Expired",
 		LastName:  "Confirm",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)
@@ -240,7 +240,7 @@ func TestUserService_ResendEmailConfirmationFlow_WithQuerier(t *testing.T) {
 		Email:     "resend.confirm.user@example.com",
 		FirstName: "Resend",
 		LastName:  "User",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)
@@ -293,7 +293,7 @@ func TestUserService_ResendEmailConfirmationUnknownOrAlreadyVerified_WithQuerier
 		Email:     "verified.resend.user@example.com",
 		FirstName: "Verified",
 		LastName:  "Resend",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)

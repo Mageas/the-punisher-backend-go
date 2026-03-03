@@ -51,6 +51,9 @@ var (
 	ErrEmailAlreadyVerified                = NewAPIError(http.StatusConflict, "email_already_verified")
 	ErrEmailConfirmationUserNotFound       = NewAPIError(http.StatusNotFound, "email_confirmation_user_not_found")
 	ErrEmailNotVerified                    = NewAPIError(http.StatusForbidden, "email_not_verified")
+	ErrCurrentPasswordInvalid              = NewAPIError(http.StatusUnauthorized, "current_password_invalid")
+	ErrPasswordConfirmationMismatch        = NewAPIError(http.StatusBadRequest, "password_confirmation_mismatch")
+	ErrPasswordPolicyViolation             = NewAPIError(http.StatusBadRequest, "password_policy_violation")
 
 	ErrJWTInvalidSigningMethod = NewAPIError(http.StatusUnauthorized, "jwt_invalid_signing_method")
 	ErrJWTInvalidToken         = NewAPIError(http.StatusUnauthorized, "jwt_invalid_token")
@@ -84,6 +87,7 @@ const (
 	KeyValidationMinLength          = "validation_min_length:%s"
 	KeyValidationMaxLength          = "validation_max_length:%s"
 	KeyValidationEmailAlreadyExists = "validation_email_already_exists"
+	KeyValidationPasswordPolicy     = "validation_password_policy:min_12_upper_lower_digit_special"
 
 	KeyValidationUnknownField       = "validation_unknown_field"
 	KeyValidationMalformedParameter = "validation_malformed_parameter:expected_%s"

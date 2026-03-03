@@ -21,7 +21,7 @@ func TestBonusTypeService_CRUD_WithQuerier(t *testing.T) {
 		Email:     "types-bonus@example.com",
 		FirstName: "Bonus",
 		LastName:  "Type",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
@@ -92,7 +92,7 @@ func TestPenaltyTypeService_CRUD_WithQuerier(t *testing.T) {
 		Email:     "types-penalty@example.com",
 		FirstName: "Penalty",
 		LastName:  "Type",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
@@ -163,7 +163,7 @@ func TestPunishmentTypeService_CRUD_WithQuerier(t *testing.T) {
 		Email:     "types-punishment@example.com",
 		FirstName: "Punishment",
 		LastName:  "Type",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)

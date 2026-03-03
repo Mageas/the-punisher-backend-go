@@ -56,7 +56,7 @@ func TestAuthService_LoginRefreshLogoutFlow_WithQuerier(t *testing.T) {
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 
 	cfg := integrationJWTConfig()
@@ -64,7 +64,7 @@ func TestAuthService_LoginRefreshLogoutFlow_WithQuerier(t *testing.T) {
 
 	loginResp, err := authSvc.Login(ctx, dto.LoginRequestDto{
 		Email:      "john@example.com",
-		Password:   "VeryStrongPassword123",
+		Password:   "VeryStrongPassword123!",
 		RemoteAddr: "127.0.0.1",
 	})
 	if err != nil {
@@ -145,7 +145,7 @@ func TestAuthService_LoginInvalidCredentials_WithQuerier(t *testing.T) {
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 
 	authSvc := NewAuthService(repo, integrationJWTConfig())
@@ -168,13 +168,13 @@ func TestAuthService_RefreshWithRevokedTokenReturnsUnauthorized_WithQuerier(t *t
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 
 	authSvc := NewAuthService(repo, integrationJWTConfig())
 	loginResp, err := authSvc.Login(ctx, dto.LoginRequestDto{
 		Email:      "john@example.com",
-		Password:   "VeryStrongPassword123",
+		Password:   "VeryStrongPassword123!",
 		RemoteAddr: "127.0.0.1",
 	})
 	if err != nil {
@@ -199,16 +199,16 @@ func TestAuthService_LogoutAll_WithQuerier(t *testing.T) {
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 
 	authSvc := NewAuthService(repo, integrationJWTConfig())
 
-	_, err := authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123", RemoteAddr: "127.0.0.1"})
+	_, err := authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123!", RemoteAddr: "127.0.0.1"})
 	if err != nil {
 		t.Fatalf("first login failed: %v", err)
 	}
-	_, err = authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123", RemoteAddr: "127.0.0.1"})
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{Email: user.Email, Password: "VeryStrongPassword123!", RemoteAddr: "127.0.0.1"})
 	if err != nil {
 		t.Fatalf("second login failed: %v", err)
 	}
@@ -235,7 +235,7 @@ func TestAuthService_LoginWithUnverifiedEmailReturnsForbidden_WithQuerier(t *tes
 		Email:     "john@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "VeryStrongPassword123",
+		Password:  "VeryStrongPassword123!",
 	})
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
@@ -245,10 +245,168 @@ func TestAuthService_LoginWithUnverifiedEmailReturnsForbidden_WithQuerier(t *tes
 
 	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
 		Email:      "john@example.com",
-		Password:   "VeryStrongPassword123",
+		Password:   "VeryStrongPassword123!",
 		RemoteAddr: "127.0.0.1",
 	})
 	if !errors.Is(err, api.ErrEmailNotVerified) {
 		t.Fatalf("expected ErrEmailNotVerified, got %v", err)
+	}
+}
+
+func TestAuthService_ChangePasswordSuccessInvalidatesRefreshTokens_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	firstSession, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "VeryStrongPassword123!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("first login failed: %v", err)
+	}
+
+	secondSession, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "VeryStrongPassword123!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("second login failed: %v", err)
+	}
+
+	if err := authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "VeryStrongPassword123!",
+		NewPassword:     "EvenStrongerPassword456!",
+		ConfirmPassword: "EvenStrongerPassword456!",
+	}); err != nil {
+		t.Fatalf("ChangePassword failed: %v", err)
+	}
+
+	credentials, err := repo.GetUserPasswordCredentialsByIDForAuth(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to fetch updated password credentials: %v", err)
+	}
+
+	if err := hash.VerifyPassword("EvenStrongerPassword456!", credentials.PasswordHash); err != nil {
+		t.Fatalf("expected updated password hash to match new password: %v", err)
+	}
+
+	if credentials.PasswordChangedAt == nil {
+		t.Fatalf("expected password_changed_at to be set")
+	}
+
+	tokens, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens after password change: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Fatalf("expected all refresh tokens to be deleted after password change, got %d", len(tokens))
+	}
+
+	_, err = authSvc.Refresh(ctx, firstSession.RefreshToken)
+	if !errors.Is(err, api.ErrUnauthorized) {
+		t.Fatalf("expected first session refresh token to be unauthorized after password change, got %v", err)
+	}
+
+	_, err = authSvc.Refresh(ctx, secondSession.RefreshToken)
+	if !errors.Is(err, api.ErrUnauthorized) {
+		t.Fatalf("expected second session refresh token to be unauthorized after password change, got %v", err)
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "VeryStrongPassword123!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if !errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
+		t.Fatalf("expected old password login to fail, got %v", err)
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "EvenStrongerPassword456!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("expected login with new password to succeed, got %v", err)
+	}
+}
+
+func TestAuthService_ChangePasswordFailsWithWrongCurrentPassword_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	err := authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "WrongPassword123!",
+		NewPassword:     "EvenStrongerPassword456!",
+		ConfirmPassword: "EvenStrongerPassword456!",
+	})
+	if !errors.Is(err, api.ErrCurrentPasswordInvalid) {
+		t.Fatalf("expected ErrCurrentPasswordInvalid, got %v", err)
+	}
+}
+
+func TestAuthService_ChangePasswordFailsWhenConfirmationMismatch_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	err := authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "VeryStrongPassword123!",
+		NewPassword:     "EvenStrongerPassword456!",
+		ConfirmPassword: "DifferentPassword456!",
+	})
+	if !errors.Is(err, api.ErrPasswordConfirmationMismatch) {
+		t.Fatalf("expected ErrPasswordConfirmationMismatch, got %v", err)
+	}
+}
+
+func TestAuthService_ChangePasswordFailsWhenPolicyIsNotRespected_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "john@example.com",
+		FirstName: "John",
+		LastName:  "Doe",
+		Password:  "VeryStrongPassword123!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	err := authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "VeryStrongPassword123!",
+		NewPassword:     "weakpassword",
+		ConfirmPassword: "weakpassword",
+	})
+	if !errors.Is(err, api.ErrPasswordPolicyViolation) {
+		t.Fatalf("expected ErrPasswordPolicyViolation, got %v", err)
 	}
 }

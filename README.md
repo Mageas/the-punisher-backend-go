@@ -83,6 +83,7 @@ Lors d'une inscription (`POST /v1/auth/register`), le backend:
 - valide l'email via `GET /v1/auth/confirm-email?token=<token>`
 - permet de renvoyer un nouveau lien via `POST /v1/auth/confirm-email/resend`
 - bloque le login tant que l'email n'est pas confirmé
+- applique la politique mot de passe: minimum 12 caracteres, au moins 1 minuscule, 1 majuscule, 1 chiffre, 1 caractere special
 
 Variables d'environnement associées:
 - `EMAIL_CONFIRMATION_SECRET`
@@ -94,6 +95,29 @@ Variables d'environnement associées:
 - `SMTP_PASSWORD`
 - `SMTP_FROM_EMAIL`
 - `SMTP_FROM_NAME`
+
+## Changement de mot de passe (utilisateur authentifie)
+
+Endpoint protege:
+- `POST /v1/auth/change-password`
+
+Body attendu:
+```json
+{
+  "current_password": "VeryStrongPassword123!",
+  "new_password": "EvenStrongerPassword456!",
+  "confirm_password": "EvenStrongerPassword456!"
+}
+```
+
+Regles:
+- verification obligatoire de `current_password`
+- `new_password` doit correspondre a `confirm_password`
+- politique `new_password`: minimum 12 caracteres, au moins 1 minuscule, 1 majuscule, 1 chiffre, 1 caractere special
+
+Effets de bord:
+- mise a jour de `password_hash` et `password_changed_at`
+- invalidation de tous les refresh tokens actifs de l'utilisateur
 
 ## Build
 

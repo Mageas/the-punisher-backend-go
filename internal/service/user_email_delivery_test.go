@@ -95,7 +95,7 @@ func TestUserService_CreateUserDoesNotSendConfirmationEmailWhenCommitFails(t *te
 		Email:     "john.doe@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Password:  "password123",
+		Password:  "Password123!",
 	})
 	if !errors.Is(err, commitErr) {
 		t.Fatalf("expected commit error, got %v", err)

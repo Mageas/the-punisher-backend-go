@@ -22,6 +22,7 @@ type AuthService interface {
 	Refresh(ctx context.Context, refreshToken string) (*dto.RefreshResponseDto, error)
 	Logout(ctx context.Context, refreshToken string) error
 	LogoutAll(ctx context.Context, userID uuid.UUID) error
+	ChangePassword(ctx context.Context, userID uuid.UUID, req dto.ChangePasswordRequestDto) error
 }
 
 type authService struct {
@@ -219,5 +220,65 @@ func (s *authService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	slog.Info("all user refresh tokens invalidated", "user_id", userID, "deleted_count", deletedCount)
+	return nil
+}
+
+func (s *authService) ChangePassword(ctx context.Context, userID uuid.UUID, req dto.ChangePasswordRequestDto) error {
+	if req.NewPassword != req.ConfirmPassword {
+		return api.ErrPasswordConfirmationMismatch
+	}
+
+	if err := validatePasswordComplexity(req.NewPassword, "new_password"); err != nil {
+		return err
+	}
+
+	credentials, err := s.repo.GetUserPasswordCredentialsByIDForAuth(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return api.ErrUnauthorized
+		}
+		return fmt.Errorf("failed to get user credentials for password change: %w", err)
+	}
+
+	if err := hash.VerifyPassword(req.CurrentPassword, credentials.PasswordHash); err != nil {
+		return api.ErrCurrentPasswordInvalid
+	}
+
+	newPasswordHash, err := hash.HashPassword(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash new password: %w", err)
+	}
+
+	txRepo, ok := s.repo.(transactionalAuthRepo)
+	if !ok {
+		return fmt.Errorf("auth repository does not support transactions")
+	}
+
+	var invalidatedRefreshTokensCount int64
+	err = txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		updatedRows, updateErr := txQuerier.UpdateUserPasswordByID(ctx, repository.UpdateUserPasswordByIDParams{
+			ID:           userID,
+			PasswordHash: newPasswordHash,
+		})
+		if updateErr != nil {
+			return fmt.Errorf("failed to update user password: %w", updateErr)
+		}
+		if updatedRows != 1 {
+			return api.ErrUnauthorized
+		}
+
+		deletedCount, deleteErr := txQuerier.DeleteRefreshTokensByUserId(ctx, userID)
+		if deleteErr != nil {
+			return fmt.Errorf("failed to invalidate refresh tokens after password change: %w", deleteErr)
+		}
+		invalidatedRefreshTokensCount = deletedCount
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	slog.Info("user password changed", "user_id", userID, "invalidated_refresh_tokens_count", invalidatedRefreshTokensCount)
 	return nil
 }

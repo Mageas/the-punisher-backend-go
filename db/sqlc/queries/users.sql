@@ -41,3 +41,16 @@ SELECT id, email, password_hash, email_verified_at
 FROM users
 WHERE email = LOWER(sqlc.arg(email))
 LIMIT 1;
+
+-- name: GetUserPasswordCredentialsByIDForAuth :one
+SELECT id, password_hash, password_changed_at
+FROM users
+WHERE id = sqlc.arg(id)
+LIMIT 1;
+
+-- name: UpdateUserPasswordByID :execrows
+UPDATE users
+SET password_hash = sqlc.arg(password_hash),
+    password_changed_at = NOW(),
+    updated_at = NOW()
+WHERE id = sqlc.arg(id);

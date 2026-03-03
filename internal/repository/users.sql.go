@@ -157,6 +157,47 @@ func (q *Queries) GetUserEmailVerificationStateByID(ctx context.Context, id uuid
 	return i, err
 }
 
+const getUserPasswordCredentialsByIDForAuth = `-- name: GetUserPasswordCredentialsByIDForAuth :one
+SELECT id, password_hash, password_changed_at
+FROM users
+WHERE id = $1
+LIMIT 1
+`
+
+type GetUserPasswordCredentialsByIDForAuthRow struct {
+	ID                uuid.UUID  `json:"id"`
+	PasswordHash      string     `json:"password_hash"`
+	PasswordChangedAt *time.Time `json:"password_changed_at"`
+}
+
+func (q *Queries) GetUserPasswordCredentialsByIDForAuth(ctx context.Context, id uuid.UUID) (GetUserPasswordCredentialsByIDForAuthRow, error) {
+	row := q.db.QueryRow(ctx, getUserPasswordCredentialsByIDForAuth, id)
+	var i GetUserPasswordCredentialsByIDForAuthRow
+	err := row.Scan(&i.ID, &i.PasswordHash, &i.PasswordChangedAt)
+	return i, err
+}
+
+const updateUserPasswordByID = `-- name: UpdateUserPasswordByID :execrows
+UPDATE users
+SET password_hash = $1,
+    password_changed_at = NOW(),
+    updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUserPasswordByIDParams struct {
+	PasswordHash string    `json:"password_hash"`
+	ID           uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserPasswordByID(ctx context.Context, arg UpdateUserPasswordByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateUserPasswordByID, arg.PasswordHash, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const userEmailExists = `-- name: UserEmailExists :one
 SELECT EXISTS (
     SELECT 1 FROM users WHERE email = LOWER($1) LIMIT 1

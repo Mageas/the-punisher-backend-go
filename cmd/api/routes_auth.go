@@ -21,6 +21,7 @@ func (app *application) mountAuthRoutes(
 		r.Post("/login", authHandler.Login)
 		r.Post("/refresh", authHandler.Refresh)
 		r.Post("/logout", authHandler.Logout)
+		r.With(authMiddleware).Post("/change-password", authHandler.ChangePassword)
 	})
 
 	r.With(authMiddleware).Delete("/v1/auth/refresh-tokens", authHandler.LogoutAll)
