@@ -27,6 +27,42 @@ func (m *SMTPMailer) SendConfirmationEmail(
 	confirmationURL string,
 	expiresIn time.Duration,
 ) error {
+	subject := "Confirm your email address"
+	body := fmt.Sprintf(
+		"Hello %s,\r\n\r\nPlease confirm your email address by opening this link:\r\n%s\r\n\r\nThis link expires in %.0f hour(s).\r\n",
+		strings.TrimSpace(firstName),
+		confirmationURL,
+		expiresIn.Hours(),
+	)
+
+	return m.sendPlainTextEmail(ctx, toEmail, subject, body, "failed to send confirmation email")
+}
+
+func (m *SMTPMailer) SendPasswordResetEmail(
+	ctx context.Context,
+	toEmail string,
+	firstName string,
+	resetURL string,
+	expiresIn time.Duration,
+) error {
+	subject := "Reset your password"
+	body := fmt.Sprintf(
+		"Hello %s,\r\n\r\nYou requested a password reset. Open this link to choose a new password:\r\n%s\r\n\r\nThis link expires in %.0f hour(s).\r\n",
+		strings.TrimSpace(firstName),
+		resetURL,
+		expiresIn.Hours(),
+	)
+
+	return m.sendPlainTextEmail(ctx, toEmail, subject, body, "failed to send password reset email")
+}
+
+func (m *SMTPMailer) sendPlainTextEmail(
+	ctx context.Context,
+	toEmail string,
+	subject string,
+	body string,
+	wrapErr string,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -41,15 +77,6 @@ func (m *SMTPMailer) SendConfirmationEmail(
 		return fmt.Errorf("invalid recipient email: %w", err)
 	}
 
-	serverAddr := fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port)
-	subject := "Confirm your email address"
-	body := fmt.Sprintf(
-		"Hello %s,\r\n\r\nPlease confirm your email address by opening this link:\r\n%s\r\n\r\nThis link expires in %.0f hour(s).\r\n",
-		strings.TrimSpace(firstName),
-		confirmationURL,
-		expiresIn.Hours(),
-	)
-
 	message := strings.Join([]string{
 		fmt.Sprintf("From: %s", fromAddr.String()),
 		fmt.Sprintf("To: %s", toAddr.String()),
@@ -60,13 +87,15 @@ func (m *SMTPMailer) SendConfirmationEmail(
 		body,
 	}, "\r\n")
 
+	serverAddr := fmt.Sprintf("%s:%d", m.cfg.Host, m.cfg.Port)
+
 	var auth smtp.Auth
 	if strings.TrimSpace(m.cfg.Username) != "" {
 		auth = smtp.PlainAuth("", m.cfg.Username, m.cfg.Password, m.cfg.Host)
 	}
 
 	if err := smtp.SendMail(serverAddr, auth, fromAddr.Address, []string{toAddr.Address}, []byte(message)); err != nil {
-		return fmt.Errorf("failed to send confirmation email: %w", err)
+		return fmt.Errorf("%s: %w", wrapErr, err)
 	}
 
 	return nil

@@ -126,6 +126,46 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusOK, dto.ChangePasswordResponseDto{Status: "password_changed"}, nil)
 }
 
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req dto.ForgotPasswordRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	if err := h.service.ForgotPassword(r.Context(), req); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, dto.ForgotPasswordResponseDto{Status: "password_reset_email_sent_if_needed"}, nil)
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req dto.ResetPasswordRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	if err := h.service.ResetPassword(r.Context(), req); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, dto.ResetPasswordResponseDto{Status: "password_reset"}, nil)
+}
+
 func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, token string) {
 	cookieDuration := h.cfg.RefreshExpiration
 

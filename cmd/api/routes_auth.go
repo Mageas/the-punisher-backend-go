@@ -19,6 +19,8 @@ func (app *application) mountAuthRoutes(
 		r.Get("/confirm-email", userHandler.ConfirmEmail)
 		r.Post("/confirm-email/resend", userHandler.ResendConfirmEmail)
 		r.Post("/login", authHandler.Login)
+		r.Post("/forgot-password", authHandler.ForgotPassword)
+		r.Post("/reset-password", authHandler.ResetPassword)
 		r.Post("/refresh", authHandler.Refresh)
 		r.Post("/logout", authHandler.Logout)
 	})

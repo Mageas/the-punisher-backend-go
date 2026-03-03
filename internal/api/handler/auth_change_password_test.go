@@ -22,6 +22,12 @@ type fakeAuthService struct {
 	changePasswordReq  dto.ChangePasswordRequestDto
 	changePasswordUser uuid.UUID
 	changeCalled       bool
+	forgotPasswordErr  error
+	forgotPasswordReq  dto.ForgotPasswordRequestDto
+	forgotCalled       bool
+	resetPasswordErr   error
+	resetPasswordReq   dto.ResetPasswordRequestDto
+	resetCalled        bool
 }
 
 func (f *fakeAuthService) Login(_ context.Context, _ dto.LoginRequestDto) (*dto.LoginResponseDto, error) {
@@ -45,6 +51,18 @@ func (f *fakeAuthService) ChangePassword(_ context.Context, userID uuid.UUID, re
 	f.changePasswordUser = userID
 	f.changePasswordReq = req
 	return f.changePasswordErr
+}
+
+func (f *fakeAuthService) ForgotPassword(_ context.Context, req dto.ForgotPasswordRequestDto) error {
+	f.forgotCalled = true
+	f.forgotPasswordReq = req
+	return f.forgotPasswordErr
+}
+
+func (f *fakeAuthService) ResetPassword(_ context.Context, req dto.ResetPasswordRequestDto) error {
+	f.resetCalled = true
+	f.resetPasswordReq = req
+	return f.resetPasswordErr
 }
 
 func authBearerToken(t *testing.T, userID uuid.UUID) string {
@@ -164,5 +182,141 @@ func TestAuthHandler_ChangePasswordServiceError(t *testing.T) {
 	}
 	if payload.Error != api.ErrInvalidCurrentPassword.Message {
 		t.Fatalf("expected invalid_current_password, got %s", payload.Error)
+	}
+}
+
+func TestAuthHandler_ForgotPasswordSuccess(t *testing.T) {
+	fakeSvc := &fakeAuthService{}
+	h := NewAuthHandler(fakeSvc, config.JWTConfig{}, "/v1/auth")
+
+	body := `{"email":"john@example.com"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/forgot-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	h.ForgotPassword(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if !fakeSvc.forgotCalled {
+		t.Fatalf("expected ForgotPassword to be called")
+	}
+	if fakeSvc.forgotPasswordReq.Email != "john@example.com" {
+		t.Fatalf("unexpected request payload: %+v", fakeSvc.forgotPasswordReq)
+	}
+
+	var payload dto.ForgotPasswordResponseDto
+	if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if payload.Status != "password_reset_email_sent_if_needed" {
+		t.Fatalf("unexpected response payload: %+v", payload)
+	}
+}
+
+func TestAuthHandler_ForgotPasswordValidationError(t *testing.T) {
+	fakeSvc := &fakeAuthService{}
+	h := NewAuthHandler(fakeSvc, config.JWTConfig{}, "/v1/auth")
+
+	body := `{"email":"invalid"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/forgot-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	h.ForgotPassword(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+	if fakeSvc.forgotCalled {
+		t.Fatalf("expected ForgotPassword not to be called")
+	}
+}
+
+func TestAuthHandler_ForgotPasswordServiceError(t *testing.T) {
+	fakeSvc := &fakeAuthService{forgotPasswordErr: api.ErrInternalError}
+	h := NewAuthHandler(fakeSvc, config.JWTConfig{}, "/v1/auth")
+
+	body := `{"email":"john@example.com"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/forgot-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	h.ForgotPassword(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500, got %d", rr.Code)
+	}
+	if !fakeSvc.forgotCalled {
+		t.Fatalf("expected ForgotPassword to be called")
+	}
+}
+
+func TestAuthHandler_ResetPasswordSuccess(t *testing.T) {
+	fakeSvc := &fakeAuthService{}
+	h := NewAuthHandler(fakeSvc, config.JWTConfig{}, "/v1/auth")
+
+	body := `{"token":"token-123","new_password":"NewSecurePass1!","confirm_password":"NewSecurePass1!"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/reset-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	h.ResetPassword(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	if !fakeSvc.resetCalled {
+		t.Fatalf("expected ResetPassword to be called")
+	}
+	if fakeSvc.resetPasswordReq.Token != "token-123" {
+		t.Fatalf("unexpected request payload: %+v", fakeSvc.resetPasswordReq)
+	}
+
+	var payload dto.ResetPasswordResponseDto
+	if err := json.NewDecoder(rr.Body).Decode(&payload); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if payload.Status != "password_reset" {
+		t.Fatalf("unexpected response payload: %+v", payload)
+	}
+}
+
+func TestAuthHandler_ResetPasswordValidationError(t *testing.T) {
+	fakeSvc := &fakeAuthService{}
+	h := NewAuthHandler(fakeSvc, config.JWTConfig{}, "/v1/auth")
+
+	body := `{"token":"","new_password":"short","confirm_password":"different"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/reset-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	h.ResetPassword(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+	if fakeSvc.resetCalled {
+		t.Fatalf("expected ResetPassword not to be called")
+	}
+}
+
+func TestAuthHandler_ResetPasswordServiceError(t *testing.T) {
+	fakeSvc := &fakeAuthService{resetPasswordErr: api.ErrPasswordResetTokenExpired}
+	h := NewAuthHandler(fakeSvc, config.JWTConfig{}, "/v1/auth")
+
+	body := `{"token":"token-123","new_password":"NewSecurePass1!","confirm_password":"NewSecurePass1!"}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/auth/reset-password", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	h.ResetPassword(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", rr.Code)
+	}
+	if !fakeSvc.resetCalled {
+		t.Fatalf("expected ResetPassword to be called")
 	}
 }

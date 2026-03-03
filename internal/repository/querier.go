@@ -37,6 +37,8 @@ type Querier interface {
 	CreateClassroom(ctx context.Context, arg CreateClassroomParams) (CreateClassroomRow, error)
 	// ==================== EmailConfirmationToken ====================
 	CreateEmailConfirmationToken(ctx context.Context, arg CreateEmailConfirmationTokenParams) (EmailConfirmationToken, error)
+	// ==================== PasswordResetToken ====================
+	CreatePasswordResetToken(ctx context.Context, arg CreatePasswordResetTokenParams) (PasswordResetToken, error)
 	// ==================== Penalty ====================
 	CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (CreatePenaltyRow, error)
 	// ==================== PenaltyType ====================
@@ -73,6 +75,7 @@ type Querier interface {
 	// ==================== Dashboard ====================
 	GetDashboardKpis(ctx context.Context, arg GetDashboardKpisParams) (GetDashboardKpisRow, error)
 	GetEmailConfirmationTokenByHash(ctx context.Context, tokenHash string) (EmailConfirmationToken, error)
+	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (PasswordResetToken, error)
 	GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserParams) (GetPenaltyByUserRow, error)
 	GetPenaltyTypeByUser(ctx context.Context, arg GetPenaltyTypeByUserParams) (PenaltyType, error)
 	GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUserParams) (GetPunishmentByUserRow, error)
@@ -88,6 +91,7 @@ type Querier interface {
 	GetUserEmailVerificationStateByEmail(ctx context.Context, email string) (GetUserEmailVerificationStateByEmailRow, error)
 	GetUserEmailVerificationStateByID(ctx context.Context, id uuid.UUID) (GetUserEmailVerificationStateByIDRow, error)
 	InvalidateEmailConfirmationTokensByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+	InvalidatePasswordResetTokensByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
 	ListActiveRulesByUserAndPenaltyType(ctx context.Context, arg ListActiveRulesByUserAndPenaltyTypeParams) ([]Rule, error)
 	ListBonusTypesByUser(ctx context.Context, arg ListBonusTypesByUserParams) ([]BonusType, error)
 	ListBonusesByStudent(ctx context.Context, arg ListBonusesByStudentParams) ([]ListBonusesByStudentRow, error)
@@ -113,6 +117,7 @@ type Querier interface {
 	ListStudentsByUserForImport(ctx context.Context, userID uuid.UUID) ([]ListStudentsByUserForImportRow, error)
 	ListStudentsPreviewByClassroomIDs(ctx context.Context, arg ListStudentsPreviewByClassroomIDsParams) ([]ListStudentsPreviewByClassroomIDsRow, error)
 	MarkEmailConfirmationTokenUsedByID(ctx context.Context, id uuid.UUID) (int64, error)
+	MarkPasswordResetTokenUsedByID(ctx context.Context, id uuid.UUID) (int64, error)
 	RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) (int64, error)
 	ResolvePunishment(ctx context.Context, arg ResolvePunishmentParams) (ResolvePunishmentRow, error)
 	RevokeRefreshToken(ctx context.Context, token string) (RevokeRefreshTokenRow, error)

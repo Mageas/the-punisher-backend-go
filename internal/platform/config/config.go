@@ -21,6 +21,7 @@ type Config struct {
 	JWT           JWTConfig
 	SMTP          SMTPConfig
 	EmailConfirm  EmailConfirmationConfig
+	PasswordReset PasswordResetConfig
 }
 
 type CORSConfig struct {
@@ -56,6 +57,14 @@ type SMTPConfig struct {
 }
 
 type EmailConfirmationConfig struct {
+	Secret     string
+	Expiration time.Duration
+	BaseURL    string
+	Issuer     string
+	Audience   string
+}
+
+type PasswordResetConfig struct {
 	Secret     string
 	Expiration time.Duration
 	BaseURL    string
@@ -110,11 +119,19 @@ func Load() *Config {
 			Issuer:     jwtIssuer,
 			Audience:   jwtAudience,
 		},
+		PasswordReset: PasswordResetConfig{
+			Secret:     GetEnv("PASSWORD_RESET_SECRET", GetEnvOrFatal("JWT_ACCESS_SECRET")),
+			Expiration: GetEnvDuration("PASSWORD_RESET_EXPIRATION_IN_HOURS", 1) * time.Hour,
+			BaseURL:    GetEnv("PASSWORD_RESET_BASE_URL", "http://localhost:3000/reset-password"),
+			Issuer:     jwtIssuer,
+			Audience:   jwtAudience,
+		},
 	}
 
 	validateCORSConfig(cfg.CORS)
 	validateSMTPConfig(cfg.SMTP)
 	validateEmailConfirmationConfig(cfg.EmailConfirm)
+	validatePasswordResetConfig(cfg.PasswordReset)
 	return cfg
 }
 
@@ -215,21 +232,43 @@ func validateSMTPConfig(smtp SMTPConfig) {
 }
 
 func validateEmailConfirmationConfig(emailConfig EmailConfirmationConfig) {
-	if strings.TrimSpace(emailConfig.Secret) == "" {
-		log.Fatal("EMAIL_CONFIRMATION_SECRET must not be empty")
+	validateSignedLinkConfig(
+		strings.TrimSpace(emailConfig.Secret),
+		emailConfig.Expiration,
+		emailConfig.BaseURL,
+		"EMAIL_CONFIRMATION_SECRET",
+		"EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS",
+		"EMAIL_CONFIRMATION_BASE_URL",
+	)
+}
+
+func validatePasswordResetConfig(resetConfig PasswordResetConfig) {
+	validateSignedLinkConfig(
+		strings.TrimSpace(resetConfig.Secret),
+		resetConfig.Expiration,
+		resetConfig.BaseURL,
+		"PASSWORD_RESET_SECRET",
+		"PASSWORD_RESET_EXPIRATION_IN_HOURS",
+		"PASSWORD_RESET_BASE_URL",
+	)
+}
+
+func validateSignedLinkConfig(secret string, expiration time.Duration, baseURL string, secretKey string, expirationKey string, baseURLKey string) {
+	if secret == "" {
+		log.Fatalf("%s must not be empty", secretKey)
 	}
 
-	if emailConfig.Expiration <= 0 {
-		log.Fatal("EMAIL_CONFIRMATION_EXPIRATION_IN_HOURS must be > 0")
+	if expiration <= 0 {
+		log.Fatalf("%s must be > 0", expirationKey)
 	}
 
-	baseURL := strings.TrimSpace(emailConfig.BaseURL)
-	if baseURL == "" {
-		log.Fatal("EMAIL_CONFIRMATION_BASE_URL must not be empty")
+	trimmedBaseURL := strings.TrimSpace(baseURL)
+	if trimmedBaseURL == "" {
+		log.Fatalf("%s must not be empty", baseURLKey)
 	}
 
-	parsedURL, err := url.Parse(baseURL)
+	parsedURL, err := url.Parse(trimmedBaseURL)
 	if err != nil || !parsedURL.IsAbs() || strings.TrimSpace(parsedURL.Host) == "" {
-		log.Fatal("EMAIL_CONFIRMATION_BASE_URL must be a valid absolute URL")
+		log.Fatalf("%s must be a valid absolute URL", baseURLKey)
 	}
 }

@@ -51,6 +51,11 @@ var (
 	ErrEmailConfirmationTokenAlreadyUsed   = NewAPIError(http.StatusConflict, "email_confirmation_token_already_used")
 	ErrEmailAlreadyVerified                = NewAPIError(http.StatusConflict, "email_already_verified")
 	ErrEmailConfirmationUserNotFound       = NewAPIError(http.StatusNotFound, "email_confirmation_user_not_found")
+	ErrPasswordResetTokenMissing           = NewAPIError(http.StatusBadRequest, "password_reset_token_missing")
+	ErrPasswordResetTokenInvalid           = NewAPIError(http.StatusBadRequest, "password_reset_token_invalid")
+	ErrPasswordResetTokenExpired           = NewAPIError(http.StatusBadRequest, "password_reset_token_expired")
+	ErrPasswordResetTokenAlreadyUsed       = NewAPIError(http.StatusConflict, "password_reset_token_already_used")
+	ErrPasswordResetUserNotFound           = NewAPIError(http.StatusNotFound, "password_reset_user_not_found")
 	ErrEmailNotVerified                    = NewAPIError(http.StatusForbidden, "email_not_verified")
 
 	ErrJWTInvalidSigningMethod = NewAPIError(http.StatusUnauthorized, "jwt_invalid_signing_method")
