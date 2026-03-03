@@ -252,3 +252,174 @@ func TestAuthService_LoginWithUnverifiedEmailReturnsForbidden_WithQuerier(t *tes
 		t.Fatalf("expected ErrEmailNotVerified, got %v", err)
 	}
 }
+
+func TestAuthService_ChangePasswordSuccessInvalidatesRefreshTokens_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "change-password.success@example.com",
+		FirstName: "Change",
+		LastName:  "Password",
+		Password:  "CurrentPass1!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	_, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("first login failed: %v", err)
+	}
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.2",
+	})
+	if err != nil {
+		t.Fatalf("second login failed: %v", err)
+	}
+
+	beforeChange, err := repo.GetUserCredentialsByIDForAuth(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to load credentials before password change: %v", err)
+	}
+	if beforeChange.PasswordChangedAt != nil {
+		t.Fatalf("expected password_changed_at to be nil before change")
+	}
+
+	err = authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "CurrentPass1!",
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "NewSecurePass2@",
+	})
+	if err != nil {
+		t.Fatalf("ChangePassword returned error: %v", err)
+	}
+
+	afterChange, err := repo.GetUserCredentialsByIDForAuth(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to load credentials after password change: %v", err)
+	}
+	if afterChange.PasswordChangedAt == nil {
+		t.Fatalf("expected password_changed_at to be set")
+	}
+
+	tokens, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens: %v", err)
+	}
+	if len(tokens) != 0 {
+		t.Fatalf("expected all refresh tokens to be invalidated, got %d", len(tokens))
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if !errors.Is(err, api.ErrInvalidCredentialsOrUserDoesntExist) {
+		t.Fatalf("expected old password to fail, got %v", err)
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "NewSecurePass2@",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("expected login with new password to succeed, got %v", err)
+	}
+}
+
+func TestAuthService_ChangePasswordWrongCurrentPassword_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "change-password.invalid-current@example.com",
+		FirstName: "Change",
+		LastName:  "Password",
+		Password:  "CurrentPass1!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	_, err := authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	err = authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "WrongCurrentPass1!",
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "NewSecurePass2@",
+	})
+	if !errors.Is(err, api.ErrInvalidCurrentPassword) {
+		t.Fatalf("expected ErrInvalidCurrentPassword, got %v", err)
+	}
+
+	tokens, err := repo.ListRefreshTokensByUserId(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list refresh tokens: %v", err)
+	}
+	if len(tokens) != 1 {
+		t.Fatalf("expected refresh tokens to remain unchanged after failure, got %d", len(tokens))
+	}
+
+	_, err = authSvc.Login(ctx, dto.LoginRequestDto{
+		Email:      user.Email,
+		Password:   "CurrentPass1!",
+		RemoteAddr: "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("expected login with unchanged password to succeed, got %v", err)
+	}
+}
+
+func TestAuthService_ChangePasswordMismatchConfirmation_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := createVerifiedAuthUser(t, repo, ctx, dto.RequestUserDto{
+		Email:     "change-password.confirmation@example.com",
+		FirstName: "Change",
+		LastName:  "Password",
+		Password:  "CurrentPass1!",
+	})
+
+	authSvc := NewAuthService(repo, integrationJWTConfig())
+
+	err := authSvc.ChangePassword(ctx, user.ID, dto.ChangePasswordRequestDto{
+		CurrentPassword: "CurrentPass1!",
+		NewPassword:     "NewSecurePass2@",
+		ConfirmPassword: "DifferentPass2@",
+	})
+
+	var apiErr *api.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got %v", err)
+	}
+	if apiErr.Message != api.ErrValidationFailed.Message {
+		t.Fatalf("expected validation_failed, got %s", apiErr.Message)
+	}
+	if !hasErrorDetail(apiErr.Details, "confirm_password", api.KeyValidationPasswordConfirmationMismatch) {
+		t.Fatalf("expected confirm_password mismatch detail, got %+v", apiErr.Details)
+	}
+}
+
+func hasErrorDetail(details []api.ErrorDetail, field string, key string) bool {
+	for _, d := range details {
+		if d.Field == field && d.Error == key {
+			return true
+		}
+	}
+	return false
+}

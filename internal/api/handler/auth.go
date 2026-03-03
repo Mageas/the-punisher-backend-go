@@ -103,6 +103,29 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var req dto.ChangePasswordRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	userID := platformauth.MustUserIDFromContext(r.Context())
+
+	if err := h.service.ChangePassword(r.Context(), userID, req); err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	h.clearRefreshTokenCookie(w)
+	web.WriteJSON(w, http.StatusOK, dto.ChangePasswordResponseDto{Status: "password_changed"}, nil)
+}
+
 func (h *AuthHandler) setRefreshTokenCookie(w http.ResponseWriter, token string) {
 	cookieDuration := h.cfg.RefreshExpiration
 

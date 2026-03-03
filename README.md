@@ -95,6 +95,30 @@ Variables d'environnement associées:
 - `SMTP_FROM_EMAIL`
 - `SMTP_FROM_NAME`
 
+## Changement de mot de passe (authentifie)
+
+Endpoint protege:
+- `POST /v1/auth/change-password`
+
+Body JSON:
+```json
+{
+  "current_password": "CurrentPass1!",
+  "new_password": "NewSecurePass2@",
+  "confirm_password": "NewSecurePass2@"
+}
+```
+
+Regles appliquees:
+- verification du mot de passe actuel
+- verification `new_password == confirm_password`
+- validation du nouveau mot de passe identique a l inscription (`required,min=8`)
+
+Effets de bord:
+- mise a jour de `password_hash` + `password_changed_at`
+- invalidation de tous les refresh tokens utilisateur (y compris session courante)
+- suppression du cookie `refresh_token`
+
 ## Build
 
 ```bash

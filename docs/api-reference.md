@@ -4,7 +4,7 @@
 
 ### 1.1 Base URL
 - Local: `http://localhost:8080`
-- Prefix API: toutes les routes metier sont sous `/v1`
+- Préfixe API: toutes les routes métier sont sous `/v1`
 
 ### 1.2 Authentification
 - Routes publiques:
@@ -16,33 +16,33 @@
   - `POST /v1/auth/login`
   - `POST /v1/auth/refresh`
   - `POST /v1/auth/logout`
-- Routes protegees: toutes les autres routes `/v1/**` exigent `Authorization: Bearer <access_token>`.
+- Routes protégées: toutes les autres routes `/v1/**` exigent `Authorization: Bearer <access_token>` (dont `POST /v1/auth/change-password` et `DELETE /v1/auth/refresh-tokens`).
 
-Flow recommande frontend:
+Flux frontend recommandé:
 1. `POST /v1/auth/login` avec email/password
-2. Recuperer `access_token` dans le body
-3. Stocker `access_token` cote client (memoire de preference)
+2. Récupérer `access_token` dans le body
+3. Stocker `access_token` côté client (mémoire de préférence)
 4. Utiliser `Authorization: Bearer <token>`
-5. Quand 401/expiration: `POST /v1/auth/refresh` (cookie `refresh_token` automatiquement envoye si `credentials: include`)
+5. Quand 401/expiration: `POST /v1/auth/refresh` (cookie `refresh_token` automatiquement envoyé si `credentials: include`)
 
 Notes cookie refresh:
 - Nom: `refresh_token`
 - `HttpOnly`, `SameSite=Strict`
 - Path cookie: `/v1/auth`
-- Le frontend doit utiliser `credentials: 'include'` pour `login`, `refresh`, `logout`.
+- Le frontend doit utiliser `credentials: 'include'` pour `login`, `refresh`, `logout`, `change-password`.
 
-### 1.3 Types de donnees
+### 1.3 Types de données
 - UUID: format canonique (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - Date liste: `YYYY-MM-DD` (ex: `2026-02-28`)
 - DateTime body (punishments): `RFC3339` (ex: `2026-03-15T18:00:00Z`)
 - Bool query: `true` ou `false`
 
 ### 1.4 Pagination
-- Parametre: `page` (int > 0)
+- Paramètre: `page` (int > 0)
 - Taille fixe backend: `20`
-- Si `page` invalide/absent: fallback page `1` (pas d erreur)
+- Si `page` invalide/absent: fallback page `1` (pas d'erreur)
 
-Format reponse paginee:
+Format réponse paginée:
 ```json
 {
   "page": 1,
@@ -68,7 +68,7 @@ Format reponse paginee:
 }
 ```
 
-## 2) Contrats JSON (schemas frontend)
+## 2) Contrats JSON (schémas frontend)
 
 ```ts
 // Pagination
@@ -106,6 +106,16 @@ interface LoginResponseDto {
 
 interface RefreshResponseDto {
   access_token: string;
+}
+
+interface ChangePasswordRequestDto {
+  current_password: string;
+  new_password: string;
+  confirm_password: string;
+}
+
+interface ChangePasswordResponseDto {
+  status: "password_changed";
 }
 
 interface RegisterStatusResponseDto {
@@ -328,7 +338,7 @@ interface StudentImportResultDto {
 }
 ```
 
-## 3) Reference complete des endpoints
+## 3) Référence complète des endpoints
 
 ## 3.1 Health
 
@@ -447,11 +457,36 @@ Exemple 200:
 - 204: no content
 - Side effect: suppression cookie refresh
 
+### POST `/v1/auth/change-password`
+- Auth: oui (`Bearer`)
+- Body:
+```json
+{
+  "current_password": "CurrentPass1!",
+  "new_password": "NewSecurePass2@",
+  "confirm_password": "NewSecurePass2@"
+}
+```
+- 200: `ChangePasswordResponseDto`
+- Politique mot de passe: même validation que l'inscription (`required,min=8`).
+- Side effects:
+  - met à jour `password_hash`, `password_changed_at`, `updated_at`
+  - invalide tous les refresh tokens de l'utilisateur (session courante incluse)
+  - supprime le cookie refresh (`refresh_token`)
+- Erreurs: `unauthorized`, `invalid_current_password`, `validation_failed`, `invalid_request_body`, `jwt_invalid_token`, `jwt_expired`, `jwt_invalid_signing_method`
+
+Exemple 200:
+```json
+{
+  "status": "password_changed"
+}
+```
+
 ### DELETE `/v1/auth/refresh-tokens`
 - Auth: oui (`Bearer`)
 - Body: aucun
 - 204: no content
-- Side effect: revoke tous les refresh tokens de l utilisateur
+- Side effect: révoque tous les refresh tokens de l'utilisateur
 - Erreurs: `unauthorized`, `jwt_invalid_token`, `jwt_expired`, `jwt_invalid_signing_method`
 
 ## 3.3 User
@@ -714,7 +749,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/bonuses/`
 - Auth: oui
-- Query params (metier):
+- Query params (métier):
   - `student_id` (uuid)
   - `classroom_id` (uuid)
   - `bonus_type_id` (uuid)
@@ -801,7 +836,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/penalties/`
 - Auth: oui
-- Query params (metier):
+- Query params (métier):
   - `student_id` (uuid)
   - `classroom_id` (uuid)
   - `penalty_type_id` (uuid)
@@ -830,7 +865,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Body:
 ```json
 {
-  "name": "Exercice supplementaire"
+  "name": "Exercice supplémentaire"
 }
 ```
 - 201: `ReturnPunishmentTypeDto`
@@ -854,7 +889,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Body partiel:
 ```json
 {
-  "name": "Presentation orale"
+  "name": "Présentation orale"
 }
 ```
 - 200: `ReturnPunishmentTypeDto`
@@ -882,7 +917,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/punishments/`
 - Auth: oui
-- Query params (metier):
+- Query params (métier):
   - `student_id` (uuid)
   - `classroom_id` (uuid)
   - `punishment_type_id` (uuid)
@@ -975,7 +1010,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 200: `ReturnDashboardDto`
 - Erreurs: `malformed_parameter`, `classroom_not_found`, `unauthorized`
 
-Exemple 200 (tronque):
+Exemple 200 (tronqué):
 ```json
 {
   "kpis": {
@@ -996,17 +1031,17 @@ Exemple 200 (tronque):
 
 ## 4) Notes importantes pour le frontend IA
 
-- Les listes `bonuses`, `penalties`, `punishments` sont maintenant basees sur filtres metier (pas de `search` texte sur l eleve).
-- La recherche eleve est disponible sur `GET /v1/students/?search=...` et `GET /v1/classrooms/{classroom_id}/students?search=...`.
+- Les listes `bonuses`, `penalties`, `punishments` sont maintenant basées sur des filtres métier (pas de `search` texte sur l'élève).
+- La recherche élève est disponible sur `GET /v1/students/?search=...` et `GET /v1/classrooms/{classroom_id}/students?search=...`.
 - Les listes `classrooms`, `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
-- Pour filtrer des evenements d un eleve: utiliser `student_id`.
-- Les bornes `created_to` / `due_to` sont inclusives sur la journee (backend fait `< date + 1 day`).
+- Pour filtrer des événements d'un élève: utiliser `student_id`.
+- Les bornes `created_to` / `due_to` sont inclusives sur la journée (backend fait `< date + 1 day`).
 - `overdue=true` sur punishments signifie: `resolved_at IS NULL` ET `due_at < now()`.
 - Pour les IDs path invalides (`{student_id}`, etc.), le backend renvoie `404 not_found` avec `error_details` indiquant le champ invalide.
 
 ## 5) Catalogue complet des erreurs disponibles
 
-## 5.1 Schema unique
+## 5.1 Schéma unique
 
 ```json
 {
@@ -1023,7 +1058,7 @@ Exemple 200 (tronque):
 }
 ```
 
-## 5.2 Erreurs sans `error_details` (ou details optionnels)
+## 5.2 Erreurs sans `error_details` (ou détails optionnels)
 
 ### 400
 - `malformed_parameter`
@@ -1120,6 +1155,10 @@ Exemple 200 (tronque):
 ```json
 { "error": "invalid_credentials_or_user_doesnt_exist", "error_code": 401 }
 ```
+- `invalid_current_password`
+```json
+{ "error": "invalid_current_password", "error_code": 401 }
+```
 - `jwt_invalid_signing_method`
 ```json
 { "error": "jwt_invalid_signing_method", "error_code": 401 }
@@ -1163,7 +1202,7 @@ Exemple 200 (tronque):
 
 ## 5.3 Erreurs avec `error_details` importantes
 
-### `conflict` (email deja pris) - 409
+### `conflict` (email déjà pris) - 409
 ```json
 {
   "error": "conflict",
@@ -1243,6 +1282,10 @@ Exemple:
 }
 ```
 
+Pour `POST /v1/auth/change-password`, des clés possibles dans `error_details`:
+- `validation_password_confirmation_mismatch`
+- `validation_min_length:8`
+
 ### `malformed_parameter` - 400
 Cas classiques:
 - UUID query invalide (`student_id`, `classroom_id`, etc.)
@@ -1278,7 +1321,7 @@ Exemples:
 }
 ```
 
-### `not_found` avec detail UUID path invalide - 404
+### `not_found` avec détail UUID path invalide - 404
 Exemple:
 ```json
 {
@@ -1355,11 +1398,11 @@ Exemple:
 
 ### `import_validation_failed` - 400
 - Erreurs ligne par ligne sur le contenu fichier
-- `row` est renseigne
-- `error` est une cle stable `import_*` (pas un message texte)
+- `row` est renseigné
+- `error` est une clé stable `import_*` (pas un message texte)
 - `error_details` (liste de strings) apporte le contexte de validation (min/max/expected/field)
 
-Exemples de cles possibles:
+Exemples de clés possibles:
 - `import_required_field`
 - `import_invalid_format`
 - `import_invalid_length`

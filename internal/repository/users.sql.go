@@ -113,6 +113,26 @@ func (q *Queries) GetUserCredentialsByEmailForAuth(ctx context.Context, email st
 	return i, err
 }
 
+const getUserCredentialsByIDForAuth = `-- name: GetUserCredentialsByIDForAuth :one
+SELECT id, password_hash, password_changed_at
+FROM users
+WHERE id = $1
+LIMIT 1
+`
+
+type GetUserCredentialsByIDForAuthRow struct {
+	ID                uuid.UUID  `json:"id"`
+	PasswordHash      string     `json:"password_hash"`
+	PasswordChangedAt *time.Time `json:"password_changed_at"`
+}
+
+func (q *Queries) GetUserCredentialsByIDForAuth(ctx context.Context, id uuid.UUID) (GetUserCredentialsByIDForAuthRow, error) {
+	row := q.db.QueryRow(ctx, getUserCredentialsByIDForAuth, id)
+	var i GetUserCredentialsByIDForAuthRow
+	err := row.Scan(&i.ID, &i.PasswordHash, &i.PasswordChangedAt)
+	return i, err
+}
+
 const getUserEmailVerificationStateByEmail = `-- name: GetUserEmailVerificationStateByEmail :one
 SELECT id, email, first_name, email_verified_at
 FROM users
@@ -155,6 +175,27 @@ func (q *Queries) GetUserEmailVerificationStateByID(ctx context.Context, id uuid
 	var i GetUserEmailVerificationStateByIDRow
 	err := row.Scan(&i.ID, &i.EmailVerifiedAt)
 	return i, err
+}
+
+const updateUserPasswordByID = `-- name: UpdateUserPasswordByID :execrows
+UPDATE users
+SET password_hash = $1,
+    password_changed_at = NOW(),
+    updated_at = NOW()
+WHERE id = $2
+`
+
+type UpdateUserPasswordByIDParams struct {
+	PasswordHash string    `json:"password_hash"`
+	ID           uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserPasswordByID(ctx context.Context, arg UpdateUserPasswordByIDParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateUserPasswordByID, arg.PasswordHash, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const userEmailExists = `-- name: UserEmailExists :one
