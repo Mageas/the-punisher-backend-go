@@ -109,7 +109,7 @@ func (h *PenaltyHandler) ListPenalties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := web.NewPaginatedResponse(penalties, totalCount, page)
+	response := web.NewPaginatedResponse(penalties, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
@@ -162,6 +162,6 @@ func (h *PenaltyHandler) ListPenaltiesByStudent(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response := web.NewPaginatedResponse(penalties, totalCount, page)
+	response := web.NewPaginatedResponse(penalties, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }

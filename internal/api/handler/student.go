@@ -136,7 +136,7 @@ func (h *StudentHandler) GetStudentHistory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response := web.NewPaginatedResponse(history, totalCount, page)
+	response := web.NewPaginatedResponse(history, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
@@ -152,7 +152,7 @@ func (h *StudentHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := web.NewPaginatedResponse(students, totalCount, page)
+	response := web.NewPaginatedResponse(students, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 

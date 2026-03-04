@@ -61,6 +61,19 @@ go run ./cmd/api
 
 API par défaut: `http://localhost:8080`
 
+## Pagination API
+
+Toutes les routes paginées utilisent les query params:
+- `page` (optionnel, int > 0, défaut: `1`)
+- `item_per_page` (optionnel, int, défaut: `20`)
+
+Règles sur `item_per_page`:
+- min: `5`
+- max: `50`
+- valeur invalide/non numérique: fallback `20`
+- valeur < 5: forcée à `5`
+- valeur > 50: forcée à `50`
+
 ## Configuration CORS
 
 Variables disponibles (dans `.env`) :

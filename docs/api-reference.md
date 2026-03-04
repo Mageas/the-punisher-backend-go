@@ -40,9 +40,15 @@ Notes cookie refresh:
 - Bool query: `true` ou `false`
 
 ### 1.4 Pagination
-- Paramètre: `page` (int > 0)
-- Taille fixe backend: `20`
-- Si `page` invalide/absent: fallback page `1` (pas d'erreur)
+- Parametres:
+  - `page` (int > 0)
+  - `item_per_page` (optionnel, int)
+- Taille par defaut backend: `20`
+- Bornes `item_per_page`: min `5`, max `50`
+- Si `page` invalide/absent: fallback page `1` (pas d erreur)
+- Si `item_per_page` invalide/absent: fallback `20` (pas d erreur)
+- Si `item_per_page` < 5: force a `5`
+- Si `item_per_page` > 50: force a `50`
 
 Format réponse paginée:
 ```json
@@ -596,9 +602,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
   - `search` (optionnel, recherche sur `first_name + last_name`)
 - Exemple URL:
-  - `/v1/students/?search=jean%20dupont&page=2`
+  - `/v1/students/?search=jean%20dupont&page=2&item_per_page=10`
 - 200: `PaginatedResponse<ReturnStudentDto>`
 - Erreurs: `unauthorized`
 
@@ -624,8 +631,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
 - Exemple URL:
-  - `/v1/students/11111111-1111-1111-1111-111111111111/history?page=1`
+  - `/v1/students/11111111-1111-1111-1111-111111111111/history?page=1&item_per_page=25`
 - 200: `PaginatedResponse<StudentHistoryItemDto>`
 - Erreurs: `student_not_found`, `not_found`, `unauthorized`
 
@@ -648,7 +656,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/students/{student_id}/classrooms`
 - Auth: oui
-- Query params: `page`
+- Query params: `page`, `item_per_page`
 - 200: `PaginatedResponse<ReturnClassroomDto>`
 - Erreurs: `student_not_found`, `not_found`, `unauthorized`
 
@@ -656,15 +664,16 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page`
+  - `item_per_page` (optionnel, min 5, max 50)
   - `state` optionnel: `used|unused`
 - Exemple URL:
-  - `/v1/students/{student_id}/bonuses?state=unused&page=1`
+  - `/v1/students/{student_id}/bonuses?state=unused&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnBonusDto>`
 - Erreurs: `student_not_found`, `malformed_parameter`, `not_found`, `unauthorized`
 
 ### GET `/v1/students/{student_id}/penalties`
 - Auth: oui
-- Query params: `page`
+- Query params: `page`, `item_per_page`
 - 200: `PaginatedResponse<ReturnPenaltyDto>`
 - Erreurs: `student_not_found`, `not_found`, `unauthorized`
 
@@ -672,9 +681,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page`
+  - `item_per_page` (optionnel, min 5, max 50)
   - `state` optionnel: `pending|resolved`
 - Exemple URL:
-  - `/v1/students/{student_id}/punishments?state=pending&page=1`
+  - `/v1/students/{student_id}/punishments?state=pending&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnPunishmentDto>`
 - Erreurs: `student_not_found`, `malformed_parameter`, `not_found`, `unauthorized`
 
@@ -697,6 +707,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
   - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnClassroomDto>`
 - Erreurs: `unauthorized`
@@ -754,6 +765,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
   - `search` (optionnel, recherche sur `first_name + last_name`)
 - 200: `PaginatedResponse<ReturnStudentDto>`
 - Erreurs: `classroom_not_found`, `not_found`, `unauthorized`
@@ -775,6 +787,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
   - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnBonusTypeDto>`
 - Erreurs: `unauthorized`
@@ -825,8 +838,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   - `created_from` (`YYYY-MM-DD`)
   - `created_to` (`YYYY-MM-DD`)
   - `page`
+  - `item_per_page` (optionnel, min 5, max 50)
 - Exemple URL:
-  - `/v1/bonuses/?state=unused&classroom_id=33333333-3333-3333-3333-333333333333&created_from=2026-02-01&created_to=2026-02-28&page=1`
+  - `/v1/bonuses/?state=unused&classroom_id=33333333-3333-3333-3333-333333333333&created_from=2026-02-01&created_to=2026-02-28&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnBonusDto>`
 - Erreurs: `malformed_parameter`, `unauthorized`
 
@@ -863,6 +877,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
   - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnPenaltyTypeDto>`
 - Erreurs: `unauthorized`
@@ -911,8 +926,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   - `created_from` (`YYYY-MM-DD`)
   - `created_to` (`YYYY-MM-DD`)
   - `page`
+  - `item_per_page` (optionnel, min 5, max 50)
 - Exemple URL:
-  - `/v1/penalties/?penalty_type_id=44444444-4444-4444-4444-444444444444&classroom_id=33333333-3333-3333-3333-333333333333&created_from=2026-02-01&created_to=2026-02-28&page=1`
+  - `/v1/penalties/?penalty_type_id=44444444-4444-4444-4444-444444444444&classroom_id=33333333-3333-3333-3333-333333333333&created_from=2026-02-01&created_to=2026-02-28&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnPenaltyDto>`
 - Erreurs: `malformed_parameter`, `unauthorized`
 
@@ -943,6 +959,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `page` (optionnel)
+  - `item_per_page` (optionnel, min 5, max 50)
   - `search` (optionnel, recherche sur `name`)
 - 200: `PaginatedResponse<ReturnPunishmentTypeDto>`
 - Erreurs: `unauthorized`
@@ -997,8 +1014,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   - `due_from` (`YYYY-MM-DD`)
   - `due_to` (`YYYY-MM-DD`)
   - `page`
+  - `item_per_page` (optionnel, min 5, max 50)
 - Exemple URL:
-  - `/v1/punishments/?state=pending&overdue=true&automated=false&classroom_id=33333333-3333-3333-3333-333333333333&due_from=2026-03-01&due_to=2026-03-31&page=1`
+  - `/v1/punishments/?state=pending&overdue=true&automated=false&classroom_id=33333333-3333-3333-3333-333333333333&due_from=2026-03-01&due_to=2026-03-31&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnPunishmentDto>`
 - Erreurs: `malformed_parameter`, `unauthorized`
 
@@ -1039,7 +1057,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### GET `/v1/rules/`
 - Auth: oui
-- Query params: `page`
+- Query params: `page`, `item_per_page`
 - 200: `PaginatedResponse<ReturnRuleDto>`
 - Erreurs: `unauthorized`
 

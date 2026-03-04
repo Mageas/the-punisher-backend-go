@@ -55,7 +55,7 @@ func (h *BonusTypeHandler) ListBonusTypes(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response := web.NewPaginatedResponse(items, totalCount, page)
+	response := web.NewPaginatedResponse(items, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 

@@ -6,6 +6,8 @@ import (
 )
 
 const DefaultItemPerPage = 20
+const MinItemPerPage = 5
+const MaxItemPerPage = 50
 
 type PaginationMeta struct {
 	Page         int   `json:"page"`
@@ -28,20 +30,34 @@ func ParsePagination(r *http.Request) (limit int32, offset int32, page int) {
 		}
 	}
 
-	limit = int32(DefaultItemPerPage)
-	offset = int32((page - 1) * DefaultItemPerPage)
+	itemPerPage := DefaultItemPerPage
+	if ipp := r.URL.Query().Get("item_per_page"); ipp != "" {
+		if parsed, err := strconv.Atoi(ipp); err == nil {
+			switch {
+			case parsed < MinItemPerPage:
+				itemPerPage = MinItemPerPage
+			case parsed > MaxItemPerPage:
+				itemPerPage = MaxItemPerPage
+			default:
+				itemPerPage = parsed
+			}
+		}
+	}
+
+	limit = int32(itemPerPage)
+	offset = int32((page - 1) * itemPerPage)
 
 	return limit, offset, page
 }
 
-func NewPaginatedResponse[T any](items []T, totalCount int64, page int) PaginatedResponse[T] {
+func NewPaginatedResponse[T any](items []T, totalCount int64, page int, itemPerPage int) PaginatedResponse[T] {
 	meta := PaginationMeta{
 		Page:        page,
-		ItemPerPage: DefaultItemPerPage,
+		ItemPerPage: itemPerPage,
 		TotalCount:  totalCount,
 	}
 
-	if int64(page*DefaultItemPerPage) < totalCount {
+	if int64(page*itemPerPage) < totalCount {
 		next := page + 1
 		meta.NextPage = &next
 	}
