@@ -54,7 +54,7 @@ func (h *RuleHandler) ListRules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := web.NewPaginatedResponse(rules, totalCount, page)
+	response := web.NewPaginatedResponse(rules, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 

@@ -87,7 +87,7 @@ func (h *ClassroomHandler) ListClassrooms(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	response := web.NewPaginatedResponse(classrooms, totalCount, page)
+	response := web.NewPaginatedResponse(classrooms, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
@@ -216,7 +216,7 @@ func (h *ClassroomHandler) ListStudentsByClassroom(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response := web.NewPaginatedResponse(students, totalCount, page)
+	response := web.NewPaginatedResponse(students, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
@@ -236,6 +236,6 @@ func (h *ClassroomHandler) ListClassroomsByStudent(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response := web.NewPaginatedResponse(classrooms, totalCount, page)
+	response := web.NewPaginatedResponse(classrooms, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }

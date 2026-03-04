@@ -132,7 +132,7 @@ func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := web.NewPaginatedResponse(bonuses, totalCount, page)
+	response := web.NewPaginatedResponse(bonuses, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
@@ -208,6 +208,6 @@ func (h *BonusHandler) ListBonusesByStudent(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response := web.NewPaginatedResponse(bonuses, totalCount, page)
+	response := web.NewPaginatedResponse(bonuses, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }

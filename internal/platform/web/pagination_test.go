@@ -13,10 +13,15 @@ func TestParsePagination(t *testing.T) {
 		wantOffset int32
 		wantPage   int
 	}{
-		{name: "default page", query: "", wantLimit: 20, wantOffset: 0, wantPage: 1},
-		{name: "valid page", query: "?page=3", wantLimit: 20, wantOffset: 40, wantPage: 3},
+		{name: "default pagination", query: "", wantLimit: 20, wantOffset: 0, wantPage: 1},
+		{name: "valid page and item_per_page", query: "?page=3&item_per_page=15", wantLimit: 15, wantOffset: 30, wantPage: 3},
 		{name: "invalid page", query: "?page=abc", wantLimit: 20, wantOffset: 0, wantPage: 1},
 		{name: "zero page", query: "?page=0", wantLimit: 20, wantOffset: 0, wantPage: 1},
+		{name: "invalid item_per_page", query: "?item_per_page=abc", wantLimit: 20, wantOffset: 0, wantPage: 1},
+		{name: "item_per_page below min", query: "?item_per_page=2", wantLimit: 5, wantOffset: 0, wantPage: 1},
+		{name: "item_per_page above max", query: "?item_per_page=100", wantLimit: 50, wantOffset: 0, wantPage: 1},
+		{name: "item_per_page below min with page", query: "?page=2&item_per_page=3", wantLimit: 5, wantOffset: 5, wantPage: 2},
+		{name: "item_per_page above max with page", query: "?page=2&item_per_page=99", wantLimit: 50, wantOffset: 50, wantPage: 2},
 	}
 
 	for _, tc := range tests {
@@ -32,9 +37,9 @@ func TestParsePagination(t *testing.T) {
 
 func TestNewPaginatedResponse(t *testing.T) {
 	items := []string{"a", "b"}
-	res := NewPaginatedResponse(items, 100, 2)
+	res := NewPaginatedResponse(items, 100, 2, 25)
 
-	if res.Page != 2 || res.ItemPerPage != 20 || res.TotalCount != 100 {
+	if res.Page != 2 || res.ItemPerPage != 25 || res.TotalCount != 100 {
 		t.Fatalf("unexpected metadata: %+v", res.PaginationMeta)
 	}
 	if res.PreviousPage == nil || *res.PreviousPage != 1 {
@@ -46,7 +51,7 @@ func TestNewPaginatedResponse(t *testing.T) {
 }
 
 func TestNewPaginatedResponseNilItems(t *testing.T) {
-	res := NewPaginatedResponse[string](nil, 0, 1)
+	res := NewPaginatedResponse[string](nil, 0, 1, 20)
 	if res.Data == nil {
 		t.Fatalf("expected Data to be an empty slice, not nil")
 	}

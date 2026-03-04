@@ -55,7 +55,7 @@ func (h *PenaltyTypeHandler) ListPenaltyTypes(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	response := web.NewPaginatedResponse(items, totalCount, page)
+	response := web.NewPaginatedResponse(items, totalCount, page, int(limit))
 	web.WriteJSON(w, http.StatusOK, response, nil)
 }
 
