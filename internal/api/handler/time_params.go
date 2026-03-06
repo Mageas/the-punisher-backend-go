@@ -21,3 +21,16 @@ func parseBodyRFC3339(w http.ResponseWriter, rawValue, field string) (time.Time,
 
 	return parsed, true
 }
+
+func parseOptionalBodyRFC3339(w http.ResponseWriter, rawValue *string, field string) (*time.Time, bool) {
+	if rawValue == nil {
+		return nil, true
+	}
+
+	parsed, ok := parseBodyRFC3339(w, *rawValue, field)
+	if !ok {
+		return nil, false
+	}
+
+	return &parsed, true
+}

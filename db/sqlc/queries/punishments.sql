@@ -3,14 +3,20 @@
 -- name: CreatePunishment :one
 WITH created_punishment AS (
     INSERT INTO punishments (
-        user_id, student_id, punishment_type_id, automated, due_at
+        user_id, student_id, punishment_type_id, automated, due_at, occurred_at, evaluation_label
     ) VALUES (
-        sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), FALSE, sqlc.arg(due_at)
+        sqlc.arg(user_id),
+        sqlc.arg(student_id),
+        sqlc.arg(punishment_type_id),
+        FALSE,
+        sqlc.arg(due_at),
+        COALESCE(sqlc.narg(occurred_at)::timestamptz, NOW()),
+        sqlc.narg(evaluation_label)::text
     )
-    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, due_at, resolved_at
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, occurred_at, evaluation_label, due_at, resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -27,10 +33,10 @@ WITH created_punishment AS (
     ) VALUES (
         sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(punishment_type_id), sqlc.arg(triggering_rule_id), sqlc.arg(automated), sqlc.arg(due_at)
     )
-    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, due_at, resolved_at
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, occurred_at, evaluation_label, due_at, resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -42,7 +48,7 @@ LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;
 
 -- name: GetPunishmentByUser :one
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -68,8 +74,8 @@ WHERE p.user_id = sqlc.arg(user_id)
       OR (sqlc.narg(overdue)::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
   AND (sqlc.narg(due_from)::date IS NULL OR p.due_at >= sqlc.narg(due_from)::date)
   AND (sqlc.narg(due_to)::date IS NULL OR p.due_at < (sqlc.narg(due_to)::date + INTERVAL '1 day'))
   AND (
@@ -86,7 +92,7 @@ WHERE p.user_id = sqlc.arg(user_id)
 
 -- name: ListPunishmentsByUser :many
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -107,8 +113,8 @@ WHERE p.user_id = sqlc.arg(user_id)
       OR (sqlc.narg(overdue)::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
   AND (sqlc.narg(due_from)::date IS NULL OR p.due_at >= sqlc.narg(due_from)::date)
   AND (sqlc.narg(due_to)::date IS NULL OR p.due_at < (sqlc.narg(due_to)::date + INTERVAL '1 day'))
   AND (
@@ -122,7 +128,7 @@ WHERE p.user_id = sqlc.arg(user_id)
         AND c.user_id = p.user_id
     )
   )
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountPunishmentsByStudent :one
@@ -134,7 +140,7 @@ WHERE student_id = sqlc.arg(student_id)
 
 -- name: ListPunishmentsByStudent :many
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -146,7 +152,7 @@ LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.student_id = sqlc.arg(student_id)
   AND p.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(resolved)::boolean IS NULL OR (p.resolved_at IS NOT NULL) = sqlc.narg(resolved)::boolean)
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: ResolvePunishment :one
@@ -154,15 +160,38 @@ WITH resolved_punishment AS (
     UPDATE punishments
     SET resolved_at = NOW()
     WHERE punishments.id = sqlc.arg(id) AND punishments.user_id = sqlc.arg(user_id) AND punishments.resolved_at IS NULL
-    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.due_at, punishments.resolved_at
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.occurred_at, punishments.evaluation_label, punishments.due_at, punishments.resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM resolved_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;
+
+-- name: UpdatePunishmentByUser :one
+WITH updated_punishment AS (
+    UPDATE punishments
+    SET
+        occurred_at = COALESCE(sqlc.narg(occurred_at)::timestamptz, occurred_at),
+        evaluation_label = CASE
+            WHEN sqlc.arg(evaluation_label_set)::boolean THEN sqlc.narg(evaluation_label)::text
+            ELSE evaluation_label
+        END
+    WHERE punishments.id = sqlc.arg(id) AND punishments.user_id = sqlc.arg(user_id)
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.occurred_at, punishments.evaluation_label, punishments.due_at, punishments.resolved_at
+)
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM updated_punishment p
 JOIN students s ON s.id = p.student_id
 JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id;

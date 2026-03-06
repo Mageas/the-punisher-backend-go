@@ -7,8 +7,15 @@ import (
 )
 
 type RequestPenaltyDto struct {
-	StudentID     string `json:"student_id" validate:"required,uuid"`
-	PenaltyTypeID string `json:"penalty_type_id" validate:"required,uuid"`
+	StudentID       string  `json:"student_id" validate:"required,uuid"`
+	PenaltyTypeID   string  `json:"penalty_type_id" validate:"required,uuid"`
+	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
+}
+
+type UpdatePenaltyDto struct {
+	OccurredAt      *string             `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel NullableStringField `json:"evaluation_label"`
 }
 
 type ReturnPenaltyDto struct {
@@ -19,4 +26,6 @@ type ReturnPenaltyDto struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
 	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label,omitempty"`
 }

@@ -254,6 +254,56 @@ func TestStudentService_KpisAndHistory_WithQuerier(t *testing.T) {
 	}
 }
 
+func TestStudentService_History_UsesOccurredAtOrder_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+
+	recentOccurred := time.Now().UTC()
+	backdatedOccurred := recentOccurred.AddDate(0, 0, -5)
+
+	recentBonus, err := repo.CreateBonus(ctx, repository.CreateBonusParams{
+		UserID:      user.ID,
+		StudentID:   student.ID,
+		BonusTypeID: bonusType.ID,
+		Points:      3,
+		OccurredAt:  &recentOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create recent bonus fixture: %v", err)
+	}
+
+	backdatedPenalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
+		UserID:        user.ID,
+		StudentID:     student.ID,
+		PenaltyTypeID: penaltyType.ID,
+		OccurredAt:    &backdatedOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create backdated penalty fixture: %v", err)
+	}
+
+	svc := NewStudentService(repo)
+	history, total, err := svc.ListStudentHistory(ctx, user.ID, student.ID, 20, 0)
+	if err != nil {
+		t.Fatalf("ListStudentHistory returned error: %v", err)
+	}
+	if total != 2 || len(history) != 2 {
+		t.Fatalf("expected 2 history entries, got total=%d len=%d", total, len(history))
+	}
+	if history[0].ID != recentBonus.ID || history[0].Type != "bonus" {
+		t.Fatalf("expected bonus with recent occurred_at first, got %+v", history[0])
+	}
+	assertTimeEqualToPostgresPrecision(t, "history[0].occurred_at", history[0].OccurredAt, recentOccurred)
+	if history[1].ID != backdatedPenalty.ID || history[1].Type != "penalty" {
+		t.Fatalf("expected backdated penalty second, got %+v", history[1])
+	}
+}
+
 func TestStudentService_NotFoundBranches_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()

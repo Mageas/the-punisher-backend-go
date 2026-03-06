@@ -18,6 +18,7 @@ func (app *application) mountPenaltyRoutes(r chi.Router, penaltyHandler *handler
 		r.Post("/", penaltyHandler.CreatePenalty)
 		r.Get("/", penaltyHandler.ListPenalties)
 		r.Get("/{penalty_id}", penaltyHandler.GetPenalty)
+		r.Put("/{penalty_id}", penaltyHandler.UpdatePenalty)
 		r.Delete("/{penalty_id}", penaltyHandler.DeletePenalty)
 	})
 }

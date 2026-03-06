@@ -15,10 +15,26 @@ import (
 )
 
 type PunishmentService interface {
-	CreatePunishment(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, punishmentTypeID uuid.UUID, dueAt time.Time) (*dto.ReturnPunishmentDto, error)
+	CreatePunishment(
+		ctx context.Context,
+		userID uuid.UUID,
+		studentID uuid.UUID,
+		punishmentTypeID uuid.UUID,
+		dueAt time.Time,
+		occurredAt *time.Time,
+		evaluationLabel *string,
+	) (*dto.ReturnPunishmentDto, error)
 	GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
 	ListPunishments(ctx context.Context, userID uuid.UUID, filters ListPunishmentsFilters) ([]*dto.ReturnPunishmentDto, int64, error)
 	ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
+	UpdatePunishment(
+		ctx context.Context,
+		userID uuid.UUID,
+		punishmentID uuid.UUID,
+		occurredAt *time.Time,
+		evaluationLabelSet bool,
+		evaluationLabel *string,
+	) (*dto.ReturnPunishmentDto, error)
 	ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
 	DeletePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) error
 }
@@ -31,7 +47,15 @@ func NewPunishmentService(repo repository.Querier) PunishmentService {
 	return &punishmentService{repo: repo}
 }
 
-func (s *punishmentService) CreatePunishment(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, punishmentTypeID uuid.UUID, dueAt time.Time) (*dto.ReturnPunishmentDto, error) {
+func (s *punishmentService) CreatePunishment(
+	ctx context.Context,
+	userID uuid.UUID,
+	studentID uuid.UUID,
+	punishmentTypeID uuid.UUID,
+	dueAt time.Time,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) (*dto.ReturnPunishmentDto, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
 		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
@@ -51,6 +75,8 @@ func (s *punishmentService) CreatePunishment(ctx context.Context, userID uuid.UU
 		StudentID:        studentID,
 		PunishmentTypeID: punishmentTypeID,
 		DueAt:            dueAt,
+		OccurredAt:       occurredAt,
+		EvaluationLabel:  evaluationLabel,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create punishment: %w", err)
@@ -148,6 +174,33 @@ func (s *punishmentService) ListPunishmentsByStudent(ctx context.Context, userID
 	}
 
 	return sqlcmapper.PunishmentListFromListByStudentRows(punishments), totalCount, nil
+}
+
+func (s *punishmentService) UpdatePunishment(
+	ctx context.Context,
+	userID uuid.UUID,
+	punishmentID uuid.UUID,
+	occurredAt *time.Time,
+	evaluationLabelSet bool,
+	evaluationLabel *string,
+) (*dto.ReturnPunishmentDto, error) {
+	punishment, err := s.repo.UpdatePunishmentByUser(ctx, repository.UpdatePunishmentByUserParams{
+		OccurredAt:         occurredAt,
+		EvaluationLabelSet: evaluationLabelSet,
+		EvaluationLabel:    evaluationLabel,
+		ID:                 punishmentID,
+		UserID:             userID,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return nil, api.ErrPunishmentNotFound
+		}
+		return nil, fmt.Errorf("failed to update punishment: %w", err)
+	}
+
+	slog.Info("punishment updated", "punishment_id", punishment.ID, "user_id", userID)
+
+	return sqlcmapper.PunishmentFromUpdateRow(&punishment), nil
 }
 
 func (s *punishmentService) ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {

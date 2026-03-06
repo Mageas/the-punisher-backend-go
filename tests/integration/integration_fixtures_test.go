@@ -17,6 +17,16 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
+func assertTimeEqualToPostgresPrecision(t *testing.T, field string, got, expected time.Time) {
+	t.Helper()
+
+	gotNormalized := got.UTC().Truncate(time.Microsecond)
+	expectedNormalized := expected.UTC().Truncate(time.Microsecond)
+	if !gotNormalized.Equal(expectedNormalized) {
+		t.Fatalf("expected %s %s, got %s", field, expectedNormalized, gotNormalized)
+	}
+}
+
 func uniqueValue(prefix string) string {
 	compact := strings.ReplaceAll(uuid.NewString(), "-", "")
 	return fmt.Sprintf("%s-%s", prefix, compact[:10])

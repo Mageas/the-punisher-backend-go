@@ -61,6 +61,8 @@ SELECT
     history.type,
     history.id,
     history.created_at,
+    history.occurred_at,
+    history.evaluation_label,
     history.penalty_type_id,
     history.penalty_type_name,
     history.bonus_type_id,
@@ -79,6 +81,8 @@ FROM (
         'punishment'::text AS type,
         p.id,
         p.created_at,
+        p.occurred_at,
+        p.evaluation_label,
         NULL::uuid AS penalty_type_id,
         NULL::text AS penalty_type_name,
         NULL::uuid AS bonus_type_id,
@@ -104,6 +108,8 @@ FROM (
         'penalty'::text AS type,
         p.id,
         p.created_at,
+        p.occurred_at,
+        p.evaluation_label,
         p.penalty_type_id,
         pt.name AS penalty_type_name,
         NULL::uuid AS bonus_type_id,
@@ -115,7 +121,7 @@ FROM (
         NULL::uuid AS triggering_rule_id,
         NULL::text AS triggering_rule_name,
         FALSE AS automated,
-        p.created_at AS due_at,
+        p.occurred_at AS due_at,
         NULL::timestamptz AS resolved_at
     FROM penalties p
     JOIN penalty_types pt ON pt.id = p.penalty_type_id
@@ -128,6 +134,8 @@ FROM (
         'bonus'::text AS type,
         b.id,
         b.created_at,
+        b.occurred_at,
+        b.evaluation_label,
         NULL::uuid AS penalty_type_id,
         NULL::text AS penalty_type_name,
         b.bonus_type_id,
@@ -139,14 +147,14 @@ FROM (
         NULL::uuid AS triggering_rule_id,
         NULL::text AS triggering_rule_name,
         FALSE AS automated,
-        b.created_at AS due_at,
+        b.occurred_at AS due_at,
         NULL::timestamptz AS resolved_at
     FROM bonuses b
     JOIN bonus_types bt ON bt.id = b.bonus_type_id
     WHERE b.student_id = sqlc.arg(student_id)
       AND b.user_id = sqlc.arg(user_id)
 ) history
-ORDER BY history.created_at DESC, history.id DESC
+ORDER BY history.occurred_at DESC, history.id DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountStudentHistory :one

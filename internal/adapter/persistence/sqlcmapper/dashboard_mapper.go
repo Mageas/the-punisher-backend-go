@@ -53,6 +53,8 @@ func dashboardPenaltiesFromRows(rows []repository.ListDashboardRecentPenaltiesRo
 			row.PenaltyTypeID,
 			row.PenaltyTypeName,
 			row.CreatedAt,
+			row.OccurredAt,
+			row.EvaluationLabel,
 		)
 		if response != nil {
 			responses = append(responses, response)
@@ -75,6 +77,8 @@ func dashboardBonusesFromRows(rows []repository.ListDashboardRecentBonusesRow) [
 			row.BonusTypeName,
 			row.Points,
 			row.CreatedAt,
+			row.OccurredAt,
+			row.EvaluationLabel,
 			row.UsedAt,
 		)
 		if response != nil {
@@ -100,6 +104,8 @@ func dashboardPendingPunishmentsFromRows(rows []repository.ListDashboardPendingP
 			punishmentTriggeringRuleNameFromText(row.TriggeringRuleName),
 			row.Automated,
 			row.CreatedAt,
+			row.OccurredAt,
+			row.EvaluationLabel,
 			row.DueAt,
 			row.ResolvedAt,
 		)

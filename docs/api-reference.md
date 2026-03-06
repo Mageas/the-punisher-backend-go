@@ -36,7 +36,7 @@ Notes cookie refresh:
 ### 1.3 Types de données
 - UUID: format canonique (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - Date liste: `YYYY-MM-DD` (ex: `2026-02-28`)
-- DateTime body (punishments): `RFC3339` (ex: `2026-03-15T18:00:00Z`)
+- DateTime body (`occurred_at`, `due_at`): `RFC3339` (ex: `2026-03-15T18:00:00Z`)
 - Bool query: `true` ou `false`
 
 ### 1.4 Pagination
@@ -201,6 +201,9 @@ interface StudentKpisDto {
 interface StudentHistoryItemDto {
   type: string; // bonus | penalty | punishment
   id: string;
+  created_at: string;
+  occurred_at: string;
+  evaluation_label?: string;
   penalty_type_id?: string;
   penalty_type_name?: string;
   bonus_type_id?: string;
@@ -214,7 +217,6 @@ interface StudentHistoryItemDto {
   automated?: boolean;
   due_at?: string;
   resolved_at?: string;
-  created_at: string;
 }
 
 // Classrooms
@@ -257,6 +259,19 @@ interface ReturnPunishmentTypeDto {
   updated_at: string;
 }
 
+interface RequestBonusDto {
+  student_id: string;
+  bonus_type_id: string;
+  points: number;
+  occurred_at?: string; // RFC3339
+  evaluation_label?: string;
+}
+
+interface UpdateBonusDto {
+  occurred_at?: string; // RFC3339
+  evaluation_label?: string | null; // null clears the label
+}
+
 interface ReturnBonusDto {
   id: string;
   student_id: string;
@@ -266,7 +281,21 @@ interface ReturnBonusDto {
   bonus_type_name: string;
   points: number;
   created_at: string;
+  occurred_at: string;
+  evaluation_label?: string;
   used_at: string | null;
+}
+
+interface RequestPenaltyDto {
+  student_id: string;
+  penalty_type_id: string;
+  occurred_at?: string; // RFC3339
+  evaluation_label?: string;
+}
+
+interface UpdatePenaltyDto {
+  occurred_at?: string; // RFC3339
+  evaluation_label?: string | null; // null clears the label
 }
 
 interface ReturnPenaltyDto {
@@ -277,6 +306,21 @@ interface ReturnPenaltyDto {
   penalty_type_id: string;
   penalty_type_name: string;
   created_at: string;
+  occurred_at: string;
+  evaluation_label?: string;
+}
+
+interface RequestPunishmentDto {
+  student_id: string;
+  punishment_type_id: string;
+  due_at: string; // RFC3339
+  occurred_at?: string; // RFC3339
+  evaluation_label?: string;
+}
+
+interface UpdatePunishmentDto {
+  occurred_at?: string; // RFC3339
+  evaluation_label?: string | null; // null clears the label
 }
 
 interface ReturnPunishmentDto {
@@ -290,6 +334,8 @@ interface ReturnPunishmentDto {
   triggering_rule_name: string | null;
   automated: boolean;
   created_at: string;
+  occurred_at: string;
+  evaluation_label?: string;
   due_at: string;
   resolved_at: string | null;
 }
@@ -632,6 +678,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Query params:
   - `page` (optionnel)
   - `item_per_page` (optionnel, min 5, max 50)
+- Tri: `occurred_at` décroissant (puis `id` décroissant)
 - Exemple URL:
   - `/v1/students/11111111-1111-1111-1111-111111111111/history?page=1&item_per_page=25`
 - 200: `PaginatedResponse<StudentHistoryItemDto>`
@@ -822,7 +869,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 {
   "student_id": "11111111-1111-1111-1111-111111111111",
   "bonus_type_id": "22222222-2222-2222-2222-222222222222",
-  "points": 2.5
+  "points": 2.5,
+  "occurred_at": "2026-02-10T09:00:00Z",
+  "evaluation_label": "Participation"
 }
 ```
 - 201: `ReturnBonusDto`
@@ -837,8 +886,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   - `state` (`used|unused`)
   - `created_from` (`YYYY-MM-DD`)
   - `created_to` (`YYYY-MM-DD`)
+  - Note: `created_from` / `created_to` filtrent `occurred_at` (date métier)
   - `page`
   - `item_per_page` (optionnel, min 5, max 50)
+- Tri: `occurred_at` décroissant (puis `id` décroissant)
 - Exemple URL:
   - `/v1/bonuses/?state=unused&classroom_id=33333333-3333-3333-3333-333333333333&created_from=2026-02-01&created_to=2026-02-28&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnBonusDto>`
@@ -848,6 +899,19 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - 200: `ReturnBonusDto`
 - Erreurs: `bonus_not_found`, `not_found`, `unauthorized`
+
+### PUT `/v1/bonuses/{bonus_id}`
+- Auth: oui
+- Body partiel:
+```json
+{
+  "occurred_at": "2026-02-09T08:00:00Z",
+  "evaluation_label": null
+}
+```
+- `evaluation_label: null` supprime explicitement le libellé.
+- 200: `ReturnBonusDto`
+- Erreurs: `invalid_request_body`, `bonus_not_found`, `not_found`, `unauthorized`
 
 ### POST `/v1/bonuses/{bonus_id}/use`
 - Auth: oui
@@ -911,7 +975,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 ```json
 {
   "student_id": "11111111-1111-1111-1111-111111111111",
-  "penalty_type_id": "44444444-4444-4444-4444-444444444444"
+  "penalty_type_id": "44444444-4444-4444-4444-444444444444",
+  "occurred_at": "2026-02-10T09:00:00Z",
+  "evaluation_label": "Retard"
 }
 ```
 - 201: `ReturnPenaltyDto`
@@ -925,8 +991,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   - `penalty_type_id` (uuid)
   - `created_from` (`YYYY-MM-DD`)
   - `created_to` (`YYYY-MM-DD`)
+  - Note: `created_from` / `created_to` filtrent `occurred_at` (date métier)
   - `page`
   - `item_per_page` (optionnel, min 5, max 50)
+- Tri: `occurred_at` décroissant (puis `id` décroissant)
 - Exemple URL:
   - `/v1/penalties/?penalty_type_id=44444444-4444-4444-4444-444444444444&classroom_id=33333333-3333-3333-3333-333333333333&created_from=2026-02-01&created_to=2026-02-28&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnPenaltyDto>`
@@ -936,6 +1004,19 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - 200: `ReturnPenaltyDto`
 - Erreurs: `penalty_not_found`, `not_found`, `unauthorized`
+
+### PUT `/v1/penalties/{penalty_id}`
+- Auth: oui
+- Body partiel:
+```json
+{
+  "occurred_at": "2026-02-09T08:00:00Z",
+  "evaluation_label": null
+}
+```
+- `evaluation_label: null` supprime explicitement le libellé.
+- 200: `ReturnPenaltyDto`
+- Erreurs: `invalid_request_body`, `penalty_not_found`, `not_found`, `unauthorized`
 
 ### DELETE `/v1/penalties/{penalty_id}`
 - Auth: oui
@@ -994,7 +1075,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 {
   "student_id": "11111111-1111-1111-1111-111111111111",
   "punishment_type_id": "55555555-5555-5555-5555-555555555555",
-  "due_at": "2026-03-15T18:00:00Z"
+  "due_at": "2026-03-15T18:00:00Z",
+  "occurred_at": "2026-02-10T09:00:00Z",
+  "evaluation_label": "Travail non rendu"
 }
 ```
 - 201: `ReturnPunishmentDto`
@@ -1011,10 +1094,12 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   - `overdue` (`true|false`)
   - `created_from` (`YYYY-MM-DD`)
   - `created_to` (`YYYY-MM-DD`)
+  - Note: `created_from` / `created_to` filtrent `occurred_at` (date métier)
   - `due_from` (`YYYY-MM-DD`)
   - `due_to` (`YYYY-MM-DD`)
   - `page`
   - `item_per_page` (optionnel, min 5, max 50)
+- Tri: `occurred_at` décroissant (puis `id` décroissant)
 - Exemple URL:
   - `/v1/punishments/?state=pending&overdue=true&automated=false&classroom_id=33333333-3333-3333-3333-333333333333&due_from=2026-03-01&due_to=2026-03-31&page=1&item_per_page=10`
 - 200: `PaginatedResponse<ReturnPunishmentDto>`
@@ -1024,6 +1109,19 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - 200: `ReturnPunishmentDto`
 - Erreurs: `punishment_not_found`, `not_found`, `unauthorized`
+
+### PUT `/v1/punishments/{punishment_id}`
+- Auth: oui
+- Body partiel:
+```json
+{
+  "occurred_at": "2026-02-09T08:00:00Z",
+  "evaluation_label": null
+}
+```
+- `evaluation_label: null` supprime explicitement le libellé.
+- 200: `ReturnPunishmentDto`
+- Erreurs: `invalid_request_body`, `punishment_not_found`, `not_found`, `unauthorized`
 
 ### POST `/v1/punishments/{punishment_id}/resolve`
 - Auth: oui
@@ -1091,6 +1189,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `classroom_id` optionnel (uuid)
+- Tri des listes `recent_penalties`, `recent_bonuses`, `pending_punishments`: `occurred_at` décroissant
 - Exemple URL:
   - `/v1/dashboard/?classroom_id=33333333-3333-3333-3333-333333333333`
 - 200: `ReturnDashboardDto`
@@ -1118,10 +1217,13 @@ Exemple 200 (tronqué):
 ## 4) Notes importantes pour le frontend IA
 
 - Les listes `bonuses`, `penalties`, `punishments` sont maintenant basées sur des filtres métier (pas de `search` texte sur l'élève).
+- Le tri des listes `bonuses`, `penalties`, `punishments`, de l'historique élève et du dashboard (`recent_*`, `pending_punishments`) se fait sur `occurred_at`.
 - La recherche élève est disponible sur `GET /v1/students/?search=...` et `GET /v1/classrooms/{classroom_id}/students?search=...`.
 - Les listes `classrooms`, `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
 - Pour filtrer des événements d'un élève: utiliser `student_id`.
 - Les bornes `created_to` / `due_to` sont inclusives sur la journée (backend fait `< date + 1 day`).
+- `created_from` / `created_to` filtrent la date métier `occurred_at` (et non la date technique `created_at`).
+- `created_at` reste la date technique de création; `occurred_at` est la date métier de l'événement.
 - `overdue=true` sur punishments signifie: `resolved_at IS NULL` ET `due_at < now()`.
 - Pour les IDs path invalides (`{student_id}`, etc.), le backend renvoie `404 not_found` avec `error_details` indiquant le champ invalide.
 

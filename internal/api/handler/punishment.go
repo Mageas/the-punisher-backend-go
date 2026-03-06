@@ -49,7 +49,12 @@ func (h *PunishmentHandler) CreatePunishment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	punishment, err := h.service.CreatePunishment(r.Context(), userID, studentID, punishmentTypeID, dueAt)
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	punishment, err := h.service.CreatePunishment(r.Context(), userID, studentID, punishmentTypeID, dueAt, occurredAt, req.EvaluationLabel)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
@@ -184,6 +189,46 @@ func (h *PunishmentHandler) GetPunishment(w http.ResponseWriter, r *http.Request
 	}
 
 	punishment, err := h.service.GetPunishment(r.Context(), userID, punishmentID)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, punishment, nil)
+}
+
+func (h *PunishmentHandler) UpdatePunishment(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	punishmentID, ok := parsePathUUID(w, r, "punishment_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdatePunishmentDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	punishment, err := h.service.UpdatePunishment(
+		r.Context(),
+		userID,
+		punishmentID,
+		occurredAt,
+		req.EvaluationLabel.Set,
+		req.EvaluationLabel.Value,
+	)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

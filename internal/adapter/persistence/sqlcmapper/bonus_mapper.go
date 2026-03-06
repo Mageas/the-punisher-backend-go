@@ -17,6 +17,8 @@ func buildReturnBonusDto(
 	bonusTypeName string,
 	points float64,
 	createdAt time.Time,
+	occurredAt time.Time,
+	evaluationLabel *string,
 	usedAt *time.Time,
 ) *dto.ReturnBonusDto {
 	response := &dto.ReturnBonusDto{
@@ -28,6 +30,8 @@ func buildReturnBonusDto(
 		BonusTypeName:    bonusTypeName,
 		Points:           points,
 		CreatedAt:        createdAt,
+		OccurredAt:       occurredAt,
+		EvaluationLabel:  bonusEvaluationLabel(evaluationLabel),
 	}
 
 	if convertedUsedAt := bonusUsedAt(usedAt); convertedUsedAt != nil {
@@ -51,6 +55,8 @@ func BonusFromCreateRow(b *repository.CreateBonusRow) *dto.ReturnBonusDto {
 		b.BonusTypeName,
 		b.Points,
 		b.CreatedAt,
+		b.OccurredAt,
+		b.EvaluationLabel,
 		b.UsedAt,
 	)
 }
@@ -69,6 +75,8 @@ func BonusFromGetRow(b *repository.GetBonusByUserRow) *dto.ReturnBonusDto {
 		b.BonusTypeName,
 		b.Points,
 		b.CreatedAt,
+		b.OccurredAt,
+		b.EvaluationLabel,
 		b.UsedAt,
 	)
 }
@@ -86,6 +94,8 @@ func BonusListFromListByUserRows(bonuses []repository.ListBonusesByUserRow) []*d
 			bonus.BonusTypeName,
 			bonus.Points,
 			bonus.CreatedAt,
+			bonus.OccurredAt,
+			bonus.EvaluationLabel,
 			bonus.UsedAt,
 		)
 		if response != nil {
@@ -109,6 +119,8 @@ func BonusListFromListByStudentRows(bonuses []repository.ListBonusesByStudentRow
 			bonus.BonusTypeName,
 			bonus.Points,
 			bonus.CreatedAt,
+			bonus.OccurredAt,
+			bonus.EvaluationLabel,
 			bonus.UsedAt,
 		)
 		if response != nil {
@@ -133,6 +145,28 @@ func BonusFromUseRow(b *repository.UseBonusRow) *dto.ReturnBonusDto {
 		b.BonusTypeName,
 		b.Points,
 		b.CreatedAt,
+		b.OccurredAt,
+		b.EvaluationLabel,
+		b.UsedAt,
+	)
+}
+
+func BonusFromUpdateRow(b *repository.UpdateBonusByUserRow) *dto.ReturnBonusDto {
+	if b == nil {
+		return nil
+	}
+
+	return buildReturnBonusDto(
+		b.ID,
+		b.StudentID,
+		b.StudentFirstName,
+		b.StudentLastName,
+		b.BonusTypeID,
+		b.BonusTypeName,
+		b.Points,
+		b.CreatedAt,
+		b.OccurredAt,
+		b.EvaluationLabel,
 		b.UsedAt,
 	)
 }
@@ -144,4 +178,13 @@ func bonusUsedAt(value *time.Time) *time.Time {
 
 	timeValue := *value
 	return &timeValue
+}
+
+func bonusEvaluationLabel(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	label := *value
+	return &label
 }

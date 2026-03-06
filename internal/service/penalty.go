@@ -15,10 +15,25 @@ import (
 )
 
 type PenaltyService interface {
-	CreatePenalty(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyDto, error)
+	CreatePenalty(
+		ctx context.Context,
+		userID uuid.UUID,
+		studentID uuid.UUID,
+		penaltyTypeID uuid.UUID,
+		occurredAt *time.Time,
+		evaluationLabel *string,
+	) (*dto.ReturnPenaltyDto, error)
 	GetPenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) (*dto.ReturnPenaltyDto, error)
 	ListPenalties(ctx context.Context, userID uuid.UUID, filters ListPenaltiesFilters) ([]*dto.ReturnPenaltyDto, int64, error)
 	ListPenaltiesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error)
+	UpdatePenalty(
+		ctx context.Context,
+		userID uuid.UUID,
+		penaltyID uuid.UUID,
+		occurredAt *time.Time,
+		evaluationLabelSet bool,
+		evaluationLabel *string,
+	) (*dto.ReturnPenaltyDto, error)
 	DeletePenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) error
 }
 
@@ -35,7 +50,14 @@ func NewPenaltyService(repo repository.Querier) PenaltyService {
 	return &penaltyService{repo: repo}
 }
 
-func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (*dto.ReturnPenaltyDto, error) {
+func (s *penaltyService) CreatePenalty(
+	ctx context.Context,
+	userID uuid.UUID,
+	studentID uuid.UUID,
+	penaltyTypeID uuid.UUID,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) (*dto.ReturnPenaltyDto, error) {
 	txRepo, ok := s.repo.(transactionalPenaltyRepo)
 	if !ok {
 		return nil, fmt.Errorf("penalty repository does not support transactions")
@@ -43,7 +65,7 @@ func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, st
 
 	var penalty repository.CreatePenaltyRow
 	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
-		createdPenalty, createErr := s.createPenaltyWithRepo(ctx, txQuerier, userID, studentID, penaltyTypeID)
+		createdPenalty, createErr := s.createPenaltyWithRepo(ctx, txQuerier, userID, studentID, penaltyTypeID, occurredAt, evaluationLabel)
 		if createErr != nil {
 			return createErr
 		}
@@ -59,7 +81,15 @@ func (s *penaltyService) CreatePenalty(ctx context.Context, userID uuid.UUID, st
 	return sqlcmapper.PenaltyFromCreateRow(&penalty), nil
 }
 
-func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) (repository.CreatePenaltyRow, error) {
+func (s *penaltyService) createPenaltyWithRepo(
+	ctx context.Context,
+	repo repository.Querier,
+	userID uuid.UUID,
+	studentID uuid.UUID,
+	penaltyTypeID uuid.UUID,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) (repository.CreatePenaltyRow, error) {
 	if _, err := repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
 		if errors.Is(err, repository.ErrNoRows) {
 			return repository.CreatePenaltyRow{}, api.ErrStudentNotFound
@@ -75,9 +105,11 @@ func (s *penaltyService) createPenaltyWithRepo(ctx context.Context, repo reposit
 	}
 
 	penalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
-		UserID:        userID,
-		StudentID:     studentID,
-		PenaltyTypeID: penaltyTypeID,
+		UserID:          userID,
+		StudentID:       studentID,
+		PenaltyTypeID:   penaltyTypeID,
+		OccurredAt:      occurredAt,
+		EvaluationLabel: evaluationLabel,
 	})
 	if err != nil {
 		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to create penalty: %w", err)
@@ -233,6 +265,33 @@ func (s *penaltyService) ListPenaltiesByStudent(ctx context.Context, userID uuid
 	}
 
 	return sqlcmapper.PenaltyListFromListByStudentRows(penalties), totalCount, nil
+}
+
+func (s *penaltyService) UpdatePenalty(
+	ctx context.Context,
+	userID uuid.UUID,
+	penaltyID uuid.UUID,
+	occurredAt *time.Time,
+	evaluationLabelSet bool,
+	evaluationLabel *string,
+) (*dto.ReturnPenaltyDto, error) {
+	penalty, err := s.repo.UpdatePenaltyByUser(ctx, repository.UpdatePenaltyByUserParams{
+		OccurredAt:         occurredAt,
+		EvaluationLabelSet: evaluationLabelSet,
+		EvaluationLabel:    evaluationLabel,
+		ID:                 penaltyID,
+		UserID:             userID,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return nil, api.ErrPenaltyNotFound
+		}
+		return nil, fmt.Errorf("failed to update penalty: %w", err)
+	}
+
+	slog.Info("penalty updated", "penalty_id", penalty.ID, "user_id", userID)
+
+	return sqlcmapper.PenaltyFromUpdateRow(&penalty), nil
 }
 
 func (s *penaltyService) DeletePenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) error {

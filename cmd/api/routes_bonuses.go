@@ -18,6 +18,7 @@ func (app *application) mountBonusRoutes(r chi.Router, bonusHandler *handler.Bon
 		r.Post("/", bonusHandler.CreateBonus)
 		r.Get("/", bonusHandler.ListBonuses)
 		r.Get("/{bonus_id}", bonusHandler.GetBonus)
+		r.Put("/{bonus_id}", bonusHandler.UpdateBonus)
 		r.Post("/{bonus_id}/use", bonusHandler.UseBonus)
 		r.Delete("/{bonus_id}", bonusHandler.DeleteBonus)
 	})

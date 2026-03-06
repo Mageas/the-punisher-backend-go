@@ -43,7 +43,12 @@ func (h *PenaltyHandler) CreatePenalty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	penalty, err := h.service.CreatePenalty(r.Context(), userID, studentID, penaltyTypeID)
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	penalty, err := h.service.CreatePenalty(r.Context(), userID, studentID, penaltyTypeID, occurredAt, req.EvaluationLabel)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
@@ -122,6 +127,46 @@ func (h *PenaltyHandler) GetPenalty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	penalty, err := h.service.GetPenalty(r.Context(), userID, penaltyID)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, penalty, nil)
+}
+
+func (h *PenaltyHandler) UpdatePenalty(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	penaltyID, ok := parsePathUUID(w, r, "penalty_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdatePenaltyDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	penalty, err := h.service.UpdatePenalty(
+		r.Context(),
+		userID,
+		penaltyID,
+		occurredAt,
+		req.EvaluationLabel.Set,
+		req.EvaluationLabel.Value,
+	)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return

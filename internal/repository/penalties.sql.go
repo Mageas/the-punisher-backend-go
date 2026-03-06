@@ -57,8 +57,8 @@ FROM penalties p
 WHERE p.user_id = $1
   AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
-  AND ($4::date IS NULL OR p.created_at >= $4::date)
-  AND ($5::date IS NULL OR p.created_at < ($5::date + INTERVAL '1 day'))
+  AND ($4::date IS NULL OR p.occurred_at >= $4::date)
+  AND ($5::date IS NULL OR p.occurred_at < ($5::date + INTERVAL '1 day'))
   AND (
     $6::uuid IS NULL
     OR EXISTS (
@@ -98,21 +98,27 @@ func (q *Queries) CountPenaltiesByUser(ctx context.Context, arg CountPenaltiesBy
 const createPenalty = `-- name: CreatePenalty :one
 
 INSERT INTO penalties (
-    user_id, student_id, penalty_type_id
+    user_id, student_id, penalty_type_id, occurred_at, evaluation_label
 ) VALUES (
-    $1, $2, $3
+    $1,
+    $2,
+    $3,
+    COALESCE($4::timestamptz, NOW()),
+    $5::text
 )
 RETURNING
-    id, user_id, student_id, penalty_type_id, created_at,
+    id, user_id, student_id, penalty_type_id, created_at, occurred_at, evaluation_label,
     (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
     (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
     (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name
 `
 
 type CreatePenaltyParams struct {
-	UserID        uuid.UUID `json:"user_id"`
-	StudentID     uuid.UUID `json:"student_id"`
-	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
+	UserID          uuid.UUID  `json:"user_id"`
+	StudentID       uuid.UUID  `json:"student_id"`
+	PenaltyTypeID   uuid.UUID  `json:"penalty_type_id"`
+	OccurredAt      *time.Time `json:"occurred_at"`
+	EvaluationLabel *string    `json:"evaluation_label"`
 }
 
 type CreatePenaltyRow struct {
@@ -121,6 +127,8 @@ type CreatePenaltyRow struct {
 	StudentID        uuid.UUID `json:"student_id"`
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -128,7 +136,13 @@ type CreatePenaltyRow struct {
 
 // ==================== Penalty ====================
 func (q *Queries) CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (CreatePenaltyRow, error) {
-	row := q.db.QueryRow(ctx, createPenalty, arg.UserID, arg.StudentID, arg.PenaltyTypeID)
+	row := q.db.QueryRow(ctx, createPenalty,
+		arg.UserID,
+		arg.StudentID,
+		arg.PenaltyTypeID,
+		arg.OccurredAt,
+		arg.EvaluationLabel,
+	)
 	var i CreatePenaltyRow
 	err := row.Scan(
 		&i.ID,
@@ -136,6 +150,8 @@ func (q *Queries) CreatePenalty(ctx context.Context, arg CreatePenaltyParams) (C
 		&i.StudentID,
 		&i.PenaltyTypeID,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.StudentFirstName,
 		&i.StudentLastName,
 		&i.PenaltyTypeName,
@@ -163,7 +179,7 @@ func (q *Queries) DeletePenaltyByUser(ctx context.Context, arg DeletePenaltyByUs
 
 const getPenaltyByUser = `-- name: GetPenaltyByUser :one
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -184,6 +200,8 @@ type GetPenaltyByUserRow struct {
 	StudentID        uuid.UUID `json:"student_id"`
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -198,6 +216,8 @@ func (q *Queries) GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserPara
 		&i.StudentID,
 		&i.PenaltyTypeID,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.StudentFirstName,
 		&i.StudentLastName,
 		&i.PenaltyTypeName,
@@ -207,7 +227,7 @@ func (q *Queries) GetPenaltyByUser(ctx context.Context, arg GetPenaltyByUserPara
 
 const listPenaltiesByStudent = `-- name: ListPenaltiesByStudent :many
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -215,7 +235,7 @@ FROM penalties p
 JOIN students s ON s.id = p.student_id
 JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.student_id = $1 AND p.user_id = $2
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $4 OFFSET $3
 `
 
@@ -232,6 +252,8 @@ type ListPenaltiesByStudentRow struct {
 	StudentID        uuid.UUID `json:"student_id"`
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -257,6 +279,8 @@ func (q *Queries) ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesB
 			&i.StudentID,
 			&i.PenaltyTypeID,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.StudentFirstName,
 			&i.StudentLastName,
 			&i.PenaltyTypeName,
@@ -273,7 +297,7 @@ func (q *Queries) ListPenaltiesByStudent(ctx context.Context, arg ListPenaltiesB
 
 const listPenaltiesByUser = `-- name: ListPenaltiesByUser :many
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -283,8 +307,8 @@ JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.user_id = $1
   AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
-  AND ($4::date IS NULL OR p.created_at >= $4::date)
-  AND ($5::date IS NULL OR p.created_at < ($5::date + INTERVAL '1 day'))
+  AND ($4::date IS NULL OR p.occurred_at >= $4::date)
+  AND ($5::date IS NULL OR p.occurred_at < ($5::date + INTERVAL '1 day'))
   AND (
     $6::uuid IS NULL
     OR EXISTS (
@@ -296,7 +320,7 @@ WHERE p.user_id = $1
         AND c.user_id = p.user_id
     )
   )
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $8 OFFSET $7
 `
 
@@ -317,6 +341,8 @@ type ListPenaltiesByUserRow struct {
 	StudentID        uuid.UUID `json:"student_id"`
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -346,6 +372,8 @@ func (q *Queries) ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUs
 			&i.StudentID,
 			&i.PenaltyTypeID,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.StudentFirstName,
 			&i.StudentLastName,
 			&i.PenaltyTypeName,
@@ -358,4 +386,65 @@ func (q *Queries) ListPenaltiesByUser(ctx context.Context, arg ListPenaltiesByUs
 		return nil, err
 	}
 	return items, nil
+}
+
+const updatePenaltyByUser = `-- name: UpdatePenaltyByUser :one
+UPDATE penalties
+SET
+    occurred_at = COALESCE($1::timestamptz, occurred_at),
+    evaluation_label = CASE
+        WHEN $2::boolean THEN $3::text
+        ELSE evaluation_label
+    END
+WHERE penalties.id = $4 AND penalties.user_id = $5
+RETURNING
+    penalties.id, penalties.user_id, penalties.student_id, penalties.penalty_type_id, penalties.created_at, penalties.occurred_at, penalties.evaluation_label,
+    (SELECT first_name FROM students WHERE students.id = penalties.student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = penalties.student_id) AS student_last_name,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalties.penalty_type_id) AS penalty_type_name
+`
+
+type UpdatePenaltyByUserParams struct {
+	OccurredAt         *time.Time `json:"occurred_at"`
+	EvaluationLabelSet bool       `json:"evaluation_label_set"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
+	ID                 uuid.UUID  `json:"id"`
+	UserID             uuid.UUID  `json:"user_id"`
+}
+
+type UpdatePenaltyByUserRow struct {
+	ID               uuid.UUID `json:"id"`
+	UserID           uuid.UUID `json:"user_id"`
+	StudentID        uuid.UUID `json:"student_id"`
+	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label"`
+	StudentFirstName string    `json:"student_first_name"`
+	StudentLastName  string    `json:"student_last_name"`
+	PenaltyTypeName  string    `json:"penalty_type_name"`
+}
+
+func (q *Queries) UpdatePenaltyByUser(ctx context.Context, arg UpdatePenaltyByUserParams) (UpdatePenaltyByUserRow, error) {
+	row := q.db.QueryRow(ctx, updatePenaltyByUser,
+		arg.OccurredAt,
+		arg.EvaluationLabelSet,
+		arg.EvaluationLabel,
+		arg.ID,
+		arg.UserID,
+	)
+	var i UpdatePenaltyByUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.StudentID,
+		&i.PenaltyTypeID,
+		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PenaltyTypeName,
+	)
+	return i, err
 }

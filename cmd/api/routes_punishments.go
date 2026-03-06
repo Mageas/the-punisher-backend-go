@@ -18,6 +18,7 @@ func (app *application) mountPunishmentRoutes(r chi.Router, punishmentHandler *h
 		r.Post("/", punishmentHandler.CreatePunishment)
 		r.Get("/", punishmentHandler.ListPunishments)
 		r.Get("/{punishment_id}", punishmentHandler.GetPunishment)
+		r.Put("/{punishment_id}", punishmentHandler.UpdatePunishment)
 		r.Post("/{punishment_id}/resolve", punishmentHandler.ResolvePunishment)
 		r.Delete("/{punishment_id}", punishmentHandler.DeletePunishment)
 	})

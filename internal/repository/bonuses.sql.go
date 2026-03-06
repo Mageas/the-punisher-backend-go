@@ -40,8 +40,8 @@ WHERE b.user_id = $1
   AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
   AND ($4::boolean IS NULL OR (b.used_at IS NOT NULL) = $4::boolean)
-  AND ($5::date IS NULL OR b.created_at >= $5::date)
-  AND ($6::date IS NULL OR b.created_at < ($6::date + INTERVAL '1 day'))
+  AND ($5::date IS NULL OR b.occurred_at >= $5::date)
+  AND ($6::date IS NULL OR b.occurred_at < ($6::date + INTERVAL '1 day'))
   AND (
     $7::uuid IS NULL
     OR EXISTS (
@@ -83,22 +83,29 @@ func (q *Queries) CountBonusesByUser(ctx context.Context, arg CountBonusesByUser
 const createBonus = `-- name: CreateBonus :one
 
 INSERT INTO bonuses (
-    user_id, student_id, bonus_type_id, points
+    user_id, student_id, bonus_type_id, points, occurred_at, evaluation_label
 ) VALUES (
-    $1, $2, $3, $4
+    $1,
+    $2,
+    $3,
+    $4,
+    COALESCE($5::timestamptz, NOW()),
+    $6::text
 )
 RETURNING
-    id, user_id, student_id, bonus_type_id, points, created_at, used_at,
+    id, user_id, student_id, bonus_type_id, points, created_at, occurred_at, evaluation_label, used_at,
     (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
     (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
     (SELECT name FROM bonus_types WHERE bonus_types.id = bonus_type_id) AS bonus_type_name
 `
 
 type CreateBonusParams struct {
-	UserID      uuid.UUID `json:"user_id"`
-	StudentID   uuid.UUID `json:"student_id"`
-	BonusTypeID uuid.UUID `json:"bonus_type_id"`
-	Points      float64   `json:"points"`
+	UserID          uuid.UUID  `json:"user_id"`
+	StudentID       uuid.UUID  `json:"student_id"`
+	BonusTypeID     uuid.UUID  `json:"bonus_type_id"`
+	Points          float64    `json:"points"`
+	OccurredAt      *time.Time `json:"occurred_at"`
+	EvaluationLabel *string    `json:"evaluation_label"`
 }
 
 type CreateBonusRow struct {
@@ -108,6 +115,8 @@ type CreateBonusRow struct {
 	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -121,6 +130,8 @@ func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (Creat
 		arg.StudentID,
 		arg.BonusTypeID,
 		arg.Points,
+		arg.OccurredAt,
+		arg.EvaluationLabel,
 	)
 	var i CreateBonusRow
 	err := row.Scan(
@@ -130,6 +141,8 @@ func (q *Queries) CreateBonus(ctx context.Context, arg CreateBonusParams) (Creat
 		&i.BonusTypeID,
 		&i.Points,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.UsedAt,
 		&i.StudentFirstName,
 		&i.StudentLastName,
@@ -158,7 +171,7 @@ func (q *Queries) DeleteBonusByUser(ctx context.Context, arg DeleteBonusByUserPa
 
 const getBonusByUser = `-- name: GetBonusByUser :one
 SELECT
-    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.occurred_at, b.evaluation_label, b.used_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
@@ -180,6 +193,8 @@ type GetBonusByUserRow struct {
 	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -196,6 +211,8 @@ func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) 
 		&i.BonusTypeID,
 		&i.Points,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.UsedAt,
 		&i.StudentFirstName,
 		&i.StudentLastName,
@@ -206,7 +223,7 @@ func (q *Queries) GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) 
 
 const listBonusesByStudent = `-- name: ListBonusesByStudent :many
 SELECT
-    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.occurred_at, b.evaluation_label, b.used_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
@@ -216,7 +233,7 @@ JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.student_id = $1
   AND b.user_id = $2
   AND ($3::boolean IS NULL OR (b.used_at IS NOT NULL) = $3::boolean)
-ORDER BY b.created_at DESC
+ORDER BY b.occurred_at DESC, b.id DESC
 LIMIT $5 OFFSET $4
 `
 
@@ -235,6 +252,8 @@ type ListBonusesByStudentRow struct {
 	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -263,6 +282,8 @@ func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStu
 			&i.BonusTypeID,
 			&i.Points,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.UsedAt,
 			&i.StudentFirstName,
 			&i.StudentLastName,
@@ -280,7 +301,7 @@ func (q *Queries) ListBonusesByStudent(ctx context.Context, arg ListBonusesByStu
 
 const listBonusesByUser = `-- name: ListBonusesByUser :many
 SELECT
-    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.occurred_at, b.evaluation_label, b.used_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
@@ -291,8 +312,8 @@ WHERE b.user_id = $1
   AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
   AND ($4::boolean IS NULL OR (b.used_at IS NOT NULL) = $4::boolean)
-  AND ($5::date IS NULL OR b.created_at >= $5::date)
-  AND ($6::date IS NULL OR b.created_at < ($6::date + INTERVAL '1 day'))
+  AND ($5::date IS NULL OR b.occurred_at >= $5::date)
+  AND ($6::date IS NULL OR b.occurred_at < ($6::date + INTERVAL '1 day'))
   AND (
     $7::uuid IS NULL
     OR EXISTS (
@@ -304,7 +325,7 @@ WHERE b.user_id = $1
         AND c.user_id = b.user_id
     )
   )
-ORDER BY b.created_at DESC
+ORDER BY b.occurred_at DESC, b.id DESC
 LIMIT $9 OFFSET $8
 `
 
@@ -327,6 +348,8 @@ type ListBonusesByUserRow struct {
 	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -359,6 +382,8 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 			&i.BonusTypeID,
 			&i.Points,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.UsedAt,
 			&i.StudentFirstName,
 			&i.StudentLastName,
@@ -374,12 +399,77 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 	return items, nil
 }
 
+const updateBonusByUser = `-- name: UpdateBonusByUser :one
+UPDATE bonuses
+SET
+    occurred_at = COALESCE($1::timestamptz, occurred_at),
+    evaluation_label = CASE
+        WHEN $2::boolean THEN $3::text
+        ELSE evaluation_label
+    END
+WHERE bonuses.id = $4 AND bonuses.user_id = $5
+RETURNING
+    bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,
+    (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = bonuses.student_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id) AS bonus_type_name
+`
+
+type UpdateBonusByUserParams struct {
+	OccurredAt         *time.Time `json:"occurred_at"`
+	EvaluationLabelSet bool       `json:"evaluation_label_set"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
+	ID                 uuid.UUID  `json:"id"`
+	UserID             uuid.UUID  `json:"user_id"`
+}
+
+type UpdateBonusByUserRow struct {
+	ID               uuid.UUID  `json:"id"`
+	UserID           uuid.UUID  `json:"user_id"`
+	StudentID        uuid.UUID  `json:"student_id"`
+	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
+	Points           float64    `json:"points"`
+	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
+	UsedAt           *time.Time `json:"used_at"`
+	StudentFirstName string     `json:"student_first_name"`
+	StudentLastName  string     `json:"student_last_name"`
+	BonusTypeName    string     `json:"bonus_type_name"`
+}
+
+func (q *Queries) UpdateBonusByUser(ctx context.Context, arg UpdateBonusByUserParams) (UpdateBonusByUserRow, error) {
+	row := q.db.QueryRow(ctx, updateBonusByUser,
+		arg.OccurredAt,
+		arg.EvaluationLabelSet,
+		arg.EvaluationLabel,
+		arg.ID,
+		arg.UserID,
+	)
+	var i UpdateBonusByUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.StudentID,
+		&i.BonusTypeID,
+		&i.Points,
+		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
+		&i.UsedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.BonusTypeName,
+	)
+	return i, err
+}
+
 const useBonus = `-- name: UseBonus :one
 UPDATE bonuses
 SET used_at = NOW()
 WHERE bonuses.id = $1 AND bonuses.user_id = $2 AND bonuses.used_at IS NULL
 RETURNING
-    bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.used_at,
+    bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,
     (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
     (SELECT last_name FROM students WHERE students.id = bonuses.student_id) AS student_last_name,
     (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id) AS bonus_type_name
@@ -397,6 +487,8 @@ type UseBonusRow struct {
 	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -413,6 +505,8 @@ func (q *Queries) UseBonus(ctx context.Context, arg UseBonusParams) (UseBonusRow
 		&i.BonusTypeID,
 		&i.Points,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.UsedAt,
 		&i.StudentFirstName,
 		&i.StudentLastName,

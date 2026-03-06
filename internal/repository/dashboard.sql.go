@@ -129,7 +129,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -141,7 +141,7 @@ JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = $1
   AND p.resolved_at IS NULL
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $2
 `
 
@@ -159,6 +159,8 @@ type ListDashboardPendingPunishmentsRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -184,6 +186,8 @@ func (q *Queries) ListDashboardPendingPunishments(ctx context.Context, arg ListD
 			&i.TriggeringRuleID,
 			&i.Automated,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.DueAt,
 			&i.ResolvedAt,
 			&i.StudentFirstName,
@@ -217,7 +221,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.occurred_at, b.evaluation_label, b.used_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
@@ -226,7 +230,7 @@ JOIN filtered_students fs ON fs.id = b.student_id
 JOIN students s ON s.id = b.student_id
 JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.user_id = $1
-ORDER BY b.created_at DESC
+ORDER BY b.occurred_at DESC, b.id DESC
 LIMIT $2
 `
 
@@ -243,6 +247,8 @@ type ListDashboardRecentBonusesRow struct {
 	BonusTypeID      uuid.UUID  `json:"bonus_type_id"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -265,6 +271,8 @@ func (q *Queries) ListDashboardRecentBonuses(ctx context.Context, arg ListDashbo
 			&i.BonusTypeID,
 			&i.Points,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.UsedAt,
 			&i.StudentFirstName,
 			&i.StudentLastName,
@@ -296,7 +304,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -305,7 +313,7 @@ JOIN filtered_students fs ON fs.id = p.student_id
 JOIN students s ON s.id = p.student_id
 JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.user_id = $1
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $2
 `
 
@@ -321,6 +329,8 @@ type ListDashboardRecentPenaltiesRow struct {
 	StudentID        uuid.UUID `json:"student_id"`
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
+	OccurredAt       time.Time `json:"occurred_at"`
+	EvaluationLabel  *string   `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -341,6 +351,8 @@ func (q *Queries) ListDashboardRecentPenalties(ctx context.Context, arg ListDash
 			&i.StudentID,
 			&i.PenaltyTypeID,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.StudentFirstName,
 			&i.StudentLastName,
 			&i.PenaltyTypeName,

@@ -48,8 +48,8 @@ WHERE p.user_id = $1
       OR ($6::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND ($7::date IS NULL OR p.created_at >= $7::date)
-  AND ($8::date IS NULL OR p.created_at < ($8::date + INTERVAL '1 day'))
+  AND ($7::date IS NULL OR p.occurred_at >= $7::date)
+  AND ($8::date IS NULL OR p.occurred_at < ($8::date + INTERVAL '1 day'))
   AND ($9::date IS NULL OR p.due_at >= $9::date)
   AND ($10::date IS NULL OR p.due_at < ($10::date + INTERVAL '1 day'))
   AND (
@@ -102,14 +102,20 @@ const createPunishment = `-- name: CreatePunishment :one
 
 WITH created_punishment AS (
     INSERT INTO punishments (
-        user_id, student_id, punishment_type_id, automated, due_at
+        user_id, student_id, punishment_type_id, automated, due_at, occurred_at, evaluation_label
     ) VALUES (
-        $1, $2, $3, FALSE, $4
+        $1,
+        $2,
+        $3,
+        FALSE,
+        $4,
+        COALESCE($5::timestamptz, NOW()),
+        $6::text
     )
-    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, due_at, resolved_at
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, occurred_at, evaluation_label, due_at, resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -121,10 +127,12 @@ LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
 type CreatePunishmentParams struct {
-	UserID           uuid.UUID `json:"user_id"`
-	StudentID        uuid.UUID `json:"student_id"`
-	PunishmentTypeID uuid.UUID `json:"punishment_type_id"`
-	DueAt            time.Time `json:"due_at"`
+	UserID           uuid.UUID  `json:"user_id"`
+	StudentID        uuid.UUID  `json:"student_id"`
+	PunishmentTypeID uuid.UUID  `json:"punishment_type_id"`
+	DueAt            time.Time  `json:"due_at"`
+	OccurredAt       *time.Time `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 }
 
 type CreatePunishmentRow struct {
@@ -135,6 +143,8 @@ type CreatePunishmentRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -150,6 +160,8 @@ func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentPara
 		arg.StudentID,
 		arg.PunishmentTypeID,
 		arg.DueAt,
+		arg.OccurredAt,
+		arg.EvaluationLabel,
 	)
 	var i CreatePunishmentRow
 	err := row.Scan(
@@ -160,6 +172,8 @@ func (q *Queries) CreatePunishment(ctx context.Context, arg CreatePunishmentPara
 		&i.TriggeringRuleID,
 		&i.Automated,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.DueAt,
 		&i.ResolvedAt,
 		&i.StudentFirstName,
@@ -177,10 +191,10 @@ WITH created_punishment AS (
     ) VALUES (
         $1, $2, $3, $4, $5, $6
     )
-    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, due_at, resolved_at
+    RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, occurred_at, evaluation_label, due_at, resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -208,6 +222,8 @@ type CreatePunishmentFromRuleRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -234,6 +250,8 @@ func (q *Queries) CreatePunishmentFromRule(ctx context.Context, arg CreatePunish
 		&i.TriggeringRuleID,
 		&i.Automated,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.DueAt,
 		&i.ResolvedAt,
 		&i.StudentFirstName,
@@ -264,7 +282,7 @@ func (q *Queries) DeletePunishmentByUser(ctx context.Context, arg DeletePunishme
 
 const getPunishmentByUser = `-- name: GetPunishmentByUser :one
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -289,6 +307,8 @@ type GetPunishmentByUserRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -308,6 +328,8 @@ func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUs
 		&i.TriggeringRuleID,
 		&i.Automated,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.DueAt,
 		&i.ResolvedAt,
 		&i.StudentFirstName,
@@ -320,7 +342,7 @@ func (q *Queries) GetPunishmentByUser(ctx context.Context, arg GetPunishmentByUs
 
 const listPunishmentsByStudent = `-- name: ListPunishmentsByStudent :many
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -332,7 +354,7 @@ LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.student_id = $1
   AND p.user_id = $2
   AND ($3::boolean IS NULL OR (p.resolved_at IS NOT NULL) = $3::boolean)
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $5 OFFSET $4
 `
 
@@ -352,6 +374,8 @@ type ListPunishmentsByStudentRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -383,6 +407,8 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 			&i.TriggeringRuleID,
 			&i.Automated,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.DueAt,
 			&i.ResolvedAt,
 			&i.StudentFirstName,
@@ -402,7 +428,7 @@ func (q *Queries) ListPunishmentsByStudent(ctx context.Context, arg ListPunishme
 
 const listPunishmentsByUser = `-- name: ListPunishmentsByUser :many
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -423,8 +449,8 @@ WHERE p.user_id = $1
       OR ($6::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND ($7::date IS NULL OR p.created_at >= $7::date)
-  AND ($8::date IS NULL OR p.created_at < ($8::date + INTERVAL '1 day'))
+  AND ($7::date IS NULL OR p.occurred_at >= $7::date)
+  AND ($8::date IS NULL OR p.occurred_at < ($8::date + INTERVAL '1 day'))
   AND ($9::date IS NULL OR p.due_at >= $9::date)
   AND ($10::date IS NULL OR p.due_at < ($10::date + INTERVAL '1 day'))
   AND (
@@ -438,7 +464,7 @@ WHERE p.user_id = $1
         AND c.user_id = p.user_id
     )
   )
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $13 OFFSET $12
 `
 
@@ -466,6 +492,8 @@ type ListPunishmentsByUserRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -505,6 +533,8 @@ func (q *Queries) ListPunishmentsByUser(ctx context.Context, arg ListPunishments
 			&i.TriggeringRuleID,
 			&i.Automated,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.DueAt,
 			&i.ResolvedAt,
 			&i.StudentFirstName,
@@ -527,10 +557,10 @@ WITH resolved_punishment AS (
     UPDATE punishments
     SET resolved_at = NOW()
     WHERE punishments.id = $1 AND punishments.user_id = $2 AND punishments.resolved_at IS NULL
-    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.due_at, punishments.resolved_at
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.occurred_at, punishments.evaluation_label, punishments.due_at, punishments.resolved_at
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -554,6 +584,8 @@ type ResolvePunishmentRow struct {
 	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -573,6 +605,87 @@ func (q *Queries) ResolvePunishment(ctx context.Context, arg ResolvePunishmentPa
 		&i.TriggeringRuleID,
 		&i.Automated,
 		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
+		&i.DueAt,
+		&i.ResolvedAt,
+		&i.StudentFirstName,
+		&i.StudentLastName,
+		&i.PunishmentTypeName,
+		&i.TriggeringRuleName,
+	)
+	return i, err
+}
+
+const updatePunishmentByUser = `-- name: UpdatePunishmentByUser :one
+WITH updated_punishment AS (
+    UPDATE punishments
+    SET
+        occurred_at = COALESCE($1::timestamptz, occurred_at),
+        evaluation_label = CASE
+            WHEN $2::boolean THEN $3::text
+            ELSE evaluation_label
+        END
+    WHERE punishments.id = $4 AND punishments.user_id = $5
+    RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.occurred_at, punishments.evaluation_label, punishments.due_at, punishments.resolved_at
+)
+SELECT
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
+    s.first_name AS student_first_name,
+    s.last_name AS student_last_name,
+    pt.name AS punishment_type_name,
+    r.name AS triggering_rule_name
+FROM updated_punishment p
+JOIN students s ON s.id = p.student_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id
+LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
+`
+
+type UpdatePunishmentByUserParams struct {
+	OccurredAt         *time.Time `json:"occurred_at"`
+	EvaluationLabelSet bool       `json:"evaluation_label_set"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
+	ID                 uuid.UUID  `json:"id"`
+	UserID             uuid.UUID  `json:"user_id"`
+}
+
+type UpdatePunishmentByUserRow struct {
+	ID                 uuid.UUID  `json:"id"`
+	UserID             uuid.UUID  `json:"user_id"`
+	StudentID          uuid.UUID  `json:"student_id"`
+	PunishmentTypeID   uuid.UUID  `json:"punishment_type_id"`
+	TriggeringRuleID   *uuid.UUID `json:"triggering_rule_id"`
+	Automated          bool       `json:"automated"`
+	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
+	DueAt              time.Time  `json:"due_at"`
+	ResolvedAt         *time.Time `json:"resolved_at"`
+	StudentFirstName   string     `json:"student_first_name"`
+	StudentLastName    string     `json:"student_last_name"`
+	PunishmentTypeName string     `json:"punishment_type_name"`
+	TriggeringRuleName *string    `json:"triggering_rule_name"`
+}
+
+func (q *Queries) UpdatePunishmentByUser(ctx context.Context, arg UpdatePunishmentByUserParams) (UpdatePunishmentByUserRow, error) {
+	row := q.db.QueryRow(ctx, updatePunishmentByUser,
+		arg.OccurredAt,
+		arg.EvaluationLabelSet,
+		arg.EvaluationLabel,
+		arg.ID,
+		arg.UserID,
+	)
+	var i UpdatePunishmentByUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.StudentID,
+		&i.PunishmentTypeID,
+		&i.TriggeringRuleID,
+		&i.Automated,
+		&i.CreatedAt,
+		&i.OccurredAt,
+		&i.EvaluationLabel,
 		&i.DueAt,
 		&i.ResolvedAt,
 		&i.StudentFirstName,
