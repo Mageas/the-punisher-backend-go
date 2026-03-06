@@ -186,6 +186,7 @@ func (h *BonusHandler) UpdateBonus(w http.ResponseWriter, r *http.Request) {
 		r.Context(),
 		userID,
 		bonusID,
+		req.Points,
 		occurredAt,
 		req.EvaluationLabel,
 	)
