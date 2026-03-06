@@ -33,8 +33,8 @@ func buildReturnRuleDto(
 		DueAtAfterDays:              dueAtAfterDays,
 		Mode:                        mode,
 		IsActive:                    isActive,
-		CreatedAt:                   createdAt,
-		UpdatedAt:                   updatedAt,
+		CreatedAt:                   normalizeAPITime(createdAt),
+		UpdatedAt:                   normalizeAPITime(updatedAt),
 	}
 }
 

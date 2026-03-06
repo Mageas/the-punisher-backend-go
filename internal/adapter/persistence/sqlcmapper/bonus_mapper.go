@@ -29,8 +29,8 @@ func buildReturnBonusDto(
 		BonusTypeID:      bonusTypeID,
 		BonusTypeName:    bonusTypeName,
 		Points:           points,
-		CreatedAt:        createdAt,
-		OccurredAt:       occurredAt,
+		CreatedAt:        normalizeAPITime(createdAt),
+		OccurredAt:       normalizeAPITime(occurredAt),
 		EvaluationLabel:  bonusEvaluationLabel(evaluationLabel),
 	}
 
@@ -172,12 +172,7 @@ func BonusFromUpdateRow(b *repository.UpdateBonusByUserRow) *dto.ReturnBonusDto 
 }
 
 func bonusUsedAt(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-
-	timeValue := *value
-	return &timeValue
+	return normalizeOptionalAPITime(value)
 }
 
 func bonusEvaluationLabel(value *string) *string {

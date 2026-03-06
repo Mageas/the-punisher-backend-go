@@ -29,9 +29,9 @@ func StudentHistoryFromRows(rows []repository.ListStudentHistoryRow) []dto.Stude
 		item := dto.StudentHistoryItemDto{
 			Type:            row.Type,
 			ID:              row.ID,
-			CreatedAt:       row.CreatedAt,
-			OccurredAt:      row.OccurredAt,
-			EvaluationLabel: row.EvaluationLabel,
+			CreatedAt:       normalizeAPITime(row.CreatedAt),
+			OccurredAt:      normalizeAPITime(row.OccurredAt),
+			EvaluationLabel: bonusEvaluationLabel(row.EvaluationLabel),
 		}
 
 		switch row.Type {
@@ -42,15 +42,20 @@ func StudentHistoryFromRows(rows []repository.ListStudentHistoryRow) []dto.Stude
 			item.BonusTypeID = row.BonusTypeID
 			item.BonusTypeName = row.BonusTypeName
 			item.Points = row.Points
-			item.UsedAt = row.UsedAt
+			item.UsedAt = normalizeOptionalAPITime(row.UsedAt)
 		case "punishment":
-			item.PunishmentTypeID = &row.PunishmentTypeID
-			item.PunishmentTypeName = &row.PunishmentTypeName
-			item.TriggeringRuleID = row.TriggeringRuleID
-			item.TriggeringRuleName = row.TriggeringRuleName
-			item.Automated = &row.Automated
-			item.DueAt = &row.DueAt
-			item.ResolvedAt = row.ResolvedAt
+			punishmentTypeID := row.PunishmentTypeID
+			punishmentTypeName := row.PunishmentTypeName
+			automated := row.Automated
+			dueAt := normalizeAPITime(row.DueAt)
+
+			item.PunishmentTypeID = &punishmentTypeID
+			item.PunishmentTypeName = &punishmentTypeName
+			item.TriggeringRuleID = punishmentTriggeringRuleID(row.TriggeringRuleID)
+			item.TriggeringRuleName = punishmentTriggeringRuleNameFromText(row.TriggeringRuleName)
+			item.Automated = &automated
+			item.DueAt = &dueAt
+			item.ResolvedAt = normalizeOptionalAPITime(row.ResolvedAt)
 		}
 
 		history = append(history, item)

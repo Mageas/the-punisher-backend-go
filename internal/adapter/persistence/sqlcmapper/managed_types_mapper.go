@@ -13,8 +13,8 @@ func BonusTypeFromRepository(bt *repository.BonusType) *dto.ReturnBonusTypeDto {
 	return &dto.ReturnBonusTypeDto{
 		ID:        bt.ID,
 		Name:      bt.Name,
-		CreatedAt: bt.CreatedAt,
-		UpdatedAt: bt.UpdatedAt,
+		CreatedAt: normalizeAPITime(bt.CreatedAt),
+		UpdatedAt: normalizeAPITime(bt.UpdatedAt),
 	}
 }
 
@@ -26,8 +26,8 @@ func PenaltyTypeFromRepository(pt *repository.PenaltyType) *dto.ReturnPenaltyTyp
 	return &dto.ReturnPenaltyTypeDto{
 		ID:        pt.ID,
 		Name:      pt.Name,
-		CreatedAt: pt.CreatedAt,
-		UpdatedAt: pt.UpdatedAt,
+		CreatedAt: normalizeAPITime(pt.CreatedAt),
+		UpdatedAt: normalizeAPITime(pt.UpdatedAt),
 	}
 }
 
@@ -39,8 +39,8 @@ func PunishmentTypeFromRepository(pt *repository.PunishmentType) *dto.ReturnPuni
 	return &dto.ReturnPunishmentTypeDto{
 		ID:        pt.ID,
 		Name:      pt.Name,
-		CreatedAt: pt.CreatedAt,
-		UpdatedAt: pt.UpdatedAt,
+		CreatedAt: normalizeAPITime(pt.CreatedAt),
+		UpdatedAt: normalizeAPITime(pt.UpdatedAt),
 	}
 }
 
@@ -54,8 +54,8 @@ func UserFromRepository(u *repository.CreateUserRow) *dto.ReturnUserDto {
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		CreatedAt: normalizeAPITime(u.CreatedAt),
+		UpdatedAt: normalizeAPITime(u.UpdatedAt),
 	}
 }
 
@@ -69,7 +69,7 @@ func UserFromGetByIDRow(u *repository.GetUserByIDRow) *dto.ReturnUserDto {
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
-		CreatedAt: u.CreatedAt,
-		UpdatedAt: u.UpdatedAt,
+		CreatedAt: normalizeAPITime(u.CreatedAt),
+		UpdatedAt: normalizeAPITime(u.UpdatedAt),
 	}
 }
