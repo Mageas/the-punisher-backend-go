@@ -15,8 +15,8 @@ type RequestPunishmentDto struct {
 }
 
 type UpdatePunishmentDto struct {
-	OccurredAt      *string             `json:"occurred_at" validate:"omitempty"`
-	EvaluationLabel NullableStringField `json:"evaluation_label"`
+	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
 }
 
 type ReturnPunishmentDto struct {
@@ -31,7 +31,7 @@ type ReturnPunishmentDto struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label,omitempty"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 }

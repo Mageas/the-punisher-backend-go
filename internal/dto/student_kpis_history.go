@@ -22,7 +22,7 @@ type StudentHistoryItemDto struct {
 	ID                 uuid.UUID  `json:"id"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label,omitempty"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	PenaltyTypeID      *uuid.UUID `json:"penalty_type_id,omitempty"`
 	PenaltyTypeName    *string    `json:"penalty_type_name,omitempty"`
 	BonusTypeID        *uuid.UUID `json:"bonus_type_id,omitempty"`

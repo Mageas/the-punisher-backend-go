@@ -15,8 +15,8 @@ type RequestBonusDto struct {
 }
 
 type UpdateBonusDto struct {
-	OccurredAt      *string             `json:"occurred_at" validate:"omitempty"`
-	EvaluationLabel NullableStringField `json:"evaluation_label"`
+	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
 }
 
 type ReturnBonusDto struct {
@@ -29,6 +29,6 @@ type ReturnBonusDto struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label,omitempty"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 }

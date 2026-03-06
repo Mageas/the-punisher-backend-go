@@ -226,8 +226,7 @@ func (h *PunishmentHandler) UpdatePunishment(w http.ResponseWriter, r *http.Requ
 		userID,
 		punishmentID,
 		occurredAt,
-		req.EvaluationLabel.Set,
-		req.EvaluationLabel.Value,
+		req.EvaluationLabel,
 	)
 	if err != nil {
 		web.WriteFromError(w, err)

@@ -11,7 +11,7 @@ WITH created_punishment AS (
         FALSE,
         sqlc.arg(due_at),
         COALESCE(sqlc.narg(occurred_at)::timestamptz, NOW()),
-        sqlc.narg(evaluation_label)::text
+        COALESCE(sqlc.narg(evaluation_label)::text, '')
     )
     RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, occurred_at, evaluation_label, due_at, resolved_at
 )
@@ -178,10 +178,7 @@ WITH updated_punishment AS (
     UPDATE punishments
     SET
         occurred_at = COALESCE(sqlc.narg(occurred_at)::timestamptz, occurred_at),
-        evaluation_label = CASE
-            WHEN sqlc.arg(evaluation_label_set)::boolean THEN sqlc.narg(evaluation_label)::text
-            ELSE evaluation_label
-        END
+        evaluation_label = COALESCE(sqlc.narg(evaluation_label)::text, evaluation_label)
     WHERE punishments.id = sqlc.arg(id) AND punishments.user_id = sqlc.arg(user_id)
     RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.occurred_at, punishments.evaluation_label, punishments.due_at, punishments.resolved_at
 )

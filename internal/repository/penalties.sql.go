@@ -104,7 +104,7 @@ INSERT INTO penalties (
     $2,
     $3,
     COALESCE($4::timestamptz, NOW()),
-    $5::text
+    COALESCE($5::text, '')
 )
 RETURNING
     id, user_id, student_id, penalty_type_id, created_at, occurred_at, evaluation_label,
@@ -128,7 +128,7 @@ type CreatePenaltyRow struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	OccurredAt       time.Time `json:"occurred_at"`
-	EvaluationLabel  *string   `json:"evaluation_label"`
+	EvaluationLabel  string    `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -201,7 +201,7 @@ type GetPenaltyByUserRow struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	OccurredAt       time.Time `json:"occurred_at"`
-	EvaluationLabel  *string   `json:"evaluation_label"`
+	EvaluationLabel  string    `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -253,7 +253,7 @@ type ListPenaltiesByStudentRow struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	OccurredAt       time.Time `json:"occurred_at"`
-	EvaluationLabel  *string   `json:"evaluation_label"`
+	EvaluationLabel  string    `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -342,7 +342,7 @@ type ListPenaltiesByUserRow struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	OccurredAt       time.Time `json:"occurred_at"`
-	EvaluationLabel  *string   `json:"evaluation_label"`
+	EvaluationLabel  string    `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -392,11 +392,8 @@ const updatePenaltyByUser = `-- name: UpdatePenaltyByUser :one
 UPDATE penalties
 SET
     occurred_at = COALESCE($1::timestamptz, occurred_at),
-    evaluation_label = CASE
-        WHEN $2::boolean THEN $3::text
-        ELSE evaluation_label
-    END
-WHERE penalties.id = $4 AND penalties.user_id = $5
+    evaluation_label = COALESCE($2::text, evaluation_label)
+WHERE penalties.id = $3 AND penalties.user_id = $4
 RETURNING
     penalties.id, penalties.user_id, penalties.student_id, penalties.penalty_type_id, penalties.created_at, penalties.occurred_at, penalties.evaluation_label,
     (SELECT first_name FROM students WHERE students.id = penalties.student_id) AS student_first_name,
@@ -405,11 +402,10 @@ RETURNING
 `
 
 type UpdatePenaltyByUserParams struct {
-	OccurredAt         *time.Time `json:"occurred_at"`
-	EvaluationLabelSet bool       `json:"evaluation_label_set"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
-	ID                 uuid.UUID  `json:"id"`
-	UserID             uuid.UUID  `json:"user_id"`
+	OccurredAt      *time.Time `json:"occurred_at"`
+	EvaluationLabel *string    `json:"evaluation_label"`
+	ID              uuid.UUID  `json:"id"`
+	UserID          uuid.UUID  `json:"user_id"`
 }
 
 type UpdatePenaltyByUserRow struct {
@@ -419,7 +415,7 @@ type UpdatePenaltyByUserRow struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	OccurredAt       time.Time `json:"occurred_at"`
-	EvaluationLabel  *string   `json:"evaluation_label"`
+	EvaluationLabel  string    `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`
@@ -428,7 +424,6 @@ type UpdatePenaltyByUserRow struct {
 func (q *Queries) UpdatePenaltyByUser(ctx context.Context, arg UpdatePenaltyByUserParams) (UpdatePenaltyByUserRow, error) {
 	row := q.db.QueryRow(ctx, updatePenaltyByUser,
 		arg.OccurredAt,
-		arg.EvaluationLabelSet,
 		arg.EvaluationLabel,
 		arg.ID,
 		arg.UserID,

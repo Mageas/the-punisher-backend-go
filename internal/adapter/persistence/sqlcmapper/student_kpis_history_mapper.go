@@ -31,7 +31,7 @@ func StudentHistoryFromRows(rows []repository.ListStudentHistoryRow) []dto.Stude
 			ID:              row.ID,
 			CreatedAt:       normalizeAPITime(row.CreatedAt),
 			OccurredAt:      normalizeAPITime(row.OccurredAt),
-			EvaluationLabel: bonusEvaluationLabel(row.EvaluationLabel),
+			EvaluationLabel: row.EvaluationLabel,
 		}
 
 		switch row.Type {

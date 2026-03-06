@@ -9,7 +9,7 @@ INSERT INTO bonuses (
     sqlc.arg(bonus_type_id),
     sqlc.arg(points),
     COALESCE(sqlc.narg(occurred_at)::timestamptz, NOW()),
-    sqlc.narg(evaluation_label)::text
+    COALESCE(sqlc.narg(evaluation_label)::text, '')
 )
 RETURNING
     id, user_id, student_id, bonus_type_id, points, created_at, occurred_at, evaluation_label, used_at,
@@ -114,10 +114,7 @@ RETURNING
 UPDATE bonuses
 SET
     occurred_at = COALESCE(sqlc.narg(occurred_at)::timestamptz, occurred_at),
-    evaluation_label = CASE
-        WHEN sqlc.arg(evaluation_label_set)::boolean THEN sqlc.narg(evaluation_label)::text
-        ELSE evaluation_label
-    END
+    evaluation_label = COALESCE(sqlc.narg(evaluation_label)::text, evaluation_label)
 WHERE bonuses.id = sqlc.arg(id) AND bonuses.user_id = sqlc.arg(user_id)
 RETURNING
     bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,

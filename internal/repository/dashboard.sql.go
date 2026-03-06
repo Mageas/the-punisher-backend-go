@@ -160,7 +160,7 @@ type ListDashboardPendingPunishmentsRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -248,7 +248,7 @@ type ListDashboardRecentBonusesRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -330,7 +330,7 @@ type ListDashboardRecentPenaltiesRow struct {
 	PenaltyTypeID    uuid.UUID `json:"penalty_type_id"`
 	CreatedAt        time.Time `json:"created_at"`
 	OccurredAt       time.Time `json:"occurred_at"`
-	EvaluationLabel  *string   `json:"evaluation_label"`
+	EvaluationLabel  string    `json:"evaluation_label"`
 	StudentFirstName string    `json:"student_first_name"`
 	StudentLastName  string    `json:"student_last_name"`
 	PenaltyTypeName  string    `json:"penalty_type_name"`

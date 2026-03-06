@@ -8,7 +8,7 @@ INSERT INTO penalties (
     sqlc.arg(student_id),
     sqlc.arg(penalty_type_id),
     COALESCE(sqlc.narg(occurred_at)::timestamptz, NOW()),
-    sqlc.narg(evaluation_label)::text
+    COALESCE(sqlc.narg(evaluation_label)::text, '')
 )
 RETURNING
     id, user_id, student_id, penalty_type_id, created_at, occurred_at, evaluation_label,
@@ -104,10 +104,7 @@ LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 UPDATE penalties
 SET
     occurred_at = COALESCE(sqlc.narg(occurred_at)::timestamptz, occurred_at),
-    evaluation_label = CASE
-        WHEN sqlc.arg(evaluation_label_set)::boolean THEN sqlc.narg(evaluation_label)::text
-        ELSE evaluation_label
-    END
+    evaluation_label = COALESCE(sqlc.narg(evaluation_label)::text, evaluation_label)
 WHERE penalties.id = sqlc.arg(id) AND penalties.user_id = sqlc.arg(user_id)
 RETURNING
     penalties.id, penalties.user_id, penalties.student_id, penalties.penalty_type_id, penalties.created_at, penalties.occurred_at, penalties.evaluation_label,

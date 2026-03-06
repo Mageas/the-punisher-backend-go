@@ -204,7 +204,7 @@ interface StudentHistoryItemDto {
   id: string;
   created_at: string;
   occurred_at: string;
-  evaluation_label?: string;
+  evaluation_label: string;
   penalty_type_id?: string;
   penalty_type_name?: string;
   bonus_type_id?: string;
@@ -270,7 +270,7 @@ interface RequestBonusDto {
 
 interface UpdateBonusDto {
   occurred_at?: string; // RFC3339
-  evaluation_label?: string | null; // null clears the label
+  evaluation_label?: string; // empty string clears the label
 }
 
 interface ReturnBonusDto {
@@ -283,7 +283,7 @@ interface ReturnBonusDto {
   points: number;
   created_at: string;
   occurred_at: string;
-  evaluation_label?: string;
+  evaluation_label: string;
   used_at: string | null;
 }
 
@@ -296,7 +296,7 @@ interface RequestPenaltyDto {
 
 interface UpdatePenaltyDto {
   occurred_at?: string; // RFC3339
-  evaluation_label?: string | null; // null clears the label
+  evaluation_label?: string; // empty string clears the label
 }
 
 interface ReturnPenaltyDto {
@@ -308,7 +308,7 @@ interface ReturnPenaltyDto {
   penalty_type_name: string;
   created_at: string;
   occurred_at: string;
-  evaluation_label?: string;
+  evaluation_label: string;
 }
 
 interface RequestPunishmentDto {
@@ -321,7 +321,7 @@ interface RequestPunishmentDto {
 
 interface UpdatePunishmentDto {
   occurred_at?: string; // RFC3339
-  evaluation_label?: string | null; // null clears the label
+  evaluation_label?: string; // empty string clears the label
 }
 
 interface ReturnPunishmentDto {
@@ -336,7 +336,7 @@ interface ReturnPunishmentDto {
   automated: boolean;
   created_at: string;
   occurred_at: string;
-  evaluation_label?: string;
+  evaluation_label: string;
   due_at: string;
   resolved_at: string | null;
 }
@@ -907,10 +907,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 ```json
 {
   "occurred_at": "2026-02-09T08:00:00Z",
-  "evaluation_label": null
+  "evaluation_label": ""
 }
 ```
-- `evaluation_label: null` supprime explicitement le libellé.
+- `evaluation_label: ""` supprime explicitement le libellé.
 - 200: `ReturnBonusDto`
 - Erreurs: `invalid_request_body`, `bonus_not_found`, `not_found`, `unauthorized`
 
@@ -1012,10 +1012,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 ```json
 {
   "occurred_at": "2026-02-09T08:00:00Z",
-  "evaluation_label": null
+  "evaluation_label": ""
 }
 ```
-- `evaluation_label: null` supprime explicitement le libellé.
+- `evaluation_label: ""` supprime explicitement le libellé.
 - 200: `ReturnPenaltyDto`
 - Erreurs: `invalid_request_body`, `penalty_not_found`, `not_found`, `unauthorized`
 
@@ -1117,10 +1117,10 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 ```json
 {
   "occurred_at": "2026-02-09T08:00:00Z",
-  "evaluation_label": null
+  "evaluation_label": ""
 }
 ```
-- `evaluation_label: null` supprime explicitement le libellé.
+- `evaluation_label: ""` supprime explicitement le libellé.
 - 200: `ReturnPunishmentDto`
 - Erreurs: `invalid_request_body`, `punishment_not_found`, `not_found`, `unauthorized`
 
