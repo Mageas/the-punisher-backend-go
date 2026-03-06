@@ -36,8 +36,12 @@ Notes cookie refresh:
 ### 1.3 Types de données
 - UUID: format canonique (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - Date liste: `YYYY-MM-DD` (ex: `2026-02-28`)
+- Date body (`start_date`, `end_date`, `date`): `YYYY-MM-DD`
 - DateTime body (`occurred_at`, `due_at`): `RFC3339` (ex: `2026-03-15T18:00:00Z`)
 - DateTime response (`*_at`): `RFC3339` en `UTC` (suffixe `Z`), normalise a la precision microseconde
+- Heure body/response (`start_time`, `end_time`): `HH:MM`
+- Weekday body/response: `monday|tuesday|wednesday|thursday|friday|saturday|sunday`
+- Week pattern body/response: `every_week|even_weeks|odd_weeks`
 - Bool query: `true` ou `false`
 
 ### 1.4 Pagination
@@ -236,6 +240,37 @@ interface ReturnClassroomDto {
   students_preview: ClassroomStudentPreviewDto[];
   created_at: string;
   updated_at: string;
+}
+
+interface ScheduleSlotClassroomDto {
+  id: string;
+  name: string;
+}
+
+interface ReturnScheduleSlotDto {
+  id: string;
+  weekday: string;
+  start_time: string;
+  end_time: string;
+  week_pattern: "every_week" | "even_weeks" | "odd_weeks";
+  classrooms: ScheduleSlotClassroomDto[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface ReturnScheduleExceptionDto {
+  id: string;
+  type: "vacation" | "public_holiday";
+  start_date: string;
+  end_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface NextLessonDto {
+  date: string;
+  start_time: string;
+  end_time: string;
 }
 
 // Bonus / Penalty / Punishment
@@ -776,6 +811,16 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 200: `DashboardKpisDto`
 - Erreurs: `classroom_not_found`, `not_found`, `unauthorized`
 
+### GET `/v1/classrooms/{classroom_id}/next-lessons`
+- Auth: oui
+- 200: `NextLessonDto[]` (max `5` items)
+- Regles:
+  - depart au prochain jour complet
+  - jour courant toujours exclu
+  - prise en compte de la parite ISO (`even_weeks` / `odd_weeks`)
+  - prise en compte des exceptions globales utilisateur
+- Erreurs: `classroom_not_found`, `not_found`, `unauthorized`
+
 ### PUT `/v1/classrooms/{classroom_id}`
 - Auth: oui
 - Body partiel:
@@ -819,7 +864,100 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 200: `PaginatedResponse<ReturnStudentDto>`
 - Erreurs: `classroom_not_found`, `not_found`, `unauthorized`
 
-## 3.6 Bonus types
+## 3.6 Schedule
+
+### POST `/v1/schedule/slots/`
+- Auth: oui
+- Body:
+```json
+{
+  "weekday": "monday",
+  "start_time": "08:30",
+  "end_time": "09:25",
+  "week_pattern": "every_week",
+  "classroom_ids": [
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222"
+  ]
+}
+```
+- 201: `ReturnScheduleSlotDto`
+- Erreurs: `validation_failed`, `invalid_request_body`, `classroom_not_found`, `schedule_slot_conflict`, `unauthorized`
+
+### GET `/v1/schedule/slots/`
+- Auth: oui
+- 200: `ReturnScheduleSlotDto[]`
+- Erreurs: `unauthorized`
+
+### GET `/v1/schedule/slots/{schedule_slot_id}`
+- Auth: oui
+- 200: `ReturnScheduleSlotDto`
+- Erreurs: `schedule_slot_not_found`, `not_found`, `unauthorized`
+
+### PUT `/v1/schedule/slots/{schedule_slot_id}`
+- Auth: oui
+- Body partiel:
+```json
+{
+  "weekday": "tuesday",
+  "start_time": "10:00",
+  "end_time": "11:00",
+  "week_pattern": "odd_weeks",
+  "classroom_ids": [
+    "11111111-1111-1111-1111-111111111111"
+  ]
+}
+```
+- 200: `ReturnScheduleSlotDto`
+- Erreurs: `validation_failed`, `invalid_request_body`, `classroom_not_found`, `schedule_slot_not_found`, `schedule_slot_conflict`, `not_found`, `unauthorized`
+
+### DELETE `/v1/schedule/slots/{schedule_slot_id}`
+- Auth: oui
+- 204: no content
+- Erreurs: `schedule_slot_not_found`, `not_found`, `unauthorized`
+
+### POST `/v1/schedule/exceptions/`
+- Auth: oui
+- Body:
+```json
+{
+  "type": "vacation",
+  "start_date": "2026-04-06",
+  "end_date": "2026-04-10"
+}
+```
+- 201: `ReturnScheduleExceptionDto`
+- Erreurs: `validation_failed`, `invalid_request_body`, `schedule_exception_overlap`, `unauthorized`
+
+### GET `/v1/schedule/exceptions/`
+- Auth: oui
+- 200: `ReturnScheduleExceptionDto[]`
+- Erreurs: `unauthorized`
+
+### GET `/v1/schedule/exceptions/{schedule_exception_id}`
+- Auth: oui
+- 200: `ReturnScheduleExceptionDto`
+- Erreurs: `schedule_exception_not_found`, `not_found`, `unauthorized`
+
+### PUT `/v1/schedule/exceptions/{schedule_exception_id}`
+- Auth: oui
+- Body partiel:
+```json
+{
+  "type": "public_holiday",
+  "start_date": "2026-05-01",
+  "end_date": "2026-05-01"
+}
+```
+- 200: `ReturnScheduleExceptionDto`
+- Erreurs: `validation_failed`, `invalid_request_body`, `schedule_exception_not_found`, `schedule_exception_overlap`, `not_found`, `unauthorized`
+
+### DELETE `/v1/schedule/exceptions/{schedule_exception_id}`
+- Auth: oui
+- 204: no content
+- Erreurs: `schedule_exception_not_found`, `not_found`, `unauthorized`
+
+## 3.7 Bonus types
 
 ### POST `/v1/bonus-types/`
 - Auth: oui
@@ -862,7 +1000,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `bonus_type_not_found`, `not_found`, `unauthorized`
 
-## 3.7 Bonuses
+## 3.8 Bonuses
 
 ### POST `/v1/bonuses/`
 - Auth: oui
@@ -928,7 +1066,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `bonus_not_found`, `not_found`, `unauthorized`
 
-## 3.8 Penalty types
+## 3.9 Penalty types
 
 ### POST `/v1/penalty-types/`
 - Auth: oui
@@ -971,7 +1109,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `penalty_type_not_found`, `not_found`, `unauthorized`
 
-## 3.9 Penalties
+## 3.10 Penalties
 
 ### POST `/v1/penalties/`
 - Auth: oui
@@ -1027,7 +1165,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `penalty_not_found`, `not_found`, `unauthorized`
 
-## 3.10 Punishment types
+## 3.11 Punishment types
 
 ### POST `/v1/punishment-types/`
 - Auth: oui
@@ -1070,7 +1208,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `punishment_type_not_found`, `not_found`, `unauthorized`
 
-## 3.11 Punishments
+## 3.12 Punishments
 
 ### POST `/v1/punishments/`
 - Auth: oui
@@ -1138,7 +1276,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `punishment_not_found`, `not_found`, `unauthorized`
 
-## 3.12 Rules
+## 3.13 Rules
 
 ### POST `/v1/rules/`
 - Auth: oui
@@ -1187,7 +1325,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `rule_not_found`, `not_found`, `unauthorized`
 
-## 3.13 Dashboard
+## 3.14 Dashboard
 
 ### GET `/v1/dashboard/`
 - Auth: oui
@@ -1337,6 +1475,14 @@ Exemple 200 (tronqué):
 ```json
 { "error": "classroom_not_found", "error_code": 404 }
 ```
+- `schedule_slot_not_found`
+```json
+{ "error": "schedule_slot_not_found", "error_code": 404 }
+```
+- `schedule_exception_not_found`
+```json
+{ "error": "schedule_exception_not_found", "error_code": 404 }
+```
 - `student_or_classroom_not_found`
 ```json
 { "error": "student_or_classroom_not_found", "error_code": 404 }
@@ -1399,6 +1545,14 @@ Exemple 200 (tronqué):
 ```json
 { "error": "student_classroom_relation_exists", "error_code": 409 }
 ```
+- `schedule_slot_conflict`
+```json
+{ "error": "schedule_slot_conflict", "error_code": 409 }
+```
+- `schedule_exception_overlap`
+```json
+{ "error": "schedule_exception_overlap", "error_code": 409 }
+```
 - `email_confirmation_token_already_used`
 ```json
 { "error": "email_confirmation_token_already_used", "error_code": 409 }
@@ -1434,6 +1588,8 @@ Cas classiques:
 - champ JSON inconnu
 - UUID body invalide
 - datetime RFC3339 invalide
+- horaire `HH:MM` invalide
+- date `YYYY-MM-DD` invalide
 
 Exemples:
 ```json
@@ -1497,6 +1653,21 @@ Exemple:
 Pour `POST /v1/auth/change-password` et `POST /v1/auth/reset-password`, des clés possibles dans `error_details`:
 - `validation_password_confirmation_mismatch`
 - `validation_min_length:8`
+- `validation_one_of:foo|bar|baz` pour les champs validés avec `oneof`
+
+Exemple `oneof`:
+```json
+{
+  "error": "validation_failed",
+  "error_code": 400,
+  "error_details": [
+    {
+      "field": "week_pattern",
+      "error": "validation_one_of:every_week|even_weeks|odd_weeks"
+    }
+  ]
+}
+```
 
 ### `malformed_parameter` - 400
 Cas classiques:

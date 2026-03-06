@@ -110,6 +110,7 @@ func TestWriteValidationError(t *testing.T) {
 		Email         string `json:"email" validate:"email"`
 		MinField      string `json:"min_field" validate:"min=3"`
 		MaxField      string `json:"max_field" validate:"max=2"`
+		OneOfField    string `json:"oneof_field" validate:"oneof=foo bar baz"`
 		AlphaField    string `json:"alpha_field" validate:"alpha"`
 	}
 
@@ -118,6 +119,7 @@ func TestWriteValidationError(t *testing.T) {
 		Email:         "bad",
 		MinField:      "ab",
 		MaxField:      "abcd",
+		OneOfField:    "qux",
 		AlphaField:    "123",
 	})
 	if err == nil {
@@ -150,6 +152,9 @@ func TestWriteValidationError(t *testing.T) {
 	}
 	if !strings.Contains(joined, "max_field:validation_max_length:2") {
 		t.Fatalf("expected max detail, got %s", joined)
+	}
+	if !strings.Contains(joined, "oneof_field:validation_one_of:foo|bar|baz") {
+		t.Fatalf("expected oneof detail, got %s", joined)
 	}
 	if !strings.Contains(joined, "alpha_field:validation_error:alpha") {
 		t.Fatalf("expected default-tag detail, got %s", joined)

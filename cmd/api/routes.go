@@ -62,6 +62,9 @@ func (app *application) mount() http.Handler {
 	classroomService := service.NewClassroomService(repo)
 	classroomHandler := handler.NewClassroomHandler(classroomService)
 
+	scheduleService := service.NewScheduleService(repo)
+	scheduleHandler := handler.NewScheduleHandler(scheduleService)
+
 	bonusService := service.NewBonusService(repo)
 	bonusHandler := handler.NewBonusHandler(bonusService)
 
@@ -91,7 +94,8 @@ func (app *application) mount() http.Handler {
 
 		app.mountUserRoutes(r, userHandler)
 		app.mountStudentRoutes(r, studentHandler, classroomHandler, bonusHandler, penaltyHandler, punishmentHandler)
-		app.mountClassroomRoutes(r, classroomHandler)
+		app.mountClassroomRoutes(r, classroomHandler, scheduleHandler)
+		app.mountScheduleRoutes(r, scheduleHandler)
 		app.mountBonusRoutes(r, bonusHandler, bonusTypeHandler)
 		app.mountPenaltyRoutes(r, penaltyHandler, penaltyTypeHandler)
 		app.mountPunishmentRoutes(r, punishmentHandler, punishmentTypeHandler)

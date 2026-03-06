@@ -16,6 +16,7 @@ type Querier interface {
 	CountBonusTypesByUser(ctx context.Context, arg CountBonusTypesByUserParams) (int64, error)
 	CountBonusesByStudent(ctx context.Context, arg CountBonusesByStudentParams) (int64, error)
 	CountBonusesByUser(ctx context.Context, arg CountBonusesByUserParams) (int64, error)
+	CountClassroomsByIDsAndUser(ctx context.Context, arg CountClassroomsByIDsAndUserParams) (int64, error)
 	CountClassroomsByStudent(ctx context.Context, arg CountClassroomsByStudentParams) (int64, error)
 	CountClassroomsByUser(ctx context.Context, arg CountClassroomsByUserParams) (int64, error)
 	CountPenaltiesByStudent(ctx context.Context, arg CountPenaltiesByStudentParams) (int64, error)
@@ -26,6 +27,8 @@ type Querier interface {
 	CountPunishmentsByStudent(ctx context.Context, arg CountPunishmentsByStudentParams) (int64, error)
 	CountPunishmentsByUser(ctx context.Context, arg CountPunishmentsByUserParams) (int64, error)
 	CountRulesByUser(ctx context.Context, userID uuid.UUID) (int64, error)
+	CountScheduleExceptionOverlaps(ctx context.Context, arg CountScheduleExceptionOverlapsParams) (int64, error)
+	CountScheduleSlotConflicts(ctx context.Context, arg CountScheduleSlotConflictsParams) (int64, error)
 	CountStudentHistory(ctx context.Context, arg CountStudentHistoryParams) (int64, error)
 	CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error)
 	CountStudentsByUser(ctx context.Context, arg CountStudentsByUserParams) (int64, error)
@@ -52,6 +55,11 @@ type Querier interface {
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	// ==================== Rule ====================
 	CreateRule(ctx context.Context, arg CreateRuleParams) (CreateRuleRow, error)
+	// ==================== ScheduleException ====================
+	CreateScheduleException(ctx context.Context, arg CreateScheduleExceptionParams) (CreateScheduleExceptionRow, error)
+	// ==================== ScheduleSlot ====================
+	CreateScheduleSlot(ctx context.Context, arg CreateScheduleSlotParams) (ScheduleSlot, error)
+	CreateScheduleSlotClassroomRelation(ctx context.Context, arg CreateScheduleSlotClassroomRelationParams) (int64, error)
 	// ==================== Student ====================
 	CreateStudent(ctx context.Context, arg CreateStudentParams) (CreateStudentRow, error)
 	// ==================== User ====================
@@ -61,6 +69,7 @@ type Querier interface {
 	DeleteBonusByUser(ctx context.Context, arg DeleteBonusByUserParams) (int64, error)
 	DeleteBonusTypeByUser(ctx context.Context, arg DeleteBonusTypeByUserParams) (int64, error)
 	DeleteClassroomByUser(ctx context.Context, arg DeleteClassroomByUserParams) (int64, error)
+	DeleteOrphanScheduleSlotsByUser(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeletePenaltyByUser(ctx context.Context, arg DeletePenaltyByUserParams) (int64, error)
 	DeletePenaltyTypeByUser(ctx context.Context, arg DeletePenaltyTypeByUserParams) (int64, error)
 	DeletePunishmentByUser(ctx context.Context, arg DeletePunishmentByUserParams) (int64, error)
@@ -68,6 +77,9 @@ type Querier interface {
 	DeleteRefreshToken(ctx context.Context, token string) error
 	DeleteRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) (int64, error)
 	DeleteRuleByUser(ctx context.Context, arg DeleteRuleByUserParams) (int64, error)
+	DeleteScheduleExceptionByUser(ctx context.Context, arg DeleteScheduleExceptionByUserParams) (int64, error)
+	DeleteScheduleSlotByUser(ctx context.Context, arg DeleteScheduleSlotByUserParams) (int64, error)
+	DeleteScheduleSlotClassroomRelationsBySlot(ctx context.Context, scheduleSlotID uuid.UUID) (int64, error)
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
 	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
@@ -82,6 +94,8 @@ type Querier interface {
 	GetPunishmentTypeByUser(ctx context.Context, arg GetPunishmentTypeByUserParams) (PunishmentType, error)
 	GetRefreshToken(ctx context.Context, arg GetRefreshTokenParams) (RefreshToken, error)
 	GetRuleByUser(ctx context.Context, arg GetRuleByUserParams) (GetRuleByUserRow, error)
+	GetScheduleExceptionByUser(ctx context.Context, arg GetScheduleExceptionByUserParams) (GetScheduleExceptionByUserRow, error)
+	GetScheduleSlotByUser(ctx context.Context, arg GetScheduleSlotByUserParams) (ScheduleSlot, error)
 	GetStudentByUser(ctx context.Context, arg GetStudentByUserParams) (GetStudentByUserRow, error)
 	// ==================== StudentKpisHistory ====================
 	GetStudentKpis(ctx context.Context, arg GetStudentKpisParams) (GetStudentKpisRow, error)
@@ -111,6 +125,10 @@ type Querier interface {
 	ListPunishmentsByUser(ctx context.Context, arg ListPunishmentsByUserParams) ([]ListPunishmentsByUserRow, error)
 	ListRefreshTokensByUserId(ctx context.Context, userID uuid.UUID) ([]RefreshToken, error)
 	ListRulesByUser(ctx context.Context, arg ListRulesByUserParams) ([]ListRulesByUserRow, error)
+	ListScheduleExceptionsByUser(ctx context.Context, userID uuid.UUID) ([]ListScheduleExceptionsByUserRow, error)
+	ListScheduleSlotClassroomRefsBySlotIDs(ctx context.Context, arg ListScheduleSlotClassroomRefsBySlotIDsParams) ([]ListScheduleSlotClassroomRefsBySlotIDsRow, error)
+	ListScheduleSlotsByClassroom(ctx context.Context, arg ListScheduleSlotsByClassroomParams) ([]ScheduleSlot, error)
+	ListScheduleSlotsByUser(ctx context.Context, userID uuid.UUID) ([]ScheduleSlot, error)
 	ListStudentHistory(ctx context.Context, arg ListStudentHistoryParams) ([]ListStudentHistoryRow, error)
 	ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]ListStudentsByClassroomRow, error)
 	ListStudentsByUser(ctx context.Context, arg ListStudentsByUserParams) ([]ListStudentsByUserRow, error)
@@ -129,6 +147,8 @@ type Querier interface {
 	UpdatePunishmentByUser(ctx context.Context, arg UpdatePunishmentByUserParams) (UpdatePunishmentByUserRow, error)
 	UpdatePunishmentTypeByUser(ctx context.Context, arg UpdatePunishmentTypeByUserParams) (PunishmentType, error)
 	UpdateRuleByUser(ctx context.Context, arg UpdateRuleByUserParams) (UpdateRuleByUserRow, error)
+	UpdateScheduleExceptionByUser(ctx context.Context, arg UpdateScheduleExceptionByUserParams) (UpdateScheduleExceptionByUserRow, error)
+	UpdateScheduleSlotByUser(ctx context.Context, arg UpdateScheduleSlotByUserParams) (ScheduleSlot, error)
 	UpdateStudentByUser(ctx context.Context, arg UpdateStudentByUserParams) (UpdateStudentByUserRow, error)
 	UpdateUserPasswordByID(ctx context.Context, arg UpdateUserPasswordByIDParams) (int64, error)
 	UseBonus(ctx context.Context, arg UseBonusParams) (UseBonusRow, error)
