@@ -76,6 +76,10 @@ var (
 	ErrClassroomNotFound              = NewAPIError(http.StatusNotFound, "classroom_not_found")
 	ErrStudentClassroomRelationExists = NewAPIError(http.StatusConflict, "student_classroom_relation_exists")
 	ErrStudentOrClassroomNotFound     = NewAPIError(http.StatusNotFound, "student_or_classroom_not_found")
+	ErrScheduleSlotNotFound           = NewAPIError(http.StatusNotFound, "schedule_slot_not_found")
+	ErrScheduleSlotConflict           = NewAPIError(http.StatusConflict, "schedule_slot_conflict")
+	ErrScheduleExceptionNotFound      = NewAPIError(http.StatusNotFound, "schedule_exception_not_found")
+	ErrScheduleExceptionOverlap       = NewAPIError(http.StatusConflict, "schedule_exception_overlap")
 
 	ErrImportFileMissing      = NewAPIError(http.StatusBadRequest, "import_file_missing")
 	ErrImportFileInvalid      = NewAPIError(http.StatusBadRequest, "import_file_invalid")
@@ -89,6 +93,7 @@ const (
 	KeyValidationInvalidEmail       = "validation_invalid_email"
 	KeyValidationMinLength          = "validation_min_length:%s"
 	KeyValidationMaxLength          = "validation_max_length:%s"
+	KeyValidationOneOf              = "validation_one_of:%s"
 	KeyValidationEmailAlreadyExists = "validation_email_already_exists"
 
 	KeyValidationUnknownField       = "validation_unknown_field"

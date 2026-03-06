@@ -123,6 +123,32 @@ type Rule struct {
 	DueAtAfterDays            int32     `json:"due_at_after_days"`
 }
 
+type ScheduleException struct {
+	ID            uuid.UUID `json:"id"`
+	UserID        uuid.UUID `json:"user_id"`
+	ExceptionType string    `json:"exception_type"`
+	StartDate     time.Time `json:"start_date"`
+	EndDate       time.Time `json:"end_date"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type ScheduleSlot struct {
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	Weekday     int32     `json:"weekday"`
+	StartTime   string    `json:"start_time"`
+	EndTime     string    `json:"end_time"`
+	WeekPattern string    `json:"week_pattern"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type ScheduleSlotClassroom struct {
+	ScheduleSlotID uuid.UUID `json:"schedule_slot_id"`
+	ClassroomID    uuid.UUID `json:"classroom_id"`
+}
+
 type Student struct {
 	ID        uuid.UUID `json:"id"`
 	UserID    uuid.UUID `json:"user_id"`

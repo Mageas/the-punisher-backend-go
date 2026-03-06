@@ -32,6 +32,11 @@ type classroomService struct {
 	repo repository.Querier
 }
 
+type transactionalClassroomRepo interface {
+	repository.Querier
+	WithinTransaction(ctx context.Context, fn func(repository.Querier) error) error
+}
+
 func NewClassroomService(repo repository.Querier) ClassroomService {
 	return &classroomService{repo: repo}
 }
@@ -168,16 +173,34 @@ func (s *classroomService) UpdateClassroom(ctx context.Context, userID uuid.UUID
 }
 
 func (s *classroomService) DeleteClassroom(ctx context.Context, userID uuid.UUID, classroomID uuid.UUID) error {
-	rowsAffected, err := s.repo.DeleteClassroomByUser(ctx, repository.DeleteClassroomByUserParams{
-		ID:     classroomID,
-		UserID: userID,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to delete classroom: %w", err)
+	txRepo, ok := s.repo.(transactionalClassroomRepo)
+	if !ok {
+		return fmt.Errorf("classroom repository does not support transactions")
 	}
 
-	if rowsAffected == 0 {
-		return api.ErrClassroomNotFound
+	var rowsAffected int64
+	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		deletedCount, deleteErr := txQuerier.DeleteClassroomByUser(ctx, repository.DeleteClassroomByUserParams{
+			ID:     classroomID,
+			UserID: userID,
+		})
+		if deleteErr != nil {
+			return fmt.Errorf("failed to delete classroom: %w", deleteErr)
+		}
+
+		rowsAffected = deletedCount
+		if rowsAffected == 0 {
+			return api.ErrClassroomNotFound
+		}
+
+		if _, err := txQuerier.DeleteOrphanScheduleSlotsByUser(ctx, userID); err != nil {
+			return fmt.Errorf("failed to cleanup orphan schedule slots: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	slog.Info("classroom deleted", "classroom_id", classroomID, "user_id", userID)
@@ -186,9 +209,28 @@ func (s *classroomService) DeleteClassroom(ctx context.Context, userID uuid.UUID
 }
 
 func (s *classroomService) DeleteAllClassrooms(ctx context.Context, userID uuid.UUID) error {
-	rowsAffected, err := s.repo.DeleteAllClassroomsByUser(ctx, userID)
+	txRepo, ok := s.repo.(transactionalClassroomRepo)
+	if !ok {
+		return fmt.Errorf("classroom repository does not support transactions")
+	}
+
+	var rowsAffected int64
+	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		deletedCount, deleteErr := txQuerier.DeleteAllClassroomsByUser(ctx, userID)
+		if deleteErr != nil {
+			return fmt.Errorf("failed to delete classrooms in bulk: %w", deleteErr)
+		}
+
+		rowsAffected = deletedCount
+
+		if _, err := txQuerier.DeleteOrphanScheduleSlotsByUser(ctx, userID); err != nil {
+			return fmt.Errorf("failed to cleanup orphan schedule slots: %w", err)
+		}
+
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to delete classrooms in bulk: %w", err)
+		return err
 	}
 
 	slog.Info("classrooms deleted in bulk", "deleted_count", rowsAffected, "user_id", userID)

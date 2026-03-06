@@ -90,6 +90,11 @@ func WriteValidationError(w http.ResponseWriter, err error) {
 				details = append(details, api.ErrorDetail{Field: e.Field(), Error: fmt.Sprintf(api.KeyValidationMinLength, e.Param())})
 			case "max":
 				details = append(details, api.ErrorDetail{Field: e.Field(), Error: fmt.Sprintf(api.KeyValidationMaxLength, e.Param())})
+			case "oneof":
+				details = append(details, api.ErrorDetail{
+					Field: e.Field(),
+					Error: fmt.Sprintf(api.KeyValidationOneOf, strings.Join(strings.Fields(e.Param()), "|")),
+				})
 			default:
 				details = append(details, api.ErrorDetail{Field: e.Field(), Error: fmt.Sprintf(api.KeyValidationError, e.Tag())})
 			}

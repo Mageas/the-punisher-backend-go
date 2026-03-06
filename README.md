@@ -5,6 +5,7 @@ API backend pour la gestion disciplinaire en classe:
 - pénalités (`penalties`)
 - punitions (`punishments`)
 - règles automatiques (`rules`)
+- emploi du temps (`schedule`)
 
 Stack principal: Go, PostgreSQL, sqlc, Chi.
 
@@ -73,6 +74,19 @@ Règles sur `item_per_page`:
 - valeur invalide/non numérique: fallback `20`
 - valeur < 5: forcée à `5`
 - valeur > 50: forcée à `50`
+
+## Emploi du temps
+
+Le backend expose désormais un sous-domaine `schedule` pour:
+- gérer des créneaux hebdomadaires multi-classes avec `weekday`, `start_time`, `end_time` et `week_pattern`
+- gérer des interruptions globales utilisateur (`vacation`, `public_holiday`) sur journées entières
+- calculer les `5` prochains cours d'une classe via `GET /v1/classrooms/{classroom_id}/next-lessons`
+
+Formats métier associés:
+- `weekday`: texte anglais minuscule (`monday` à `sunday`)
+- `start_time` / `end_time`: `HH:MM`
+- `week_pattern`: `every_week`, `even_weeks`, `odd_weeks`
+- `start_date` / `end_date`: `YYYY-MM-DD`
 
 ## Configuration CORS
 
