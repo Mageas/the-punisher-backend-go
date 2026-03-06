@@ -15,8 +15,9 @@ type RequestBonusDto struct {
 }
 
 type UpdateBonusDto struct {
-	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
-	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
+	Points          *float64 `json:"points" validate:"omitempty,gt=0"`
+	OccurredAt      *string  `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel *string  `json:"evaluation_label" validate:"omitempty"`
 }
 
 type ReturnBonusDto struct {

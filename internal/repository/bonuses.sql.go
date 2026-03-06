@@ -402,9 +402,10 @@ func (q *Queries) ListBonusesByUser(ctx context.Context, arg ListBonusesByUserPa
 const updateBonusByUser = `-- name: UpdateBonusByUser :one
 UPDATE bonuses
 SET
-    occurred_at = COALESCE($1::timestamptz, occurred_at),
-    evaluation_label = COALESCE($2::text, evaluation_label)
-WHERE bonuses.id = $3 AND bonuses.user_id = $4
+    points = COALESCE($1::double precision, points),
+    occurred_at = COALESCE($2::timestamptz, occurred_at),
+    evaluation_label = COALESCE($3::text, evaluation_label)
+WHERE bonuses.id = $4 AND bonuses.user_id = $5
 RETURNING
     bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,
     (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
@@ -413,6 +414,7 @@ RETURNING
 `
 
 type UpdateBonusByUserParams struct {
+	Points          *float64   `json:"points"`
 	OccurredAt      *time.Time `json:"occurred_at"`
 	EvaluationLabel *string    `json:"evaluation_label"`
 	ID              uuid.UUID  `json:"id"`
@@ -436,6 +438,7 @@ type UpdateBonusByUserRow struct {
 
 func (q *Queries) UpdateBonusByUser(ctx context.Context, arg UpdateBonusByUserParams) (UpdateBonusByUserRow, error) {
 	row := q.db.QueryRow(ctx, updateBonusByUser,
+		arg.Points,
 		arg.OccurredAt,
 		arg.EvaluationLabel,
 		arg.ID,

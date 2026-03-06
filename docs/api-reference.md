@@ -269,6 +269,7 @@ interface RequestBonusDto {
 }
 
 interface UpdateBonusDto {
+  points?: number; // > 0
   occurred_at?: string; // RFC3339
   evaluation_label?: string; // empty string clears the label
 }
@@ -906,10 +907,12 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Body partiel:
 ```json
 {
+  "points": 3.5,
   "occurred_at": "2026-02-09T08:00:00Z",
   "evaluation_label": ""
 }
 ```
+- `points` met a jour la valeur des points (doit etre `> 0`).
 - `evaluation_label: ""` supprime explicitement le libellé.
 - 200: `ReturnBonusDto`
 - Erreurs: `invalid_request_body`, `bonus_not_found`, `not_found`, `unauthorized`

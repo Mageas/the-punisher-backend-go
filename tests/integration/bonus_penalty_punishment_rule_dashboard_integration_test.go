@@ -72,9 +72,13 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 
 	updatedOccurredAt := time.Now().UTC().Add(-24 * time.Hour)
 	updatedLabel := "Nouveau libelle"
-	updated, err := svc.UpdateBonus(ctx, user.ID, created.ID, &updatedOccurredAt, &updatedLabel)
+	updatedPoints := 6.5
+	updated, err := svc.UpdateBonus(ctx, user.ID, created.ID, &updatedPoints, &updatedOccurredAt, &updatedLabel)
 	if err != nil {
 		t.Fatalf("UpdateBonus returned error: %v", err)
+	}
+	if updated.Points != updatedPoints {
+		t.Fatalf("unexpected updated points: got=%v want=%v", updated.Points, updatedPoints)
 	}
 	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
 	if updated.EvaluationLabel != updatedLabel {
@@ -82,9 +86,12 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 	}
 
 	emptyLabel := ""
-	cleared, err := svc.UpdateBonus(ctx, user.ID, created.ID, nil, &emptyLabel)
+	cleared, err := svc.UpdateBonus(ctx, user.ID, created.ID, nil, nil, &emptyLabel)
 	if err != nil {
 		t.Fatalf("UpdateBonus(clear label) returned error: %v", err)
+	}
+	if cleared.Points != updatedPoints {
+		t.Fatalf("expected points unchanged after label clear, got=%v want=%v", cleared.Points, updatedPoints)
 	}
 	if cleared.EvaluationLabel != "" {
 		t.Fatalf("expected evaluation_label to be cleared to empty string, got %+v", cleared.EvaluationLabel)
@@ -142,7 +149,7 @@ func TestBonusService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 		t.Fatalf("expected ErrBonusTypeNotFound, got %v", err)
 	}
 
-	_, err = svc.UpdateBonus(ctx, user.ID, uuid.New(), nil, nil)
+	_, err = svc.UpdateBonus(ctx, user.ID, uuid.New(), nil, nil, nil)
 	if !errors.Is(err, api.ErrBonusNotFound) {
 		t.Fatalf("expected ErrBonusNotFound on update, got %v", err)
 	}

@@ -31,6 +31,7 @@ type BonusService interface {
 		ctx context.Context,
 		userID uuid.UUID,
 		bonusID uuid.UUID,
+		points *float64,
 		occurredAt *time.Time,
 		evaluationLabel *string,
 	) (*dto.ReturnBonusDto, error)
@@ -171,10 +172,12 @@ func (s *bonusService) UpdateBonus(
 	ctx context.Context,
 	userID uuid.UUID,
 	bonusID uuid.UUID,
+	points *float64,
 	occurredAt *time.Time,
 	evaluationLabel *string,
 ) (*dto.ReturnBonusDto, error) {
 	bonus, err := s.repo.UpdateBonusByUser(ctx, repository.UpdateBonusByUserParams{
+		Points:          points,
 		OccurredAt:      occurredAt,
 		EvaluationLabel: evaluationLabel,
 		ID:              bonusID,

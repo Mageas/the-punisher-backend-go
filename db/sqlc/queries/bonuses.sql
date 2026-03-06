@@ -113,6 +113,7 @@ RETURNING
 -- name: UpdateBonusByUser :one
 UPDATE bonuses
 SET
+    points = COALESCE(sqlc.narg(points)::double precision, points),
     occurred_at = COALESCE(sqlc.narg(occurred_at)::timestamptz, occurred_at),
     evaluation_label = COALESCE(sqlc.narg(evaluation_label)::text, evaluation_label)
 WHERE bonuses.id = sqlc.arg(id) AND bonuses.user_id = sqlc.arg(user_id)
