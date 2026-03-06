@@ -37,6 +37,7 @@ Notes cookie refresh:
 - UUID: format canonique (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - Date liste: `YYYY-MM-DD` (ex: `2026-02-28`)
 - DateTime body (`occurred_at`, `due_at`): `RFC3339` (ex: `2026-03-15T18:00:00Z`)
+- DateTime response (`*_at`): `RFC3339` en `UTC` (suffixe `Z`), normalise a la precision microseconde
 - Bool query: `true` ou `false`
 
 ### 1.4 Pagination

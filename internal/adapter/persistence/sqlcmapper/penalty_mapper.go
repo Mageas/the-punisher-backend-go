@@ -26,8 +26,8 @@ func buildReturnPenaltyDto(
 		StudentLastName:  studentLastName,
 		PenaltyTypeID:    penaltyTypeID,
 		PenaltyTypeName:  penaltyTypeName,
-		CreatedAt:        createdAt,
-		OccurredAt:       occurredAt,
+		CreatedAt:        normalizeAPITime(createdAt),
+		OccurredAt:       normalizeAPITime(occurredAt),
 		EvaluationLabel:  bonusEvaluationLabel(evaluationLabel),
 	}
 }

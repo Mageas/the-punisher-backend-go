@@ -24,8 +24,8 @@ func buildReturnStudentDto(
 		Classrooms:           []dto.StudentClassroomDto{},
 		AvailableBonusPoints: availableBonusPoints,
 		PenaltyCount:         penaltyCount,
-		CreatedAt:            createdAt,
-		UpdatedAt:            updatedAt,
+		CreatedAt:            normalizeAPITime(createdAt),
+		UpdatedAt:            normalizeAPITime(updatedAt),
 	}
 }
 

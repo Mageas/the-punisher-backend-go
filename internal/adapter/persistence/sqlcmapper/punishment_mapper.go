@@ -34,10 +34,10 @@ func buildReturnPunishmentDto(
 		TriggeringRuleID:   punishmentTriggeringRuleID(triggeringRuleID),
 		TriggeringRuleName: triggeringRuleName,
 		Automated:          automated,
-		CreatedAt:          createdAt,
-		OccurredAt:         occurredAt,
+		CreatedAt:          normalizeAPITime(createdAt),
+		OccurredAt:         normalizeAPITime(occurredAt),
 		EvaluationLabel:    bonusEvaluationLabel(evaluationLabel),
-		DueAt:              dueAt,
+		DueAt:              normalizeAPITime(dueAt),
 	}
 
 	if resolvedAtValue := punishmentResolvedAt(resolvedAt); resolvedAtValue != nil {
@@ -196,12 +196,7 @@ func PunishmentFromUpdateRow(p *repository.UpdatePunishmentByUserRow) *dto.Retur
 }
 
 func punishmentResolvedAt(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-
-	timeValue := *value
-	return &timeValue
+	return normalizeOptionalAPITime(value)
 }
 
 func punishmentTriggeringRuleID(value *uuid.UUID) *uuid.UUID {

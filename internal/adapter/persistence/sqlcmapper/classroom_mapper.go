@@ -22,8 +22,8 @@ func buildReturnClassroomDto(
 		Name:            name,
 		StudentCount:    studentCount,
 		StudentsPreview: []dto.ClassroomStudentPreviewDto{},
-		CreatedAt:       createdAt,
-		UpdatedAt:       updatedAt,
+		CreatedAt:       normalizeAPITime(createdAt),
+		UpdatedAt:       normalizeAPITime(updatedAt),
 	}
 
 	if convertedYear := classroomTextPtr(year); convertedYear != nil {
