@@ -145,6 +145,8 @@ SELECT
     history.type,
     history.id,
     history.created_at,
+    history.occurred_at,
+    history.evaluation_label,
     history.penalty_type_id,
     history.penalty_type_name,
     history.bonus_type_id,
@@ -163,6 +165,8 @@ FROM (
         'punishment'::text AS type,
         p.id,
         p.created_at,
+        p.occurred_at,
+        p.evaluation_label,
         NULL::uuid AS penalty_type_id,
         NULL::text AS penalty_type_name,
         NULL::uuid AS bonus_type_id,
@@ -188,6 +192,8 @@ FROM (
         'penalty'::text AS type,
         p.id,
         p.created_at,
+        p.occurred_at,
+        p.evaluation_label,
         p.penalty_type_id,
         pt.name AS penalty_type_name,
         NULL::uuid AS bonus_type_id,
@@ -199,7 +205,7 @@ FROM (
         NULL::uuid AS triggering_rule_id,
         NULL::text AS triggering_rule_name,
         FALSE AS automated,
-        p.created_at AS due_at,
+        p.occurred_at AS due_at,
         NULL::timestamptz AS resolved_at
     FROM penalties p
     JOIN penalty_types pt ON pt.id = p.penalty_type_id
@@ -212,6 +218,8 @@ FROM (
         'bonus'::text AS type,
         b.id,
         b.created_at,
+        b.occurred_at,
+        b.evaluation_label,
         NULL::uuid AS penalty_type_id,
         NULL::text AS penalty_type_name,
         b.bonus_type_id,
@@ -223,14 +231,14 @@ FROM (
         NULL::uuid AS triggering_rule_id,
         NULL::text AS triggering_rule_name,
         FALSE AS automated,
-        b.created_at AS due_at,
+        b.occurred_at AS due_at,
         NULL::timestamptz AS resolved_at
     FROM bonuses b
     JOIN bonus_types bt ON bt.id = b.bonus_type_id
     WHERE b.student_id = $1
       AND b.user_id = $2
 ) history
-ORDER BY history.created_at DESC, history.id DESC
+ORDER BY history.occurred_at DESC, history.id DESC
 LIMIT $4 OFFSET $3
 `
 
@@ -245,6 +253,8 @@ type ListStudentHistoryRow struct {
 	Type               string     `json:"type"`
 	ID                 uuid.UUID  `json:"id"`
 	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label"`
 	PenaltyTypeID      *uuid.UUID `json:"penalty_type_id"`
 	PenaltyTypeName    *string    `json:"penalty_type_name"`
 	BonusTypeID        *uuid.UUID `json:"bonus_type_id"`
@@ -278,6 +288,8 @@ func (q *Queries) ListStudentHistory(ctx context.Context, arg ListStudentHistory
 			&i.Type,
 			&i.ID,
 			&i.CreatedAt,
+			&i.OccurredAt,
+			&i.EvaluationLabel,
 			&i.PenaltyTypeID,
 			&i.PenaltyTypeName,
 			&i.BonusTypeID,

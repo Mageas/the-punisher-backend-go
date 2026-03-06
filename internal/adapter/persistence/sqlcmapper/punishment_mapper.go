@@ -19,6 +19,8 @@ func buildReturnPunishmentDto(
 	triggeringRuleName *string,
 	automated bool,
 	createdAt time.Time,
+	occurredAt time.Time,
+	evaluationLabel *string,
 	dueAt time.Time,
 	resolvedAt *time.Time,
 ) *dto.ReturnPunishmentDto {
@@ -33,6 +35,8 @@ func buildReturnPunishmentDto(
 		TriggeringRuleName: triggeringRuleName,
 		Automated:          automated,
 		CreatedAt:          createdAt,
+		OccurredAt:         occurredAt,
+		EvaluationLabel:    bonusEvaluationLabel(evaluationLabel),
 		DueAt:              dueAt,
 	}
 
@@ -59,6 +63,8 @@ func PunishmentFromCreateRow(p *repository.CreatePunishmentRow) *dto.ReturnPunis
 		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
 		p.Automated,
 		p.CreatedAt,
+		p.OccurredAt,
+		p.EvaluationLabel,
 		p.DueAt,
 		p.ResolvedAt,
 	)
@@ -80,6 +86,8 @@ func PunishmentFromGetRow(p *repository.GetPunishmentByUserRow) *dto.ReturnPunis
 		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
 		p.Automated,
 		p.CreatedAt,
+		p.OccurredAt,
+		p.EvaluationLabel,
 		p.DueAt,
 		p.ResolvedAt,
 	)
@@ -100,6 +108,8 @@ func PunishmentListFromListByUserRows(punishments []repository.ListPunishmentsBy
 			punishmentTriggeringRuleNameFromText(punishment.TriggeringRuleName),
 			punishment.Automated,
 			punishment.CreatedAt,
+			punishment.OccurredAt,
+			punishment.EvaluationLabel,
 			punishment.DueAt,
 			punishment.ResolvedAt,
 		)
@@ -126,6 +136,8 @@ func PunishmentListFromListByStudentRows(punishments []repository.ListPunishment
 			punishmentTriggeringRuleNameFromText(punishment.TriggeringRuleName),
 			punishment.Automated,
 			punishment.CreatedAt,
+			punishment.OccurredAt,
+			punishment.EvaluationLabel,
 			punishment.DueAt,
 			punishment.ResolvedAt,
 		)
@@ -153,6 +165,31 @@ func PunishmentFromResolveRow(p *repository.ResolvePunishmentRow) *dto.ReturnPun
 		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
 		p.Automated,
 		p.CreatedAt,
+		p.OccurredAt,
+		p.EvaluationLabel,
+		p.DueAt,
+		p.ResolvedAt,
+	)
+}
+
+func PunishmentFromUpdateRow(p *repository.UpdatePunishmentByUserRow) *dto.ReturnPunishmentDto {
+	if p == nil {
+		return nil
+	}
+
+	return buildReturnPunishmentDto(
+		p.ID,
+		p.StudentID,
+		p.StudentFirstName,
+		p.StudentLastName,
+		p.PunishmentTypeID,
+		p.PunishmentTypeName,
+		p.TriggeringRuleID,
+		punishmentTriggeringRuleNameFromText(p.TriggeringRuleName),
+		p.Automated,
+		p.CreatedAt,
+		p.OccurredAt,
+		p.EvaluationLabel,
 		p.DueAt,
 		p.ResolvedAt,
 	)

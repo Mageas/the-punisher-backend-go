@@ -20,6 +20,9 @@ type StudentKpisDto struct {
 type StudentHistoryItemDto struct {
 	Type               string     `json:"type"`
 	ID                 uuid.UUID  `json:"id"`
+	CreatedAt          time.Time  `json:"created_at"`
+	OccurredAt         time.Time  `json:"occurred_at"`
+	EvaluationLabel    *string    `json:"evaluation_label,omitempty"`
 	PenaltyTypeID      *uuid.UUID `json:"penalty_type_id,omitempty"`
 	PenaltyTypeName    *string    `json:"penalty_type_name,omitempty"`
 	BonusTypeID        *uuid.UUID `json:"bonus_type_id,omitempty"`
@@ -33,5 +36,4 @@ type StudentHistoryItemDto struct {
 	Automated          *bool      `json:"automated,omitempty"`
 	DueAt              *time.Time `json:"due_at,omitempty"`
 	ResolvedAt         *time.Time `json:"resolved_at,omitempty"`
-	CreatedAt          time.Time  `json:"created_at"`
 }

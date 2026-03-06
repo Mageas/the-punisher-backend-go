@@ -82,7 +82,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -91,7 +91,7 @@ JOIN filtered_students fs ON fs.id = p.student_id
 JOIN students s ON s.id = p.student_id
 JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.user_id = sqlc.arg(user_id)
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT sqlc.arg(query_limit);
 
 -- name: ListDashboardRecentBonuses :many
@@ -110,7 +110,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.used_at,
+    b.id, b.user_id, b.student_id, b.bonus_type_id, b.points, b.created_at, b.occurred_at, b.evaluation_label, b.used_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
@@ -119,7 +119,7 @@ JOIN filtered_students fs ON fs.id = b.student_id
 JOIN students s ON s.id = b.student_id
 JOIN bonus_types bt ON bt.id = b.bonus_type_id
 WHERE b.user_id = sqlc.arg(user_id)
-ORDER BY b.created_at DESC
+ORDER BY b.occurred_at DESC, b.id DESC
 LIMIT sqlc.arg(query_limit);
 
 -- name: ListDashboardPendingPunishments :many
@@ -138,7 +138,7 @@ WITH filtered_students AS (
     )
 )
 SELECT
-    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.due_at, p.resolved_at,
+    p.id, p.user_id, p.student_id, p.punishment_type_id, p.triggering_rule_id, p.automated, p.created_at, p.occurred_at, p.evaluation_label, p.due_at, p.resolved_at,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS punishment_type_name,
@@ -150,5 +150,5 @@ JOIN punishment_types pt ON pt.id = p.punishment_type_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = sqlc.arg(user_id)
   AND p.resolved_at IS NULL
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT sqlc.arg(query_limit);

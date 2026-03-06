@@ -2,19 +2,23 @@
 
 -- name: CreatePenalty :one
 INSERT INTO penalties (
-    user_id, student_id, penalty_type_id
+    user_id, student_id, penalty_type_id, occurred_at, evaluation_label
 ) VALUES (
-    sqlc.arg(user_id), sqlc.arg(student_id), sqlc.arg(penalty_type_id)
+    sqlc.arg(user_id),
+    sqlc.arg(student_id),
+    sqlc.arg(penalty_type_id),
+    COALESCE(sqlc.narg(occurred_at)::timestamptz, NOW()),
+    sqlc.narg(evaluation_label)::text
 )
 RETURNING
-    id, user_id, student_id, penalty_type_id, created_at,
+    id, user_id, student_id, penalty_type_id, created_at, occurred_at, evaluation_label,
     (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
     (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
     (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name;
 
 -- name: GetPenaltyByUser :one
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -29,8 +33,8 @@ FROM penalties p
 WHERE p.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
   AND (sqlc.narg(penalty_type_id)::uuid IS NULL OR p.penalty_type_id = sqlc.narg(penalty_type_id)::uuid)
-  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (
@@ -45,7 +49,7 @@ WHERE p.user_id = sqlc.arg(user_id)
 
 -- name: ListPenaltiesByUser :many
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -55,8 +59,8 @@ JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
   AND (sqlc.narg(penalty_type_id)::uuid IS NULL OR p.penalty_type_id = sqlc.narg(penalty_type_id)::uuid)
-  AND (sqlc.narg(created_from)::date IS NULL OR p.created_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.created_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
+  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (
@@ -68,7 +72,7 @@ WHERE p.user_id = sqlc.arg(user_id)
         AND c.user_id = p.user_id
     )
   )
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
 
 -- name: CountPenaltiesByStudent :one
@@ -85,7 +89,7 @@ WHERE student_id = sqlc.arg(student_id)
 
 -- name: ListPenaltiesByStudent :many
 SELECT
-    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at,
+    p.id, p.user_id, p.student_id, p.penalty_type_id, p.created_at, p.occurred_at, p.evaluation_label,
     s.first_name AS student_first_name,
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
@@ -93,8 +97,23 @@ FROM penalties p
 JOIN students s ON s.id = p.student_id
 JOIN penalty_types pt ON pt.id = p.penalty_type_id
 WHERE p.student_id = sqlc.arg(student_id) AND p.user_id = sqlc.arg(user_id)
-ORDER BY p.created_at DESC
+ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT sqlc.arg(query_limit) OFFSET sqlc.arg(query_offset);
+
+-- name: UpdatePenaltyByUser :one
+UPDATE penalties
+SET
+    occurred_at = COALESCE(sqlc.narg(occurred_at)::timestamptz, occurred_at),
+    evaluation_label = CASE
+        WHEN sqlc.arg(evaluation_label_set)::boolean THEN sqlc.narg(evaluation_label)::text
+        ELSE evaluation_label
+    END
+WHERE penalties.id = sqlc.arg(id) AND penalties.user_id = sqlc.arg(user_id)
+RETURNING
+    penalties.id, penalties.user_id, penalties.student_id, penalties.penalty_type_id, penalties.created_at, penalties.occurred_at, penalties.evaluation_label,
+    (SELECT first_name FROM students WHERE students.id = penalties.student_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = penalties.student_id) AS student_last_name,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalties.penalty_type_id) AS penalty_type_name;
 
 -- name: DeletePenaltyByUser :execrows
 DELETE FROM penalties

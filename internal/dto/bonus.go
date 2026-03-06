@@ -7,9 +7,16 @@ import (
 )
 
 type RequestBonusDto struct {
-	StudentID   string  `json:"student_id" validate:"required,uuid"`
-	BonusTypeID string  `json:"bonus_type_id" validate:"required,uuid"`
-	Points      float64 `json:"points" validate:"required,gt=0"`
+	StudentID       string  `json:"student_id" validate:"required,uuid"`
+	BonusTypeID     string  `json:"bonus_type_id" validate:"required,uuid"`
+	Points          float64 `json:"points" validate:"required,gt=0"`
+	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
+}
+
+type UpdateBonusDto struct {
+	OccurredAt      *string             `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel NullableStringField `json:"evaluation_label"`
 }
 
 type ReturnBonusDto struct {
@@ -21,5 +28,7 @@ type ReturnBonusDto struct {
 	BonusTypeName    string     `json:"bonus_type_name"`
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label,omitempty"`
 	UsedAt           *time.Time `json:"used_at"`
 }

@@ -11,13 +11,15 @@ import (
 )
 
 type Bonus struct {
-	ID          uuid.UUID  `json:"id"`
-	UserID      uuid.UUID  `json:"user_id"`
-	StudentID   uuid.UUID  `json:"student_id"`
-	BonusTypeID uuid.UUID  `json:"bonus_type_id"`
-	Points      float64    `json:"points"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UsedAt      *time.Time `json:"used_at"`
+	ID              uuid.UUID  `json:"id"`
+	UserID          uuid.UUID  `json:"user_id"`
+	StudentID       uuid.UUID  `json:"student_id"`
+	BonusTypeID     uuid.UUID  `json:"bonus_type_id"`
+	Points          float64    `json:"points"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UsedAt          *time.Time `json:"used_at"`
+	OccurredAt      time.Time  `json:"occurred_at"`
+	EvaluationLabel *string    `json:"evaluation_label"`
 }
 
 type BonusType struct {
@@ -57,11 +59,13 @@ type PasswordResetToken struct {
 }
 
 type Penalty struct {
-	ID            uuid.UUID `json:"id"`
-	UserID        uuid.UUID `json:"user_id"`
-	StudentID     uuid.UUID `json:"student_id"`
-	PenaltyTypeID uuid.UUID `json:"penalty_type_id"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID              uuid.UUID `json:"id"`
+	UserID          uuid.UUID `json:"user_id"`
+	StudentID       uuid.UUID `json:"student_id"`
+	PenaltyTypeID   uuid.UUID `json:"penalty_type_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	OccurredAt      time.Time `json:"occurred_at"`
+	EvaluationLabel *string   `json:"evaluation_label"`
 }
 
 type PenaltyType struct {
@@ -82,6 +86,8 @@ type Punishment struct {
 	DueAt            time.Time  `json:"due_at"`
 	ResolvedAt       *time.Time `json:"resolved_at"`
 	Automated        bool       `json:"automated"`
+	OccurredAt       time.Time  `json:"occurred_at"`
+	EvaluationLabel  *string    `json:"evaluation_label"`
 }
 
 type PunishmentType struct {

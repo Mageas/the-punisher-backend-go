@@ -23,12 +23,35 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
 	svc := NewBonusService(repo)
 
-	created, err := svc.CreateBonus(ctx, user.ID, student.ID, bonusType.ID, 4)
+	created, err := svc.CreateBonus(ctx, user.ID, student.ID, bonusType.ID, 4, nil, nil)
 	if err != nil {
 		t.Fatalf("CreateBonus returned error: %v", err)
 	}
 	if created.ID == uuid.Nil || created.UsedAt != nil {
 		t.Fatalf("unexpected created bonus: %+v", created)
+	}
+	if created.EvaluationLabel != nil {
+		t.Fatalf("expected nil evaluation_label by default")
+	}
+	if created.OccurredAt.IsZero() {
+		t.Fatalf("expected occurred_at to be set")
+	}
+	if created.OccurredAt.Sub(created.CreatedAt) > 2*time.Second || created.CreatedAt.Sub(created.OccurredAt) > 2*time.Second {
+		t.Fatalf("expected occurred_at to fallback close to created_at")
+	}
+
+	occurredAt := time.Now().UTC().Add(-48 * time.Hour)
+	label := "Participation oral"
+	backdated, err := svc.CreateBonus(ctx, user.ID, student.ID, bonusType.ID, 1, &occurredAt, &label)
+	if err != nil {
+		t.Fatalf("CreateBonus(backdated) returned error: %v", err)
+	}
+	assertTimeEqualToPostgresPrecision(t, "backdated occurred_at", backdated.OccurredAt, occurredAt)
+	if backdated.EvaluationLabel == nil || *backdated.EvaluationLabel != label {
+		t.Fatalf("unexpected evaluation_label on backdated bonus: %+v", backdated.EvaluationLabel)
+	}
+	if !backdated.OccurredAt.Before(backdated.CreatedAt) {
+		t.Fatalf("expected backdated occurred_at before created_at")
 	}
 
 	got, err := svc.GetBonus(ctx, user.ID, created.ID)
@@ -43,16 +66,35 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListBonuses returned error: %v", err)
 	}
-	if total != 1 || len(bonuses) != 1 {
-		t.Fatalf("expected one bonus, got total=%d len=%d", total, len(bonuses))
+	if total != 2 || len(bonuses) != 2 {
+		t.Fatalf("expected two bonuses, got total=%d len=%d", total, len(bonuses))
+	}
+
+	updatedOccurredAt := time.Now().UTC().Add(-24 * time.Hour)
+	updatedLabel := "Nouveau libelle"
+	updated, err := svc.UpdateBonus(ctx, user.ID, created.ID, &updatedOccurredAt, true, &updatedLabel)
+	if err != nil {
+		t.Fatalf("UpdateBonus returned error: %v", err)
+	}
+	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
+	if updated.EvaluationLabel == nil || *updated.EvaluationLabel != updatedLabel {
+		t.Fatalf("unexpected updated evaluation_label: %+v", updated.EvaluationLabel)
+	}
+
+	cleared, err := svc.UpdateBonus(ctx, user.ID, created.ID, nil, true, nil)
+	if err != nil {
+		t.Fatalf("UpdateBonus(clear label) returned error: %v", err)
+	}
+	if cleared.EvaluationLabel != nil {
+		t.Fatalf("expected evaluation_label to be cleared, got %+v", cleared.EvaluationLabel)
 	}
 
 	byStudent, totalByStudent, err := svc.ListBonusesByStudent(ctx, user.ID, student.ID, nil, 20, 0)
 	if err != nil {
 		t.Fatalf("ListBonusesByStudent returned error: %v", err)
 	}
-	if totalByStudent != 1 || len(byStudent) != 1 {
-		t.Fatalf("expected one student bonus, got total=%d len=%d", totalByStudent, len(byStudent))
+	if totalByStudent != 2 || len(byStudent) != 2 {
+		t.Fatalf("expected two student bonuses, got total=%d len=%d", totalByStudent, len(byStudent))
 	}
 
 	used, err := svc.UseBonus(ctx, user.ID, created.ID)
@@ -88,15 +130,20 @@ func TestBonusService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	user := mustCreateUserRecord(t, repo, ctx)
 	svc := NewBonusService(repo)
 
-	_, err := svc.CreateBonus(ctx, user.ID, uuid.New(), uuid.New(), 3)
+	_, err := svc.CreateBonus(ctx, user.ID, uuid.New(), uuid.New(), 3, nil, nil)
 	if !errors.Is(err, api.ErrStudentNotFound) {
 		t.Fatalf("expected ErrStudentNotFound, got %v", err)
 	}
 
 	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
-	_, err = svc.CreateBonus(ctx, user.ID, student.ID, uuid.New(), 3)
+	_, err = svc.CreateBonus(ctx, user.ID, student.ID, uuid.New(), 3, nil, nil)
 	if !errors.Is(err, api.ErrBonusTypeNotFound) {
 		t.Fatalf("expected ErrBonusTypeNotFound, got %v", err)
+	}
+
+	_, err = svc.UpdateBonus(ctx, user.ID, uuid.New(), nil, true, nil)
+	if !errors.Is(err, api.ErrBonusNotFound) {
+		t.Fatalf("expected ErrBonusNotFound on update, got %v", err)
 	}
 }
 
@@ -120,11 +167,11 @@ func TestBonusService_ListBonusesFilters_WithQuerier(t *testing.T) {
 	bonusTypeB := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
 	svc := NewBonusService(repo)
 
-	bonusInClass, err := svc.CreateBonus(ctx, user.ID, studentInClass.ID, bonusTypeA.ID, 2)
+	bonusInClass, err := svc.CreateBonus(ctx, user.ID, studentInClass.ID, bonusTypeA.ID, 2, nil, nil)
 	if err != nil {
 		t.Fatalf("CreateBonus(in class) returned error: %v", err)
 	}
-	bonusOutClass, err := svc.CreateBonus(ctx, user.ID, studentOutClass.ID, bonusTypeB.ID, 3)
+	bonusOutClass, err := svc.CreateBonus(ctx, user.ID, studentOutClass.ID, bonusTypeB.ID, 3, nil, nil)
 	if err != nil {
 		t.Fatalf("CreateBonus(out class) returned error: %v", err)
 	}
@@ -180,6 +227,59 @@ func TestBonusService_ListBonusesFilters_WithQuerier(t *testing.T) {
 	}
 }
 
+func TestBonusService_ListBonuses_UsesOccurredAtForFilterAndSort_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	svc := NewBonusService(repo)
+
+	recentOccurred := time.Now().UTC()
+	backdatedOccurred := recentOccurred.AddDate(0, 0, -4)
+
+	recentBonus, err := svc.CreateBonus(ctx, user.ID, student.ID, bonusType.ID, 1, &recentOccurred, nil)
+	if err != nil {
+		t.Fatalf("CreateBonus(recent) returned error: %v", err)
+	}
+	backdatedBonus, err := svc.CreateBonus(ctx, user.ID, student.ID, bonusType.ID, 1, &backdatedOccurred, nil)
+	if err != nil {
+		t.Fatalf("CreateBonus(backdated) returned error: %v", err)
+	}
+
+	studentID := student.ID
+	all, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		StudentID: &studentID,
+		Limit:     20,
+		Offset:    0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses returned error: %v", err)
+	}
+	if total != 2 || len(all) != 2 {
+		t.Fatalf("expected two bonuses, got total=%d len=%d", total, len(all))
+	}
+	if all[0].ID != recentBonus.ID {
+		t.Fatalf("expected recent occurred_at bonus first, got %s (backdated=%s)", all[0].ID, backdatedBonus.ID)
+	}
+
+	today := recentOccurred.Truncate(24 * time.Hour)
+	filtered, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		StudentID:   &studentID,
+		CreatedFrom: &today,
+		CreatedTo:   &today,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses(created range) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != recentBonus.ID {
+		t.Fatalf("expected only recent bonus in created range filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+}
+
 func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
@@ -190,9 +290,15 @@ func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 	svc := NewPunishmentService(repo)
 
 	dueAt := time.Now().UTC().Add(48 * time.Hour)
-	created, err := svc.CreatePunishment(ctx, user.ID, student.ID, punishmentType.ID, dueAt)
+	occurredAt := time.Now().UTC().Add(-24 * time.Hour)
+	label := "Heure de retenue"
+	created, err := svc.CreatePunishment(ctx, user.ID, student.ID, punishmentType.ID, dueAt, &occurredAt, &label)
 	if err != nil {
 		t.Fatalf("CreatePunishment returned error: %v", err)
+	}
+	assertTimeEqualToPostgresPrecision(t, "occurred_at", created.OccurredAt, occurredAt)
+	if created.EvaluationLabel == nil || *created.EvaluationLabel != label {
+		t.Fatalf("unexpected evaluation_label on create: %+v", created.EvaluationLabel)
 	}
 
 	got, err := svc.GetPunishment(ctx, user.ID, created.ID)
@@ -209,6 +315,25 @@ func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 	}
 	if total != 1 || len(all) != 1 {
 		t.Fatalf("expected one punishment, got total=%d len=%d", total, len(all))
+	}
+
+	updatedOccurredAt := time.Now().UTC().Add(-12 * time.Hour)
+	updatedLabel := "Label mis a jour"
+	updated, err := svc.UpdatePunishment(ctx, user.ID, created.ID, &updatedOccurredAt, true, &updatedLabel)
+	if err != nil {
+		t.Fatalf("UpdatePunishment returned error: %v", err)
+	}
+	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
+	if updated.EvaluationLabel == nil || *updated.EvaluationLabel != updatedLabel {
+		t.Fatalf("unexpected updated label: %+v", updated.EvaluationLabel)
+	}
+
+	cleared, err := svc.UpdatePunishment(ctx, user.ID, created.ID, nil, true, nil)
+	if err != nil {
+		t.Fatalf("UpdatePunishment(clear label) returned error: %v", err)
+	}
+	if cleared.EvaluationLabel != nil {
+		t.Fatalf("expected label to be cleared")
 	}
 
 	byStudent, totalByStudent, err := svc.ListPunishmentsByStudent(ctx, user.ID, student.ID, nil, 20, 0)
@@ -247,13 +372,13 @@ func TestPunishmentService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	user := mustCreateUserRecord(t, repo, ctx)
 	svc := NewPunishmentService(repo)
 
-	_, err := svc.CreatePunishment(ctx, user.ID, uuid.New(), uuid.New(), time.Now().UTC())
+	_, err := svc.CreatePunishment(ctx, user.ID, uuid.New(), uuid.New(), time.Now().UTC(), nil, nil)
 	if !errors.Is(err, api.ErrStudentNotFound) {
 		t.Fatalf("expected ErrStudentNotFound, got %v", err)
 	}
 
 	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
-	_, err = svc.CreatePunishment(ctx, user.ID, student.ID, uuid.New(), time.Now().UTC())
+	_, err = svc.CreatePunishment(ctx, user.ID, student.ID, uuid.New(), time.Now().UTC(), nil, nil)
 	if !errors.Is(err, api.ErrPunishmentTypeNotFound) {
 		t.Fatalf("expected ErrPunishmentTypeNotFound, got %v", err)
 	}
@@ -261,6 +386,11 @@ func TestPunishmentService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	_, err = svc.ResolvePunishment(ctx, user.ID, uuid.New())
 	if !errors.Is(err, api.ErrPunishmentNotFound) {
 		t.Fatalf("expected ErrPunishmentNotFound for missing resolve, got %v", err)
+	}
+
+	_, err = svc.UpdatePunishment(ctx, user.ID, uuid.New(), nil, true, nil)
+	if !errors.Is(err, api.ErrPunishmentNotFound) {
+		t.Fatalf("expected ErrPunishmentNotFound for missing update, got %v", err)
 	}
 }
 
@@ -287,12 +417,12 @@ func TestPunishmentService_ListPunishmentsFilters_WithQuerier(t *testing.T) {
 	duePast := time.Now().UTC().Add(-24 * time.Hour)
 	dueFuture := time.Now().UTC().Add(24 * time.Hour)
 
-	manualOverdue, err := svc.CreatePunishment(ctx, user.ID, studentInClass.ID, punishmentTypeA.ID, duePast)
+	manualOverdue, err := svc.CreatePunishment(ctx, user.ID, studentInClass.ID, punishmentTypeA.ID, duePast, nil, nil)
 	if err != nil {
 		t.Fatalf("CreatePunishment(manual overdue) returned error: %v", err)
 	}
 
-	resolvedPunishment, err := svc.CreatePunishment(ctx, user.ID, studentOutClass.ID, punishmentTypeB.ID, dueFuture)
+	resolvedPunishment, err := svc.CreatePunishment(ctx, user.ID, studentOutClass.ID, punishmentTypeB.ID, dueFuture, nil, nil)
 	if err != nil {
 		t.Fatalf("CreatePunishment(resolved candidate) returned error: %v", err)
 	}
@@ -373,6 +503,60 @@ func TestPunishmentService_ListPunishmentsFilters_WithQuerier(t *testing.T) {
 	}
 	if total != 1 || len(filtered) != 1 || filtered[0].ID != manualOverdue.ID {
 		t.Fatalf("unexpected combined filters result: total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+}
+
+func TestPunishmentService_ListPunishments_UsesOccurredAtForFilterAndSort_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPunishmentService(repo)
+
+	recentOccurred := time.Now().UTC()
+	backdatedOccurred := recentOccurred.AddDate(0, 0, -4)
+	dueAt := time.Now().UTC().Add(24 * time.Hour)
+
+	recentPunishment, err := svc.CreatePunishment(ctx, user.ID, student.ID, punishmentType.ID, dueAt, &recentOccurred, nil)
+	if err != nil {
+		t.Fatalf("CreatePunishment(recent) returned error: %v", err)
+	}
+	backdatedPunishment, err := svc.CreatePunishment(ctx, user.ID, student.ID, punishmentType.ID, dueAt, &backdatedOccurred, nil)
+	if err != nil {
+		t.Fatalf("CreatePunishment(backdated) returned error: %v", err)
+	}
+
+	studentID := student.ID
+	all, total, err := svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		StudentID: &studentID,
+		Limit:     20,
+		Offset:    0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments returned error: %v", err)
+	}
+	if total != 2 || len(all) != 2 {
+		t.Fatalf("expected two punishments, got total=%d len=%d", total, len(all))
+	}
+	if all[0].ID != recentPunishment.ID {
+		t.Fatalf("expected recent occurred_at punishment first, got %s (backdated=%s)", all[0].ID, backdatedPunishment.ID)
+	}
+
+	today := recentOccurred.Truncate(24 * time.Hour)
+	filtered, total, err := svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		StudentID:   &studentID,
+		CreatedFrom: &today,
+		CreatedTo:   &today,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments(created range) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != recentPunishment.ID {
+		t.Fatalf("expected only recent punishment in created range filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
 	}
 }
 
@@ -482,9 +666,15 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 	penaltySvc := NewPenaltyService(repo)
 	punishmentSvc := NewPunishmentService(repo)
 
-	created, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID)
+	occurredAt := time.Now().UTC().Add(-24 * time.Hour)
+	label := "Retard constate"
+	created, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &occurredAt, &label)
 	if err != nil {
 		t.Fatalf("CreatePenalty returned error: %v", err)
+	}
+	assertTimeEqualToPostgresPrecision(t, "occurred_at", created.OccurredAt, occurredAt)
+	if created.EvaluationLabel == nil || *created.EvaluationLabel != label {
+		t.Fatalf("unexpected evaluation_label on create: %+v", created.EvaluationLabel)
 	}
 
 	got, err := penaltySvc.GetPenalty(ctx, user.ID, created.ID)
@@ -501,6 +691,25 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 	}
 	if total != 1 || len(all) != 1 {
 		t.Fatalf("expected one penalty, got total=%d len=%d", total, len(all))
+	}
+
+	updatedOccurredAt := time.Now().UTC().Add(-12 * time.Hour)
+	updatedLabel := "Retard corrige"
+	updated, err := penaltySvc.UpdatePenalty(ctx, user.ID, created.ID, &updatedOccurredAt, true, &updatedLabel)
+	if err != nil {
+		t.Fatalf("UpdatePenalty returned error: %v", err)
+	}
+	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
+	if updated.EvaluationLabel == nil || *updated.EvaluationLabel != updatedLabel {
+		t.Fatalf("unexpected label on update: %+v", updated.EvaluationLabel)
+	}
+
+	cleared, err := penaltySvc.UpdatePenalty(ctx, user.ID, created.ID, nil, true, nil)
+	if err != nil {
+		t.Fatalf("UpdatePenalty(clear label) returned error: %v", err)
+	}
+	if cleared.EvaluationLabel != nil {
+		t.Fatalf("expected label to be cleared")
 	}
 
 	byStudent, totalByStudent, err := penaltySvc.ListPenaltiesByStudent(ctx, user.ID, student.ID, 20, 0)
@@ -540,13 +749,13 @@ func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	user := mustCreateUserRecord(t, repo, ctx)
 	penaltySvc := NewPenaltyService(repo)
 
-	_, err := penaltySvc.CreatePenalty(ctx, user.ID, uuid.New(), uuid.New())
+	_, err := penaltySvc.CreatePenalty(ctx, user.ID, uuid.New(), uuid.New(), nil, nil)
 	if !errors.Is(err, api.ErrStudentNotFound) {
 		t.Fatalf("expected ErrStudentNotFound, got %v", err)
 	}
 
 	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
-	_, err = penaltySvc.CreatePenalty(ctx, user.ID, student.ID, uuid.New())
+	_, err = penaltySvc.CreatePenalty(ctx, user.ID, student.ID, uuid.New(), nil, nil)
 	if !errors.Is(err, api.ErrPenaltyTypeNotFound) {
 		t.Fatalf("expected ErrPenaltyTypeNotFound, got %v", err)
 	}
@@ -554,6 +763,11 @@ func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	_, _, err = penaltySvc.ListPenaltiesByStudent(ctx, user.ID, uuid.New(), 20, 0)
 	if !errors.Is(err, api.ErrStudentNotFound) {
 		t.Fatalf("expected ErrStudentNotFound on ListPenaltiesByStudent, got %v", err)
+	}
+
+	_, err = penaltySvc.UpdatePenalty(ctx, user.ID, uuid.New(), nil, true, nil)
+	if !errors.Is(err, api.ErrPenaltyNotFound) {
+		t.Fatalf("expected ErrPenaltyNotFound on update, got %v", err)
 	}
 }
 
@@ -577,11 +791,11 @@ func TestPenaltyService_ListPenaltiesFilters_WithQuerier(t *testing.T) {
 	penaltyTypeB := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
 	svc := NewPenaltyService(repo)
 
-	penaltyInClass, err := svc.CreatePenalty(ctx, user.ID, studentInClass.ID, penaltyTypeA.ID)
+	penaltyInClass, err := svc.CreatePenalty(ctx, user.ID, studentInClass.ID, penaltyTypeA.ID, nil, nil)
 	if err != nil {
 		t.Fatalf("CreatePenalty(in class) returned error: %v", err)
 	}
-	if _, err := svc.CreatePenalty(ctx, user.ID, studentOutClass.ID, penaltyTypeB.ID); err != nil {
+	if _, err := svc.CreatePenalty(ctx, user.ID, studentOutClass.ID, penaltyTypeB.ID, nil, nil); err != nil {
 		t.Fatalf("CreatePenalty(out class) returned error: %v", err)
 	}
 
@@ -618,6 +832,59 @@ func TestPenaltyService_ListPenaltiesFilters_WithQuerier(t *testing.T) {
 	}
 	if total != 0 || len(filtered) != 0 {
 		t.Fatalf("expected no penalties for classroom+type mismatch, got total=%d len=%d", total, len(filtered))
+	}
+}
+
+func TestPenaltyService_ListPenalties_UsesOccurredAtForFilterAndSort_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPenaltyService(repo)
+
+	recentOccurred := time.Now().UTC()
+	backdatedOccurred := recentOccurred.AddDate(0, 0, -4)
+
+	recentPenalty, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &recentOccurred, nil)
+	if err != nil {
+		t.Fatalf("CreatePenalty(recent) returned error: %v", err)
+	}
+	backdatedPenalty, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &backdatedOccurred, nil)
+	if err != nil {
+		t.Fatalf("CreatePenalty(backdated) returned error: %v", err)
+	}
+
+	studentID := student.ID
+	all, total, err := svc.ListPenalties(ctx, user.ID, ListPenaltiesFilters{
+		StudentID: &studentID,
+		Limit:     20,
+		Offset:    0,
+	})
+	if err != nil {
+		t.Fatalf("ListPenalties returned error: %v", err)
+	}
+	if total != 2 || len(all) != 2 {
+		t.Fatalf("expected two penalties, got total=%d len=%d", total, len(all))
+	}
+	if all[0].ID != recentPenalty.ID {
+		t.Fatalf("expected recent occurred_at penalty first, got %s (backdated=%s)", all[0].ID, backdatedPenalty.ID)
+	}
+
+	today := recentOccurred.Truncate(24 * time.Hour)
+	filtered, total, err := svc.ListPenalties(ctx, user.ID, ListPenaltiesFilters{
+		StudentID:   &studentID,
+		CreatedFrom: &today,
+		CreatedTo:   &today,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListPenalties(created range) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != recentPenalty.ID {
+		t.Fatalf("expected only recent penalty in created range filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
 	}
 }
 
@@ -671,5 +938,101 @@ func TestDashboardService_GetDashboard_WithQuerier(t *testing.T) {
 	_, err = svc.GetDashboard(ctx, user.ID, &missingID)
 	if !errors.Is(err, api.ErrClassroomNotFound) {
 		t.Fatalf("expected ErrClassroomNotFound, got %v", err)
+	}
+}
+
+func TestDashboardService_RecentListsUseOccurredAtOrder_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+
+	recentOccurred := time.Now().UTC()
+	backdatedOccurred := recentOccurred.AddDate(0, 0, -3)
+
+	recentBonus, err := repo.CreateBonus(ctx, repository.CreateBonusParams{
+		UserID:      user.ID,
+		StudentID:   student.ID,
+		BonusTypeID: bonusType.ID,
+		Points:      2,
+		OccurredAt:  &recentOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create recent bonus: %v", err)
+	}
+	backdatedBonus, err := repo.CreateBonus(ctx, repository.CreateBonusParams{
+		UserID:      user.ID,
+		StudentID:   student.ID,
+		BonusTypeID: bonusType.ID,
+		Points:      1,
+		OccurredAt:  &backdatedOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create backdated bonus: %v", err)
+	}
+
+	recentPenalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
+		UserID:        user.ID,
+		StudentID:     student.ID,
+		PenaltyTypeID: penaltyType.ID,
+		OccurredAt:    &recentOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create recent penalty: %v", err)
+	}
+	backdatedPenalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
+		UserID:        user.ID,
+		StudentID:     student.ID,
+		PenaltyTypeID: penaltyType.ID,
+		OccurredAt:    &backdatedOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create backdated penalty: %v", err)
+	}
+
+	dueAt := time.Now().UTC().Add(24 * time.Hour)
+	recentPunishment, err := repo.CreatePunishment(ctx, repository.CreatePunishmentParams{
+		UserID:           user.ID,
+		StudentID:        student.ID,
+		PunishmentTypeID: punishmentType.ID,
+		DueAt:            dueAt,
+		OccurredAt:       &recentOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create recent punishment: %v", err)
+	}
+	backdatedPunishment, err := repo.CreatePunishment(ctx, repository.CreatePunishmentParams{
+		UserID:           user.ID,
+		StudentID:        student.ID,
+		PunishmentTypeID: punishmentType.ID,
+		DueAt:            dueAt,
+		OccurredAt:       &backdatedOccurred,
+	})
+	if err != nil {
+		t.Fatalf("failed to create backdated punishment: %v", err)
+	}
+
+	svc := NewDashboardService(repo)
+	dashboard, err := svc.GetDashboard(ctx, user.ID, nil)
+	if err != nil {
+		t.Fatalf("GetDashboard returned error: %v", err)
+	}
+
+	if len(dashboard.RecentBonuses) < 2 || len(dashboard.RecentPenalties) < 2 || len(dashboard.PendingPunishments) < 2 {
+		t.Fatalf("expected at least two items in each dashboard list")
+	}
+
+	if dashboard.RecentBonuses[0].ID != recentBonus.ID || dashboard.RecentBonuses[1].ID != backdatedBonus.ID {
+		t.Fatalf("unexpected bonus order by occurred_at: got %s,%s expected %s,%s", dashboard.RecentBonuses[0].ID, dashboard.RecentBonuses[1].ID, recentBonus.ID, backdatedBonus.ID)
+	}
+	if dashboard.RecentPenalties[0].ID != recentPenalty.ID || dashboard.RecentPenalties[1].ID != backdatedPenalty.ID {
+		t.Fatalf("unexpected penalty order by occurred_at: got %s,%s expected %s,%s", dashboard.RecentPenalties[0].ID, dashboard.RecentPenalties[1].ID, recentPenalty.ID, backdatedPenalty.ID)
+	}
+	if dashboard.PendingPunishments[0].ID != recentPunishment.ID || dashboard.PendingPunishments[1].ID != backdatedPunishment.ID {
+		t.Fatalf("unexpected punishment order by occurred_at: got %s,%s expected %s,%s", dashboard.PendingPunishments[0].ID, dashboard.PendingPunishments[1].ID, recentPunishment.ID, backdatedPunishment.ID)
 	}
 }

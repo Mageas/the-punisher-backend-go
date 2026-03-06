@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/mageas/the-punisher-backend/internal/adapter/persistence/sqlcmapper"
@@ -14,10 +15,26 @@ import (
 )
 
 type BonusService interface {
-	CreateBonus(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, bonusTypeID uuid.UUID, points float64) (*dto.ReturnBonusDto, error)
+	CreateBonus(
+		ctx context.Context,
+		userID uuid.UUID,
+		studentID uuid.UUID,
+		bonusTypeID uuid.UUID,
+		points float64,
+		occurredAt *time.Time,
+		evaluationLabel *string,
+	) (*dto.ReturnBonusDto, error)
 	GetBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error)
 	ListBonuses(ctx context.Context, userID uuid.UUID, filters ListBonusesFilters) ([]*dto.ReturnBonusDto, int64, error)
 	ListBonusesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, used *bool, limit, offset int32) ([]*dto.ReturnBonusDto, int64, error)
+	UpdateBonus(
+		ctx context.Context,
+		userID uuid.UUID,
+		bonusID uuid.UUID,
+		occurredAt *time.Time,
+		evaluationLabelSet bool,
+		evaluationLabel *string,
+	) (*dto.ReturnBonusDto, error)
 	UseBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error)
 	DeleteBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) error
 }
@@ -30,7 +47,15 @@ func NewBonusService(repo repository.Querier) BonusService {
 	return &bonusService{repo: repo}
 }
 
-func (s *bonusService) CreateBonus(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, bonusTypeID uuid.UUID, points float64) (*dto.ReturnBonusDto, error) {
+func (s *bonusService) CreateBonus(
+	ctx context.Context,
+	userID uuid.UUID,
+	studentID uuid.UUID,
+	bonusTypeID uuid.UUID,
+	points float64,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) (*dto.ReturnBonusDto, error) {
 	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
 		if errors.Is(err, repository.ErrNoRows) {
 			return nil, api.ErrStudentNotFound
@@ -46,10 +71,12 @@ func (s *bonusService) CreateBonus(ctx context.Context, userID uuid.UUID, studen
 	}
 
 	bonus, err := s.repo.CreateBonus(ctx, repository.CreateBonusParams{
-		UserID:      userID,
-		StudentID:   studentID,
-		BonusTypeID: bonusTypeID,
-		Points:      points,
+		UserID:          userID,
+		StudentID:       studentID,
+		BonusTypeID:     bonusTypeID,
+		Points:          points,
+		OccurredAt:      occurredAt,
+		EvaluationLabel: evaluationLabel,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create bonus: %w", err)
@@ -139,6 +166,33 @@ func (s *bonusService) ListBonusesByStudent(ctx context.Context, userID uuid.UUI
 	}
 
 	return sqlcmapper.BonusListFromListByStudentRows(bonuses), totalCount, nil
+}
+
+func (s *bonusService) UpdateBonus(
+	ctx context.Context,
+	userID uuid.UUID,
+	bonusID uuid.UUID,
+	occurredAt *time.Time,
+	evaluationLabelSet bool,
+	evaluationLabel *string,
+) (*dto.ReturnBonusDto, error) {
+	bonus, err := s.repo.UpdateBonusByUser(ctx, repository.UpdateBonusByUserParams{
+		OccurredAt:         occurredAt,
+		EvaluationLabelSet: evaluationLabelSet,
+		EvaluationLabel:    evaluationLabel,
+		ID:                 bonusID,
+		UserID:             userID,
+	})
+	if err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return nil, api.ErrBonusNotFound
+		}
+		return nil, fmt.Errorf("failed to update bonus: %w", err)
+	}
+
+	slog.Info("bonus updated", "bonus_id", bonus.ID, "user_id", userID)
+
+	return sqlcmapper.BonusFromUpdateRow(&bonus), nil
 }
 
 func (s *bonusService) UseBonus(ctx context.Context, userID uuid.UUID, bonusID uuid.UUID) (*dto.ReturnBonusDto, error) {

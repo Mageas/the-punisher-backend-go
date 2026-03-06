@@ -27,9 +27,11 @@ func StudentHistoryFromRows(rows []repository.ListStudentHistoryRow) []dto.Stude
 
 	for _, row := range rows {
 		item := dto.StudentHistoryItemDto{
-			Type:      row.Type,
-			ID:        row.ID,
-			CreatedAt: row.CreatedAt,
+			Type:            row.Type,
+			ID:              row.ID,
+			CreatedAt:       row.CreatedAt,
+			OccurredAt:      row.OccurredAt,
+			EvaluationLabel: row.EvaluationLabel,
 		}
 
 		switch row.Type {

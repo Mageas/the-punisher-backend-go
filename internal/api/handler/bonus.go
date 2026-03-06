@@ -44,7 +44,12 @@ func (h *BonusHandler) CreateBonus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bonus, err := h.service.CreateBonus(r.Context(), userID, studentID, bonusTypeID, req.Points)
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	bonus, err := h.service.CreateBonus(r.Context(), userID, studentID, bonusTypeID, req.Points, occurredAt, req.EvaluationLabel)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
@@ -145,6 +150,46 @@ func (h *BonusHandler) GetBonus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	bonus, err := h.service.GetBonus(r.Context(), userID, bonusID)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusOK, bonus, nil)
+}
+
+func (h *BonusHandler) UpdateBonus(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	bonusID, ok := parsePathUUID(w, r, "bonus_id")
+	if !ok {
+		return
+	}
+
+	var req dto.UpdateBonusDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	bonus, err := h.service.UpdateBonus(
+		r.Context(),
+		userID,
+		bonusID,
+		occurredAt,
+		req.EvaluationLabel.Set,
+		req.EvaluationLabel.Value,
+	)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
