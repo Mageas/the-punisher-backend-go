@@ -20,7 +20,7 @@ func buildReturnPunishmentDto(
 	automated bool,
 	createdAt time.Time,
 	occurredAt time.Time,
-	evaluationLabel *string,
+	evaluationLabel string,
 	dueAt time.Time,
 	resolvedAt *time.Time,
 ) *dto.ReturnPunishmentDto {
@@ -36,7 +36,7 @@ func buildReturnPunishmentDto(
 		Automated:          automated,
 		CreatedAt:          normalizeAPITime(createdAt),
 		OccurredAt:         normalizeAPITime(occurredAt),
-		EvaluationLabel:    bonusEvaluationLabel(evaluationLabel),
+		EvaluationLabel:    evaluationLabel,
 		DueAt:              normalizeAPITime(dueAt),
 	}
 

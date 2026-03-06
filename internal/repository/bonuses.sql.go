@@ -90,7 +90,7 @@ INSERT INTO bonuses (
     $3,
     $4,
     COALESCE($5::timestamptz, NOW()),
-    $6::text
+    COALESCE($6::text, '')
 )
 RETURNING
     id, user_id, student_id, bonus_type_id, points, created_at, occurred_at, evaluation_label, used_at,
@@ -116,7 +116,7 @@ type CreateBonusRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -194,7 +194,7 @@ type GetBonusByUserRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -253,7 +253,7 @@ type ListBonusesByStudentRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -349,7 +349,7 @@ type ListBonusesByUserRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -403,11 +403,8 @@ const updateBonusByUser = `-- name: UpdateBonusByUser :one
 UPDATE bonuses
 SET
     occurred_at = COALESCE($1::timestamptz, occurred_at),
-    evaluation_label = CASE
-        WHEN $2::boolean THEN $3::text
-        ELSE evaluation_label
-    END
-WHERE bonuses.id = $4 AND bonuses.user_id = $5
+    evaluation_label = COALESCE($2::text, evaluation_label)
+WHERE bonuses.id = $3 AND bonuses.user_id = $4
 RETURNING
     bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,
     (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
@@ -416,11 +413,10 @@ RETURNING
 `
 
 type UpdateBonusByUserParams struct {
-	OccurredAt         *time.Time `json:"occurred_at"`
-	EvaluationLabelSet bool       `json:"evaluation_label_set"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
-	ID                 uuid.UUID  `json:"id"`
-	UserID             uuid.UUID  `json:"user_id"`
+	OccurredAt      *time.Time `json:"occurred_at"`
+	EvaluationLabel *string    `json:"evaluation_label"`
+	ID              uuid.UUID  `json:"id"`
+	UserID          uuid.UUID  `json:"user_id"`
 }
 
 type UpdateBonusByUserRow struct {
@@ -431,7 +427,7 @@ type UpdateBonusByUserRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`
@@ -441,7 +437,6 @@ type UpdateBonusByUserRow struct {
 func (q *Queries) UpdateBonusByUser(ctx context.Context, arg UpdateBonusByUserParams) (UpdateBonusByUserRow, error) {
 	row := q.db.QueryRow(ctx, updateBonusByUser,
 		arg.OccurredAt,
-		arg.EvaluationLabelSet,
 		arg.EvaluationLabel,
 		arg.ID,
 		arg.UserID,
@@ -488,7 +483,7 @@ type UseBonusRow struct {
 	Points           float64    `json:"points"`
 	CreatedAt        time.Time  `json:"created_at"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 	UsedAt           *time.Time `json:"used_at"`
 	StudentFirstName string     `json:"student_first_name"`
 	StudentLastName  string     `json:"student_last_name"`

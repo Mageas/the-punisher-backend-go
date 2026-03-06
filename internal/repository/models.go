@@ -19,7 +19,7 @@ type Bonus struct {
 	CreatedAt       time.Time  `json:"created_at"`
 	UsedAt          *time.Time `json:"used_at"`
 	OccurredAt      time.Time  `json:"occurred_at"`
-	EvaluationLabel *string    `json:"evaluation_label"`
+	EvaluationLabel string     `json:"evaluation_label"`
 }
 
 type BonusType struct {
@@ -65,7 +65,7 @@ type Penalty struct {
 	PenaltyTypeID   uuid.UUID `json:"penalty_type_id"`
 	CreatedAt       time.Time `json:"created_at"`
 	OccurredAt      time.Time `json:"occurred_at"`
-	EvaluationLabel *string   `json:"evaluation_label"`
+	EvaluationLabel string    `json:"evaluation_label"`
 }
 
 type PenaltyType struct {
@@ -87,7 +87,7 @@ type Punishment struct {
 	ResolvedAt       *time.Time `json:"resolved_at"`
 	Automated        bool       `json:"automated"`
 	OccurredAt       time.Time  `json:"occurred_at"`
-	EvaluationLabel  *string    `json:"evaluation_label"`
+	EvaluationLabel  string     `json:"evaluation_label"`
 }
 
 type PunishmentType struct {

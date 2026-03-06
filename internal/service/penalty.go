@@ -31,7 +31,6 @@ type PenaltyService interface {
 		userID uuid.UUID,
 		penaltyID uuid.UUID,
 		occurredAt *time.Time,
-		evaluationLabelSet bool,
 		evaluationLabel *string,
 	) (*dto.ReturnPenaltyDto, error)
 	DeletePenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) error
@@ -272,15 +271,13 @@ func (s *penaltyService) UpdatePenalty(
 	userID uuid.UUID,
 	penaltyID uuid.UUID,
 	occurredAt *time.Time,
-	evaluationLabelSet bool,
 	evaluationLabel *string,
 ) (*dto.ReturnPenaltyDto, error) {
 	penalty, err := s.repo.UpdatePenaltyByUser(ctx, repository.UpdatePenaltyByUserParams{
-		OccurredAt:         occurredAt,
-		EvaluationLabelSet: evaluationLabelSet,
-		EvaluationLabel:    evaluationLabel,
-		ID:                 penaltyID,
-		UserID:             userID,
+		OccurredAt:      occurredAt,
+		EvaluationLabel: evaluationLabel,
+		ID:              penaltyID,
+		UserID:          userID,
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrNoRows) {

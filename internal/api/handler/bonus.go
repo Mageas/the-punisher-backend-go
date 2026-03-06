@@ -187,8 +187,7 @@ func (h *BonusHandler) UpdateBonus(w http.ResponseWriter, r *http.Request) {
 		userID,
 		bonusID,
 		occurredAt,
-		req.EvaluationLabel.Set,
-		req.EvaluationLabel.Value,
+		req.EvaluationLabel,
 	)
 	if err != nil {
 		web.WriteFromError(w, err)

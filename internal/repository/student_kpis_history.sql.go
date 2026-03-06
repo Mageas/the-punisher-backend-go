@@ -254,7 +254,7 @@ type ListStudentHistoryRow struct {
 	ID                 uuid.UUID  `json:"id"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	PenaltyTypeID      *uuid.UUID `json:"penalty_type_id"`
 	PenaltyTypeName    *string    `json:"penalty_type_name"`
 	BonusTypeID        *uuid.UUID `json:"bonus_type_id"`

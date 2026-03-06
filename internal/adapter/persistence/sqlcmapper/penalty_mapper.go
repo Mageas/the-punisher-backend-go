@@ -17,7 +17,7 @@ func buildReturnPenaltyDto(
 	penaltyTypeName string,
 	createdAt time.Time,
 	occurredAt time.Time,
-	evaluationLabel *string,
+	evaluationLabel string,
 ) *dto.ReturnPenaltyDto {
 	return &dto.ReturnPenaltyDto{
 		ID:               id,
@@ -28,7 +28,7 @@ func buildReturnPenaltyDto(
 		PenaltyTypeName:  penaltyTypeName,
 		CreatedAt:        normalizeAPITime(createdAt),
 		OccurredAt:       normalizeAPITime(occurredAt),
-		EvaluationLabel:  bonusEvaluationLabel(evaluationLabel),
+		EvaluationLabel:  evaluationLabel,
 	}
 }
 

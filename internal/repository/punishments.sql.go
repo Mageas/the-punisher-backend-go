@@ -110,7 +110,7 @@ WITH created_punishment AS (
         FALSE,
         $4,
         COALESCE($5::timestamptz, NOW()),
-        $6::text
+        COALESCE($6::text, '')
     )
     RETURNING id, user_id, student_id, punishment_type_id, triggering_rule_id, automated, created_at, occurred_at, evaluation_label, due_at, resolved_at
 )
@@ -144,7 +144,7 @@ type CreatePunishmentRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -223,7 +223,7 @@ type CreatePunishmentFromRuleRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -308,7 +308,7 @@ type GetPunishmentByUserRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -375,7 +375,7 @@ type ListPunishmentsByStudentRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -493,7 +493,7 @@ type ListPunishmentsByUserRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -585,7 +585,7 @@ type ResolvePunishmentRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -622,11 +622,8 @@ WITH updated_punishment AS (
     UPDATE punishments
     SET
         occurred_at = COALESCE($1::timestamptz, occurred_at),
-        evaluation_label = CASE
-            WHEN $2::boolean THEN $3::text
-            ELSE evaluation_label
-        END
-    WHERE punishments.id = $4 AND punishments.user_id = $5
+        evaluation_label = COALESCE($2::text, evaluation_label)
+    WHERE punishments.id = $3 AND punishments.user_id = $4
     RETURNING punishments.id, punishments.user_id, punishments.student_id, punishments.punishment_type_id, punishments.triggering_rule_id, punishments.automated, punishments.created_at, punishments.occurred_at, punishments.evaluation_label, punishments.due_at, punishments.resolved_at
 )
 SELECT
@@ -642,11 +639,10 @@ LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
 type UpdatePunishmentByUserParams struct {
-	OccurredAt         *time.Time `json:"occurred_at"`
-	EvaluationLabelSet bool       `json:"evaluation_label_set"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
-	ID                 uuid.UUID  `json:"id"`
-	UserID             uuid.UUID  `json:"user_id"`
+	OccurredAt      *time.Time `json:"occurred_at"`
+	EvaluationLabel *string    `json:"evaluation_label"`
+	ID              uuid.UUID  `json:"id"`
+	UserID          uuid.UUID  `json:"user_id"`
 }
 
 type UpdatePunishmentByUserRow struct {
@@ -658,7 +654,7 @@ type UpdatePunishmentByUserRow struct {
 	Automated          bool       `json:"automated"`
 	CreatedAt          time.Time  `json:"created_at"`
 	OccurredAt         time.Time  `json:"occurred_at"`
-	EvaluationLabel    *string    `json:"evaluation_label"`
+	EvaluationLabel    string     `json:"evaluation_label"`
 	DueAt              time.Time  `json:"due_at"`
 	ResolvedAt         *time.Time `json:"resolved_at"`
 	StudentFirstName   string     `json:"student_first_name"`
@@ -670,7 +666,6 @@ type UpdatePunishmentByUserRow struct {
 func (q *Queries) UpdatePunishmentByUser(ctx context.Context, arg UpdatePunishmentByUserParams) (UpdatePunishmentByUserRow, error) {
 	row := q.db.QueryRow(ctx, updatePunishmentByUser,
 		arg.OccurredAt,
-		arg.EvaluationLabelSet,
 		arg.EvaluationLabel,
 		arg.ID,
 		arg.UserID,

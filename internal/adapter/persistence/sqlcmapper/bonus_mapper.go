@@ -18,7 +18,7 @@ func buildReturnBonusDto(
 	points float64,
 	createdAt time.Time,
 	occurredAt time.Time,
-	evaluationLabel *string,
+	evaluationLabel string,
 	usedAt *time.Time,
 ) *dto.ReturnBonusDto {
 	response := &dto.ReturnBonusDto{
@@ -31,7 +31,7 @@ func buildReturnBonusDto(
 		Points:           points,
 		CreatedAt:        normalizeAPITime(createdAt),
 		OccurredAt:       normalizeAPITime(occurredAt),
-		EvaluationLabel:  bonusEvaluationLabel(evaluationLabel),
+		EvaluationLabel:  evaluationLabel,
 	}
 
 	if convertedUsedAt := bonusUsedAt(usedAt); convertedUsedAt != nil {
@@ -173,13 +173,4 @@ func BonusFromUpdateRow(b *repository.UpdateBonusByUserRow) *dto.ReturnBonusDto 
 
 func bonusUsedAt(value *time.Time) *time.Time {
 	return normalizeOptionalAPITime(value)
-}
-
-func bonusEvaluationLabel(value *string) *string {
-	if value == nil {
-		return nil
-	}
-
-	label := *value
-	return &label
 }

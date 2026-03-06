@@ -32,7 +32,6 @@ type PunishmentService interface {
 		userID uuid.UUID,
 		punishmentID uuid.UUID,
 		occurredAt *time.Time,
-		evaluationLabelSet bool,
 		evaluationLabel *string,
 	) (*dto.ReturnPunishmentDto, error)
 	ResolvePunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
@@ -181,15 +180,13 @@ func (s *punishmentService) UpdatePunishment(
 	userID uuid.UUID,
 	punishmentID uuid.UUID,
 	occurredAt *time.Time,
-	evaluationLabelSet bool,
 	evaluationLabel *string,
 ) (*dto.ReturnPunishmentDto, error) {
 	punishment, err := s.repo.UpdatePunishmentByUser(ctx, repository.UpdatePunishmentByUserParams{
-		OccurredAt:         occurredAt,
-		EvaluationLabelSet: evaluationLabelSet,
-		EvaluationLabel:    evaluationLabel,
-		ID:                 punishmentID,
-		UserID:             userID,
+		OccurredAt:      occurredAt,
+		EvaluationLabel: evaluationLabel,
+		ID:              punishmentID,
+		UserID:          userID,
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrNoRows) {

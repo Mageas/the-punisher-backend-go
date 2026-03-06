@@ -30,8 +30,8 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 	if created.ID == uuid.Nil || created.UsedAt != nil {
 		t.Fatalf("unexpected created bonus: %+v", created)
 	}
-	if created.EvaluationLabel != nil {
-		t.Fatalf("expected nil evaluation_label by default")
+	if created.EvaluationLabel != "" {
+		t.Fatalf("expected empty evaluation_label by default, got %q", created.EvaluationLabel)
 	}
 	if created.OccurredAt.IsZero() {
 		t.Fatalf("expected occurred_at to be set")
@@ -47,7 +47,7 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 		t.Fatalf("CreateBonus(backdated) returned error: %v", err)
 	}
 	assertTimeEqualToPostgresPrecision(t, "backdated occurred_at", backdated.OccurredAt, occurredAt)
-	if backdated.EvaluationLabel == nil || *backdated.EvaluationLabel != label {
+	if backdated.EvaluationLabel != label {
 		t.Fatalf("unexpected evaluation_label on backdated bonus: %+v", backdated.EvaluationLabel)
 	}
 	if !backdated.OccurredAt.Before(backdated.CreatedAt) {
@@ -72,21 +72,22 @@ func TestBonusService_CRUDAndUse_WithQuerier(t *testing.T) {
 
 	updatedOccurredAt := time.Now().UTC().Add(-24 * time.Hour)
 	updatedLabel := "Nouveau libelle"
-	updated, err := svc.UpdateBonus(ctx, user.ID, created.ID, &updatedOccurredAt, true, &updatedLabel)
+	updated, err := svc.UpdateBonus(ctx, user.ID, created.ID, &updatedOccurredAt, &updatedLabel)
 	if err != nil {
 		t.Fatalf("UpdateBonus returned error: %v", err)
 	}
 	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
-	if updated.EvaluationLabel == nil || *updated.EvaluationLabel != updatedLabel {
+	if updated.EvaluationLabel != updatedLabel {
 		t.Fatalf("unexpected updated evaluation_label: %+v", updated.EvaluationLabel)
 	}
 
-	cleared, err := svc.UpdateBonus(ctx, user.ID, created.ID, nil, true, nil)
+	emptyLabel := ""
+	cleared, err := svc.UpdateBonus(ctx, user.ID, created.ID, nil, &emptyLabel)
 	if err != nil {
 		t.Fatalf("UpdateBonus(clear label) returned error: %v", err)
 	}
-	if cleared.EvaluationLabel != nil {
-		t.Fatalf("expected evaluation_label to be cleared, got %+v", cleared.EvaluationLabel)
+	if cleared.EvaluationLabel != "" {
+		t.Fatalf("expected evaluation_label to be cleared to empty string, got %+v", cleared.EvaluationLabel)
 	}
 
 	byStudent, totalByStudent, err := svc.ListBonusesByStudent(ctx, user.ID, student.ID, nil, 20, 0)
@@ -141,7 +142,7 @@ func TestBonusService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 		t.Fatalf("expected ErrBonusTypeNotFound, got %v", err)
 	}
 
-	_, err = svc.UpdateBonus(ctx, user.ID, uuid.New(), nil, true, nil)
+	_, err = svc.UpdateBonus(ctx, user.ID, uuid.New(), nil, nil)
 	if !errors.Is(err, api.ErrBonusNotFound) {
 		t.Fatalf("expected ErrBonusNotFound on update, got %v", err)
 	}
@@ -297,7 +298,7 @@ func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 		t.Fatalf("CreatePunishment returned error: %v", err)
 	}
 	assertTimeEqualToPostgresPrecision(t, "occurred_at", created.OccurredAt, occurredAt)
-	if created.EvaluationLabel == nil || *created.EvaluationLabel != label {
+	if created.EvaluationLabel != label {
 		t.Fatalf("unexpected evaluation_label on create: %+v", created.EvaluationLabel)
 	}
 
@@ -319,21 +320,22 @@ func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 
 	updatedOccurredAt := time.Now().UTC().Add(-12 * time.Hour)
 	updatedLabel := "Label mis a jour"
-	updated, err := svc.UpdatePunishment(ctx, user.ID, created.ID, &updatedOccurredAt, true, &updatedLabel)
+	updated, err := svc.UpdatePunishment(ctx, user.ID, created.ID, &updatedOccurredAt, &updatedLabel)
 	if err != nil {
 		t.Fatalf("UpdatePunishment returned error: %v", err)
 	}
 	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
-	if updated.EvaluationLabel == nil || *updated.EvaluationLabel != updatedLabel {
+	if updated.EvaluationLabel != updatedLabel {
 		t.Fatalf("unexpected updated label: %+v", updated.EvaluationLabel)
 	}
 
-	cleared, err := svc.UpdatePunishment(ctx, user.ID, created.ID, nil, true, nil)
+	emptyLabel := ""
+	cleared, err := svc.UpdatePunishment(ctx, user.ID, created.ID, nil, &emptyLabel)
 	if err != nil {
 		t.Fatalf("UpdatePunishment(clear label) returned error: %v", err)
 	}
-	if cleared.EvaluationLabel != nil {
-		t.Fatalf("expected label to be cleared")
+	if cleared.EvaluationLabel != "" {
+		t.Fatalf("expected label to be cleared to empty string")
 	}
 
 	byStudent, totalByStudent, err := svc.ListPunishmentsByStudent(ctx, user.ID, student.ID, nil, 20, 0)
@@ -388,7 +390,7 @@ func TestPunishmentService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 		t.Fatalf("expected ErrPunishmentNotFound for missing resolve, got %v", err)
 	}
 
-	_, err = svc.UpdatePunishment(ctx, user.ID, uuid.New(), nil, true, nil)
+	_, err = svc.UpdatePunishment(ctx, user.ID, uuid.New(), nil, nil)
 	if !errors.Is(err, api.ErrPunishmentNotFound) {
 		t.Fatalf("expected ErrPunishmentNotFound for missing update, got %v", err)
 	}
@@ -673,7 +675,7 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 		t.Fatalf("CreatePenalty returned error: %v", err)
 	}
 	assertTimeEqualToPostgresPrecision(t, "occurred_at", created.OccurredAt, occurredAt)
-	if created.EvaluationLabel == nil || *created.EvaluationLabel != label {
+	if created.EvaluationLabel != label {
 		t.Fatalf("unexpected evaluation_label on create: %+v", created.EvaluationLabel)
 	}
 
@@ -695,21 +697,22 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 
 	updatedOccurredAt := time.Now().UTC().Add(-12 * time.Hour)
 	updatedLabel := "Retard corrige"
-	updated, err := penaltySvc.UpdatePenalty(ctx, user.ID, created.ID, &updatedOccurredAt, true, &updatedLabel)
+	updated, err := penaltySvc.UpdatePenalty(ctx, user.ID, created.ID, &updatedOccurredAt, &updatedLabel)
 	if err != nil {
 		t.Fatalf("UpdatePenalty returned error: %v", err)
 	}
 	assertTimeEqualToPostgresPrecision(t, "updated occurred_at", updated.OccurredAt, updatedOccurredAt)
-	if updated.EvaluationLabel == nil || *updated.EvaluationLabel != updatedLabel {
+	if updated.EvaluationLabel != updatedLabel {
 		t.Fatalf("unexpected label on update: %+v", updated.EvaluationLabel)
 	}
 
-	cleared, err := penaltySvc.UpdatePenalty(ctx, user.ID, created.ID, nil, true, nil)
+	emptyLabel := ""
+	cleared, err := penaltySvc.UpdatePenalty(ctx, user.ID, created.ID, nil, &emptyLabel)
 	if err != nil {
 		t.Fatalf("UpdatePenalty(clear label) returned error: %v", err)
 	}
-	if cleared.EvaluationLabel != nil {
-		t.Fatalf("expected label to be cleared")
+	if cleared.EvaluationLabel != "" {
+		t.Fatalf("expected label to be cleared to empty string")
 	}
 
 	byStudent, totalByStudent, err := penaltySvc.ListPenaltiesByStudent(ctx, user.ID, student.ID, 20, 0)
@@ -765,7 +768,7 @@ func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 		t.Fatalf("expected ErrStudentNotFound on ListPenaltiesByStudent, got %v", err)
 	}
 
-	_, err = penaltySvc.UpdatePenalty(ctx, user.ID, uuid.New(), nil, true, nil)
+	_, err = penaltySvc.UpdatePenalty(ctx, user.ID, uuid.New(), nil, nil)
 	if !errors.Is(err, api.ErrPenaltyNotFound) {
 		t.Fatalf("expected ErrPenaltyNotFound on update, got %v", err)
 	}
