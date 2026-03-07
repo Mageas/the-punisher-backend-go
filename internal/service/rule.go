@@ -31,8 +31,7 @@ type resolvedRulePayload struct {
 	ResultingPunishmentTypeID uuid.UUID
 	PenaltyTypeID             uuid.UUID
 	Threshold                 int32
-	DueAtAfterDays            int32
-	DueAtAfterDaysSet         bool
+	DueAtAfterDays            *int32
 	DueAtMode                 string
 	DueAtAfterLessons         *int32
 	Mode                      string
@@ -190,14 +189,11 @@ func (s *ruleService) resolveCreateRulePayload(ctx context.Context, userID uuid.
 		ResultingPunishmentTypeID: resultingPunishmentTypeID,
 		PenaltyTypeID:             penaltyTypeID,
 		Threshold:                 req.Threshold,
+		DueAtAfterDays:            req.DueAtAfterDays,
 		DueAtMode:                 req.DueAtMode,
 		DueAtAfterLessons:         req.DueAtAfterLessons,
 		Mode:                      req.Mode,
 		IsActive:                  isActive,
-	}
-	if req.DueAtAfterDays != nil {
-		payload.DueAtAfterDays = *req.DueAtAfterDays
-		payload.DueAtAfterDaysSet = true
 	}
 
 	if err := s.validateAndNormalizeRulePayload(&payload); err != nil {
@@ -219,7 +215,6 @@ func (s *ruleService) resolveUpdateRulePayload(
 		PenaltyTypeID:             existingRule.PenaltyTypeID,
 		Threshold:                 existingRule.Threshold,
 		DueAtAfterDays:            existingRule.DueAtAfterDays,
-		DueAtAfterDaysSet:         true,
 		DueAtMode:                 existingRule.DueAtMode,
 		DueAtAfterLessons:         existingRule.DueAtAfterLessons,
 		Mode:                      existingRule.Mode,
@@ -257,8 +252,7 @@ func (s *ruleService) resolveUpdateRulePayload(
 	}
 
 	if req.DueAtAfterDays != nil {
-		payload.DueAtAfterDays = *req.DueAtAfterDays
-		payload.DueAtAfterDaysSet = true
+		payload.DueAtAfterDays = req.DueAtAfterDays
 	}
 
 	if req.DueAtMode != nil {
@@ -269,20 +263,21 @@ func (s *ruleService) resolveUpdateRulePayload(
 		payload.DueAtAfterLessons = req.DueAtAfterLessons
 	}
 
+	if req.DueAtMode != nil {
+		switch *req.DueAtMode {
+		case ruleDueAtModeDays:
+			payload.DueAtAfterLessons = nil
+		case ruleDueAtModeNextLessons:
+			payload.DueAtAfterDays = nil
+		}
+	}
+
 	if req.Mode != nil {
 		payload.Mode = *req.Mode
 	}
 
 	if req.IsActive != nil {
 		payload.IsActive = *req.IsActive
-	}
-
-	if req.DueAtMode != nil && *req.DueAtMode == ruleDueAtModeDays {
-		if req.DueAtAfterLessons != nil {
-			return resolvedRulePayload{}, newRuleValidationError("due_at_after_lessons", "rule_due_at_after_lessons_forbidden_for_due_at_mode_days")
-		}
-
-		payload.DueAtAfterLessons = nil
 	}
 
 	if err := s.validateAndNormalizeRulePayload(&payload); err != nil {
@@ -302,15 +297,15 @@ func (s *ruleService) validateAndNormalizeRulePayload(payload *resolvedRulePaylo
 		if payload.DueAtAfterLessons != nil {
 			return newRuleValidationError("due_at_after_lessons", "rule_due_at_after_lessons_forbidden_for_due_at_mode_days")
 		}
-		if !payload.DueAtAfterDaysSet {
+		if payload.DueAtAfterDays == nil {
 			return newRuleValidationError("due_at_after_days", api.KeyValidationFieldRequired)
 		}
 
 		payload.DueAtAfterLessons = nil
 		return nil
 	case ruleDueAtModeNextLessons:
-		if payload.DueAtAfterDays != 0 {
-			return newRuleValidationError("due_at_after_days", "rule_due_at_after_days_must_be_zero_for_due_at_mode_next_lessons")
+		if payload.DueAtAfterDays != nil {
+			return newRuleValidationError("due_at_after_days", "rule_due_at_after_days_forbidden_for_due_at_mode_next_lessons")
 		}
 		if payload.DueAtAfterLessons == nil {
 			return newRuleValidationError("due_at_after_lessons", api.KeyValidationFieldRequired)
@@ -322,7 +317,7 @@ func (s *ruleService) validateAndNormalizeRulePayload(payload *resolvedRulePaylo
 			return newRuleValidationError("due_at_after_lessons", fmt.Sprintf(api.KeyValidationMaxLength, fmt.Sprintf("%d", ruleDueAtAfterLessonsMax)))
 		}
 
-		payload.DueAtAfterDays = 0
+		payload.DueAtAfterDays = nil
 		return nil
 	default:
 		return newRuleValidationError("due_at_mode", fmt.Sprintf(api.KeyValidationOneOf, fmt.Sprintf("%s|%s", ruleDueAtModeDays, ruleDueAtModeNextLessons)))

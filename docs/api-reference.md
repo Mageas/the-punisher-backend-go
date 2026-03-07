@@ -1353,6 +1353,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
   "is_active": false
 }
 ```
+- Si `due_at_mode` change, le backend remet automatiquement a `null` le champ oppose:
+  - vers `days`: `due_at_after_lessons = null`
+  - vers `next_lessons`: `due_at_after_days = null`
 - 200: `ReturnRuleDto`
 - Erreurs: `validation_failed`, `invalid_request_body`, `rule_not_found`, `punishment_type_not_found`, `penalty_type_not_found`, `not_found`, `unauthorized`
 

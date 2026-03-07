@@ -119,7 +119,11 @@ func computeRuleDueAt(
 ) (time.Time, error) {
 	switch rule.DueAtMode {
 	case "", ruleDueAtModeDays:
-		return now.UTC().Add(time.Duration(rule.DueAtAfterDays) * 24 * time.Hour), nil
+		if rule.DueAtAfterDays == nil {
+			return time.Time{}, api.ErrRuleDueAtNotComputable
+		}
+
+		return now.UTC().Add(time.Duration(*rule.DueAtAfterDays) * 24 * time.Hour), nil
 	case ruleDueAtModeNextLessons:
 		if classroomID == nil || rule.DueAtAfterLessons == nil {
 			return time.Time{}, api.ErrRuleDueAtNotComputable

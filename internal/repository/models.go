@@ -120,7 +120,7 @@ type Rule struct {
 	IsActive                  bool      `json:"is_active"`
 	CreatedAt                 time.Time `json:"created_at"`
 	UpdatedAt                 time.Time `json:"updated_at"`
-	DueAtAfterDays            int32     `json:"due_at_after_days"`
+	DueAtAfterDays            *int32    `json:"due_at_after_days"`
 	DueAtMode                 string    `json:"due_at_mode"`
 	DueAtAfterLessons         *int32    `json:"due_at_after_lessons"`
 }
