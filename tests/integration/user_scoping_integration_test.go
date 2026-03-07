@@ -55,7 +55,7 @@ func TestRepository_CreateRuleRejectsCrossUserReferences(t *testing.T) {
 		Threshold:                 1,
 		Mode:                      "at",
 		IsActive:                  true,
-		DueAtAfterDays:            1,
+		DueAtAfterDays:            ptr(int32(1)),
 		DueAtMode:                 "days",
 	})
 	if !isForeignKeyViolation(err) {

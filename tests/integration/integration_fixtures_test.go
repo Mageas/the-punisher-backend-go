@@ -190,7 +190,7 @@ func mustCreateRuleRecord(
 		Threshold:                 threshold,
 		Mode:                      mode,
 		IsActive:                  isActive,
-		DueAtAfterDays:            dueAtAfterDays,
+		DueAtAfterDays:            &dueAtAfterDays,
 		DueAtMode:                 "days",
 	})
 	if err != nil {
@@ -220,7 +220,7 @@ func mustCreateNextLessonsRuleRecord(
 		Threshold:                 threshold,
 		Mode:                      mode,
 		IsActive:                  isActive,
-		DueAtAfterDays:            0,
+		DueAtAfterDays:            nil,
 		DueAtMode:                 "next_lessons",
 		DueAtAfterLessons:         &dueAtAfterLessons,
 	})

@@ -38,7 +38,7 @@ type ReturnRuleDto struct {
 	PenaltyTypeID               uuid.UUID `json:"penalty_type_id"`
 	PenaltyTypeName             string    `json:"penalty_type_name"`
 	Threshold                   int32     `json:"threshold"`
-	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	DueAtAfterDays              *int32    `json:"due_at_after_days"`
 	DueAtMode                   string    `json:"due_at_mode"`
 	DueAtAfterLessons           *int32    `json:"due_at_after_lessons"`
 	Mode                        string    `json:"mode"`

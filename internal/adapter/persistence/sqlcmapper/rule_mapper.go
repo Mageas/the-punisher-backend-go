@@ -16,7 +16,7 @@ func buildReturnRuleDto(
 	penaltyTypeID uuid.UUID,
 	penaltyTypeName string,
 	threshold int32,
-	dueAtAfterDays int32,
+	dueAtAfterDays *int32,
 	dueAtMode string,
 	dueAtAfterLessons *int32,
 	mode string,

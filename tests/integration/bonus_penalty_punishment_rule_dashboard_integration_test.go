@@ -599,7 +599,7 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	if !created.IsActive {
 		t.Fatalf("expected default is_active=true")
 	}
-	if created.DueAtMode != "days" || created.DueAtAfterLessons != nil {
+	if created.DueAtMode != "days" || created.DueAtAfterLessons != nil || created.DueAtAfterDays == nil || *created.DueAtAfterDays != 1 {
 		t.Fatalf("unexpected days rule payload: %+v", created)
 	}
 
@@ -624,7 +624,6 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	newThreshold := int32(3)
 	nextLessonsMode := "next_lessons"
 	nextLessonsCount := int32(1)
-	nextLessonsDays := int32(0)
 	newActive := false
 	newPenaltyID := otherPenaltyType.ID.String()
 	newPunishmentID := otherPunishmentType.ID.String()
@@ -633,7 +632,6 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 		Name:                      &newName,
 		Mode:                      &newMode,
 		Threshold:                 &newThreshold,
-		DueAtAfterDays:            &nextLessonsDays,
 		DueAtMode:                 &nextLessonsMode,
 		DueAtAfterLessons:         &nextLessonsCount,
 		IsActive:                  &newActive,
@@ -649,6 +647,9 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	if updatedToNextLessons.DueAtMode != "next_lessons" || updatedToNextLessons.DueAtAfterLessons == nil || *updatedToNextLessons.DueAtAfterLessons != nextLessonsCount {
 		t.Fatalf("expected next_lessons rule, got %+v", updatedToNextLessons)
 	}
+	if updatedToNextLessons.DueAtAfterDays != nil {
+		t.Fatalf("expected due_at_after_days to be null in next_lessons mode, got %+v", updatedToNextLessons)
+	}
 
 	daysMode := "days"
 	newDueDays := int32(4)
@@ -659,7 +660,7 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateRule(back to days) returned error: %v", err)
 	}
-	if updatedBackToDays.DueAtMode != "days" || updatedBackToDays.DueAtAfterDays != newDueDays {
+	if updatedBackToDays.DueAtMode != "days" || updatedBackToDays.DueAtAfterDays == nil || *updatedBackToDays.DueAtAfterDays != newDueDays {
 		t.Fatalf("expected days rule after reset, got %+v", updatedBackToDays)
 	}
 	if updatedBackToDays.DueAtAfterLessons != nil {

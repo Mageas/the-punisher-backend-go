@@ -44,7 +44,7 @@ type CreateRuleParams struct {
 	Threshold                 int32     `json:"threshold"`
 	Mode                      string    `json:"mode"`
 	IsActive                  bool      `json:"is_active"`
-	DueAtAfterDays            int32     `json:"due_at_after_days"`
+	DueAtAfterDays            *int32    `json:"due_at_after_days"`
 	DueAtMode                 string    `json:"due_at_mode"`
 	DueAtAfterLessons         *int32    `json:"due_at_after_lessons"`
 }
@@ -60,7 +60,7 @@ type CreateRuleRow struct {
 	IsActive                    bool      `json:"is_active"`
 	CreatedAt                   time.Time `json:"created_at"`
 	UpdatedAt                   time.Time `json:"updated_at"`
-	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	DueAtAfterDays              *int32    `json:"due_at_after_days"`
 	DueAtMode                   string    `json:"due_at_mode"`
 	DueAtAfterLessons           *int32    `json:"due_at_after_lessons"`
 	PenaltyTypeName             string    `json:"penalty_type_name"`
@@ -147,7 +147,7 @@ type GetRuleByUserRow struct {
 	IsActive                    bool      `json:"is_active"`
 	CreatedAt                   time.Time `json:"created_at"`
 	UpdatedAt                   time.Time `json:"updated_at"`
-	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	DueAtAfterDays              *int32    `json:"due_at_after_days"`
 	DueAtMode                   string    `json:"due_at_mode"`
 	DueAtAfterLessons           *int32    `json:"due_at_after_lessons"`
 	PenaltyTypeName             string    `json:"penalty_type_name"`
@@ -255,7 +255,7 @@ type ListRulesByUserRow struct {
 	IsActive                    bool      `json:"is_active"`
 	CreatedAt                   time.Time `json:"created_at"`
 	UpdatedAt                   time.Time `json:"updated_at"`
-	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	DueAtAfterDays              *int32    `json:"due_at_after_days"`
 	DueAtMode                   string    `json:"due_at_mode"`
 	DueAtAfterLessons           *int32    `json:"due_at_after_lessons"`
 	PenaltyTypeName             string    `json:"penalty_type_name"`
@@ -325,7 +325,7 @@ type UpdateRuleByUserParams struct {
 	Threshold                 int32     `json:"threshold"`
 	Mode                      string    `json:"mode"`
 	IsActive                  bool      `json:"is_active"`
-	DueAtAfterDays            int32     `json:"due_at_after_days"`
+	DueAtAfterDays            *int32    `json:"due_at_after_days"`
 	DueAtMode                 string    `json:"due_at_mode"`
 	DueAtAfterLessons         *int32    `json:"due_at_after_lessons"`
 	ID                        uuid.UUID `json:"id"`
@@ -343,7 +343,7 @@ type UpdateRuleByUserRow struct {
 	IsActive                    bool      `json:"is_active"`
 	CreatedAt                   time.Time `json:"created_at"`
 	UpdatedAt                   time.Time `json:"updated_at"`
-	DueAtAfterDays              int32     `json:"due_at_after_days"`
+	DueAtAfterDays              *int32    `json:"due_at_after_days"`
 	DueAtMode                   string    `json:"due_at_mode"`
 	DueAtAfterLessons           *int32    `json:"due_at_after_lessons"`
 	PenaltyTypeName             string    `json:"penalty_type_name"`

@@ -4,7 +4,7 @@
 INSERT INTO rules (
     user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, due_at_after_days, due_at_mode, due_at_after_lessons
 ) VALUES (
-    sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(resulting_punishment_type_id), sqlc.arg(penalty_type_id), sqlc.arg(threshold), sqlc.arg(mode), sqlc.arg(is_active), sqlc.arg(due_at_after_days), sqlc.arg(due_at_mode), sqlc.narg(due_at_after_lessons)
+    sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(resulting_punishment_type_id), sqlc.arg(penalty_type_id), sqlc.arg(threshold), sqlc.arg(mode), sqlc.arg(is_active), sqlc.narg(due_at_after_days), sqlc.arg(due_at_mode), sqlc.narg(due_at_after_lessons)
 )
 RETURNING
     id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days, due_at_mode, due_at_after_lessons,
@@ -53,7 +53,7 @@ SET
     threshold = sqlc.arg(threshold),
     mode = sqlc.arg(mode),
     is_active = sqlc.arg(is_active),
-    due_at_after_days = sqlc.arg(due_at_after_days),
+    due_at_after_days = sqlc.narg(due_at_after_days),
     due_at_mode = sqlc.arg(due_at_mode),
     due_at_after_lessons = sqlc.narg(due_at_after_lessons),
     updated_at = NOW()
