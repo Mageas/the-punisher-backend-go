@@ -62,10 +62,21 @@ var (
 	ErrJWTInvalidToken         = NewAPIError(http.StatusUnauthorized, "jwt_invalid_token")
 	ErrJWTExpired              = NewAPIError(http.StatusUnauthorized, "jwt_expired")
 
-	ErrStudentNotFound           = NewAPIError(http.StatusNotFound, "student_not_found")
-	ErrBonusTypeNotFound         = NewAPIError(http.StatusNotFound, "bonus_type_not_found")
-	ErrPenaltyTypeNotFound       = NewAPIError(http.StatusNotFound, "penalty_type_not_found")
-	ErrRuleNotFound              = NewAPIError(http.StatusNotFound, "rule_not_found")
+	ErrStudentNotFound                = NewAPIError(http.StatusNotFound, "student_not_found")
+	ErrBonusTypeNotFound              = NewAPIError(http.StatusNotFound, "bonus_type_not_found")
+	ErrPenaltyTypeNotFound            = NewAPIError(http.StatusNotFound, "penalty_type_not_found")
+	ErrRuleNotFound                   = NewAPIError(http.StatusNotFound, "rule_not_found")
+	ErrRuleDueAtNotComputable         = NewAPIError(http.StatusConflict, "rule_due_at_not_computable")
+	ErrPunishmentClassroomNotResolved = NewAPIError(
+		http.StatusConflict,
+		"punishment_classroom_not_resolved",
+		ErrorDetail{Field: "classroom_id", Error: "punishment_classroom_not_resolved"},
+	)
+	ErrPunishmentStudentNotInClassroom = NewAPIError(
+		http.StatusConflict,
+		"punishment_student_not_in_classroom",
+		ErrorDetail{Field: "classroom_id", Error: "punishment_student_not_in_classroom"},
+	)
 	ErrBonusNotFound             = NewAPIError(http.StatusNotFound, "bonus_not_found")
 	ErrPenaltyNotFound           = NewAPIError(http.StatusNotFound, "penalty_not_found")
 	ErrPunishmentTypeNotFound    = NewAPIError(http.StatusNotFound, "punishment_type_not_found")

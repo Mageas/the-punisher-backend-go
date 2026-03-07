@@ -454,63 +454,12 @@ func (s *scheduleService) ListNextLessons(ctx context.Context, userID, classroom
 		return nil, fmt.Errorf("failed to get classroom: %w", err)
 	}
 
-	slots, err := s.repo.ListScheduleSlotsByClassroom(ctx, repository.ListScheduleSlotsByClassroomParams{
-		UserID:      userID,
-		ClassroomID: classroomID,
-	})
+	lessons, err := listNextLessonOccurrences(ctx, s.repo, userID, classroomID, s.now(), nextLessonsLimit)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list schedule slots by classroom: %w", err)
+		return nil, err
 	}
 
-	exceptions, err := s.repo.ListScheduleExceptionsByUser(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list schedule exceptions: %w", err)
-	}
-
-	slotsByWeekday := make(map[int32][]repository.ScheduleSlot)
-	for _, slot := range slots {
-		slotsByWeekday[slot.Weekday] = append(slotsByWeekday[slot.Weekday], slot)
-	}
-
-	exceptionRanges := make([]scheduleDateRange, 0, len(exceptions))
-	for _, exception := range exceptions {
-		exceptionRanges = append(exceptionRanges, scheduleDateRange{
-			Start: normalizeScheduleDate(exception.StartDate),
-			End:   normalizeScheduleDate(exception.EndDate),
-		})
-	}
-
-	currentDay := startOfScheduleDay(s.now().In(time.Local))
-	results := make([]dto.NextLessonDto, 0, nextLessonsLimit)
-	for day, scanned := currentDay.AddDate(0, 0, 1), 0; len(results) < nextLessonsLimit && scanned < nextLessonsMaxDaysScan; day, scanned = day.AddDate(0, 0, 1), scanned+1 {
-		if isDateBlockedByScheduleException(day, exceptionRanges) {
-			continue
-		}
-
-		weekday := isoWeekdayFromTime(day.Weekday())
-		daySlots := slotsByWeekday[weekday]
-		if len(daySlots) == 0 {
-			continue
-		}
-
-		_, isoWeek := day.ISOWeek()
-		for _, slot := range daySlots {
-			if !scheduleSlotAppliesToISOWeek(slot.WeekPattern, isoWeek) {
-				continue
-			}
-
-			results = append(results, dto.NextLessonDto{
-				Date:      day.Format(scheduleDateLayout),
-				StartTime: slot.StartTime,
-				EndTime:   slot.EndTime,
-			})
-			if len(results) == nextLessonsLimit {
-				break
-			}
-		}
-	}
-
-	return results, nil
+	return nextLessonOccurrencesToDTO(lessons), nil
 }
 
 func attachClassroomsToScheduleSlots(ctx context.Context, repo repository.Querier, userID uuid.UUID, slots []*dto.ReturnScheduleSlotDto) error {

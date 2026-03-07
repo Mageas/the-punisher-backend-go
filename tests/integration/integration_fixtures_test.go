@@ -191,9 +191,41 @@ func mustCreateRuleRecord(
 		Mode:                      mode,
 		IsActive:                  isActive,
 		DueAtAfterDays:            dueAtAfterDays,
+		DueAtMode:                 "days",
 	})
 	if err != nil {
 		t.Fatalf("failed to create rule fixture: %v", err)
+	}
+
+	return row
+}
+
+func mustCreateNextLessonsRuleRecord(
+	t *testing.T,
+	repo repository.Querier,
+	ctx context.Context,
+	userID, penaltyTypeID, punishmentTypeID uuid.UUID,
+	mode string,
+	threshold int32,
+	dueAtAfterLessons int32,
+	isActive bool,
+) repository.CreateRuleRow {
+	t.Helper()
+
+	row, err := repo.CreateRule(ctx, repository.CreateRuleParams{
+		UserID:                    userID,
+		Name:                      uniqueValue("rule-next-lessons"),
+		ResultingPunishmentTypeID: punishmentTypeID,
+		PenaltyTypeID:             penaltyTypeID,
+		Threshold:                 threshold,
+		Mode:                      mode,
+		IsActive:                  isActive,
+		DueAtAfterDays:            0,
+		DueAtMode:                 "next_lessons",
+		DueAtAfterLessons:         &dueAtAfterLessons,
+	})
+	if err != nil {
+		t.Fatalf("failed to create next_lessons rule fixture: %v", err)
 	}
 
 	return row

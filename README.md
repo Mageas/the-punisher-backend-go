@@ -81,6 +81,7 @@ Le backend expose désormais un sous-domaine `schedule` pour:
 - gérer des créneaux hebdomadaires multi-classes avec `weekday`, `start_time`, `end_time` et `week_pattern`
 - gérer des interruptions globales utilisateur (`vacation`, `public_holiday`) sur journées entières
 - calculer les `5` prochains cours d'une classe via `GET /v1/classrooms/{classroom_id}/next-lessons`
+- servir de base aux règles automatiques avec une échéance en `days` ou sur les `5` prochains cours (`next_lessons`, échéance positionnée au début du cours) en utilisant la classe fournie à la création d'une pénalité, ou la classe unique de l'élève si elle peut être déduite
 
 Formats métier associés:
 - `weekday`: texte anglais minuscule (`monday` à `sunday`)

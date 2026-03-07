@@ -9,6 +9,7 @@ import (
 type RequestPenaltyDto struct {
 	StudentID       string  `json:"student_id" validate:"required,uuid"`
 	PenaltyTypeID   string  `json:"penalty_type_id" validate:"required,uuid"`
+	ClassroomID     *string `json:"classroom_id" validate:"omitempty,uuid"`
 	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
 	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
 }
