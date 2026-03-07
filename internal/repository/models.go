@@ -149,6 +149,7 @@ type ScheduleSlot struct {
 type ScheduleSlotClassroom struct {
 	ScheduleSlotID uuid.UUID `json:"schedule_slot_id"`
 	ClassroomID    uuid.UUID `json:"classroom_id"`
+	UserID         uuid.UUID `json:"user_id"`
 }
 
 type Student struct {
@@ -164,6 +165,7 @@ type StudentClassroom struct {
 	StudentID   uuid.UUID `json:"student_id"`
 	ClassroomID uuid.UUID `json:"classroom_id"`
 	CreatedAt   time.Time `json:"created_at"`
+	UserID      uuid.UUID `json:"user_id"`
 }
 
 type User struct {

@@ -14,24 +14,24 @@ import (
 
 const addStudentToClassroom = `-- name: AddStudentToClassroom :execrows
 
-INSERT INTO student_classrooms (student_id, classroom_id)
-SELECT $1, $2
+INSERT INTO student_classrooms (user_id, student_id, classroom_id)
+SELECT $1, $2, $3
 WHERE EXISTS (
-    SELECT 1 FROM students st WHERE st.id = $1 AND st.user_id = $3
+    SELECT 1 FROM students st WHERE st.id = $2 AND st.user_id = $1
 ) AND EXISTS (
-    SELECT 1 FROM classrooms cl WHERE cl.id = $2 AND cl.user_id = $3
+    SELECT 1 FROM classrooms cl WHERE cl.id = $3 AND cl.user_id = $1
 )
 `
 
 type AddStudentToClassroomParams struct {
+	UserID      uuid.UUID `json:"user_id"`
 	StudentID   uuid.UUID `json:"student_id"`
 	ClassroomID uuid.UUID `json:"classroom_id"`
-	UserID      uuid.UUID `json:"user_id"`
 }
 
 // ==================== StudentClassroom ====================
 func (q *Queries) AddStudentToClassroom(ctx context.Context, arg AddStudentToClassroomParams) (int64, error) {
-	result, err := q.db.Exec(ctx, addStudentToClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
+	result, err := q.db.Exec(ctx, addStudentToClassroom, arg.UserID, arg.StudentID, arg.ClassroomID)
 	if err != nil {
 		return 0, err
 	}
@@ -41,17 +41,19 @@ func (q *Queries) AddStudentToClassroom(ctx context.Context, arg AddStudentToCla
 const countClassroomsByStudent = `-- name: CountClassroomsByStudent :one
 SELECT COUNT(*)
 FROM student_classrooms sc
-JOIN students s ON s.id = sc.student_id
-WHERE sc.student_id = $1 AND s.user_id = $2
+JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
+WHERE sc.user_id = $1
+  AND sc.student_id = $2
 `
 
 type CountClassroomsByStudentParams struct {
-	StudentID uuid.UUID `json:"student_id"`
 	UserID    uuid.UUID `json:"user_id"`
+	StudentID uuid.UUID `json:"student_id"`
 }
 
 func (q *Queries) CountClassroomsByStudent(ctx context.Context, arg CountClassroomsByStudentParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countClassroomsByStudent, arg.StudentID, arg.UserID)
+	row := q.db.QueryRow(ctx, countClassroomsByStudent, arg.UserID, arg.StudentID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -60,10 +62,10 @@ func (q *Queries) CountClassroomsByStudent(ctx context.Context, arg CountClassro
 const countStudentsByClassroom = `-- name: CountStudentsByClassroom :one
 SELECT COUNT(*)
 FROM student_classrooms sc
-JOIN students s ON s.id = sc.student_id
-JOIN classrooms c ON c.id = sc.classroom_id
-WHERE sc.classroom_id = $1
-  AND c.user_id = $2
+JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
+WHERE sc.user_id = $1
+  AND sc.classroom_id = $2
   AND (
     $3::text IS NULL
     OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
@@ -71,13 +73,13 @@ WHERE sc.classroom_id = $1
 `
 
 type CountStudentsByClassroomParams struct {
-	ClassroomID uuid.UUID `json:"classroom_id"`
 	UserID      uuid.UUID `json:"user_id"`
+	ClassroomID uuid.UUID `json:"classroom_id"`
 	Search      *string   `json:"search"`
 }
 
 func (q *Queries) CountStudentsByClassroom(ctx context.Context, arg CountStudentsByClassroomParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countStudentsByClassroom, arg.ClassroomID, arg.UserID, arg.Search)
+	row := q.db.QueryRow(ctx, countStudentsByClassroom, arg.UserID, arg.ClassroomID, arg.Search)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -89,9 +91,9 @@ SELECT
     c.id AS classroom_id,
     c.name AS classroom_name
 FROM student_classrooms sc
-JOIN classrooms c ON c.id = sc.classroom_id
-JOIN students s ON s.id = sc.student_id
-WHERE s.user_id = $1
+JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
+JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+WHERE sc.user_id = $1
   AND sc.student_id = ANY($2::uuid[])
 ORDER BY c.created_at DESC
 `
@@ -134,35 +136,39 @@ SELECT
         SELECT COUNT(*)
         FROM student_classrooms sc2
         WHERE sc2.classroom_id = c.id
+          AND sc2.user_id = c.user_id
     ), 0)::bigint AS student_count,
     COALESCE((
         SELECT SUM(b.points)
         FROM student_classrooms sc2
-        JOIN students s2 ON s2.id = sc2.student_id
-        JOIN bonuses b ON b.student_id = s2.id
+        JOIN students s2 ON s2.id = sc2.student_id AND s2.user_id = sc2.user_id
+        JOIN bonuses b ON b.student_id = s2.id AND b.user_id = s2.user_id
         WHERE sc2.classroom_id = c.id
+          AND sc2.user_id = c.user_id
           AND b.user_id = c.user_id
           AND b.used_at IS NULL
     ), 0)::double precision AS total_bonus_points,
     COALESCE((
         SELECT COUNT(*)
         FROM student_classrooms sc2
-        JOIN students s2 ON s2.id = sc2.student_id
-        JOIN penalties p ON p.student_id = s2.id
+        JOIN students s2 ON s2.id = sc2.student_id AND s2.user_id = sc2.user_id
+        JOIN penalties p ON p.student_id = s2.id AND p.user_id = s2.user_id
         WHERE sc2.classroom_id = c.id
+          AND sc2.user_id = c.user_id
           AND p.user_id = c.user_id
     ), 0)::bigint AS total_penalty_count
 FROM classrooms c
-JOIN student_classrooms sc ON sc.classroom_id = c.id
-JOIN students s ON s.id = sc.student_id
-WHERE sc.student_id = $1 AND s.user_id = $2
+JOIN student_classrooms sc ON sc.classroom_id = c.id AND sc.user_id = c.user_id
+JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+WHERE sc.user_id = $1
+  AND sc.student_id = $2
 ORDER BY c.created_at DESC
 LIMIT $4 OFFSET $3
 `
 
 type ListClassroomsByStudentParams struct {
-	StudentID   uuid.UUID `json:"student_id"`
 	UserID      uuid.UUID `json:"user_id"`
+	StudentID   uuid.UUID `json:"student_id"`
 	QueryOffset int32     `json:"query_offset"`
 	QueryLimit  int32     `json:"query_limit"`
 }
@@ -182,8 +188,8 @@ type ListClassroomsByStudentRow struct {
 
 func (q *Queries) ListClassroomsByStudent(ctx context.Context, arg ListClassroomsByStudentParams) ([]ListClassroomsByStudentRow, error) {
 	rows, err := q.db.Query(ctx, listClassroomsByStudent,
-		arg.StudentID,
 		arg.UserID,
+		arg.StudentID,
 		arg.QueryOffset,
 		arg.QueryLimit,
 	)
@@ -233,10 +239,10 @@ SELECT
           AND p.user_id = s.user_id
     ), 0)::bigint AS penalty_count
 FROM students s
-JOIN student_classrooms sc ON sc.student_id = s.id
-JOIN classrooms c ON c.id = sc.classroom_id
-WHERE sc.classroom_id = $1
-  AND c.user_id = $2
+JOIN student_classrooms sc ON sc.student_id = s.id AND sc.user_id = s.user_id
+JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
+WHERE sc.user_id = $1
+  AND sc.classroom_id = $2
   AND (
     $3::text IS NULL
     OR CONCAT_WS(' ', s.first_name, s.last_name) ILIKE '%' || $3::text || '%'
@@ -246,8 +252,8 @@ LIMIT $5 OFFSET $4
 `
 
 type ListStudentsByClassroomParams struct {
-	ClassroomID uuid.UUID `json:"classroom_id"`
 	UserID      uuid.UUID `json:"user_id"`
+	ClassroomID uuid.UUID `json:"classroom_id"`
 	Search      *string   `json:"search"`
 	QueryOffset int32     `json:"query_offset"`
 	QueryLimit  int32     `json:"query_limit"`
@@ -266,8 +272,8 @@ type ListStudentsByClassroomRow struct {
 
 func (q *Queries) ListStudentsByClassroom(ctx context.Context, arg ListStudentsByClassroomParams) ([]ListStudentsByClassroomRow, error) {
 	rows, err := q.db.Query(ctx, listStudentsByClassroom,
-		arg.ClassroomID,
 		arg.UserID,
+		arg.ClassroomID,
 		arg.Search,
 		arg.QueryOffset,
 		arg.QueryLimit,
@@ -312,8 +318,9 @@ JOIN LATERAL (
         s.first_name,
         s.last_name
     FROM student_classrooms sc
-    JOIN students s ON s.id = sc.student_id
-    WHERE sc.classroom_id = c.id
+    JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+    WHERE sc.user_id = c.user_id
+      AND sc.classroom_id = c.id
     ORDER BY s.created_at DESC
     LIMIT $1
 ) preview ON TRUE
@@ -362,21 +369,19 @@ func (q *Queries) ListStudentsPreviewByClassroomIDs(ctx context.Context, arg Lis
 
 const removeStudentFromClassroom = `-- name: RemoveStudentFromClassroom :execrows
 DELETE FROM student_classrooms
-WHERE student_id = $1
-  AND classroom_id = $2
-  AND EXISTS (
-    SELECT 1 FROM classrooms cl WHERE cl.id = $2 AND cl.user_id = $3
-  )
+WHERE user_id = $1
+  AND student_id = $2
+  AND classroom_id = $3
 `
 
 type RemoveStudentFromClassroomParams struct {
+	UserID      uuid.UUID `json:"user_id"`
 	StudentID   uuid.UUID `json:"student_id"`
 	ClassroomID uuid.UUID `json:"classroom_id"`
-	UserID      uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) RemoveStudentFromClassroom(ctx context.Context, arg RemoveStudentFromClassroomParams) (int64, error) {
-	result, err := q.db.Exec(ctx, removeStudentFromClassroom, arg.StudentID, arg.ClassroomID, arg.UserID)
+	result, err := q.db.Exec(ctx, removeStudentFromClassroom, arg.UserID, arg.StudentID, arg.ClassroomID)
 	if err != nil {
 		return 0, err
 	}

@@ -119,7 +119,7 @@ func (s *scheduleService) CreateScheduleSlot(ctx context.Context, userID uuid.UU
 			return fmt.Errorf("failed to create schedule slot: %w", createErr)
 		}
 
-		if err := setScheduleSlotClassrooms(ctx, txQuerier, createdSlot.ID, classroomIDs); err != nil {
+		if err := setScheduleSlotClassrooms(ctx, txQuerier, userID, createdSlot.ID, classroomIDs); err != nil {
 			return err
 		}
 
@@ -267,11 +267,14 @@ func (s *scheduleService) UpdateScheduleSlot(ctx context.Context, userID, schedu
 		}
 
 		if req.ClassroomIDs != nil {
-			if _, err := txQuerier.DeleteScheduleSlotClassroomRelationsBySlot(ctx, scheduleSlotID); err != nil {
+			if _, err := txQuerier.DeleteScheduleSlotClassroomRelationsBySlot(ctx, repository.DeleteScheduleSlotClassroomRelationsBySlotParams{
+				UserID:         userID,
+				ScheduleSlotID: scheduleSlotID,
+			}); err != nil {
 				return fmt.Errorf("failed to clear schedule slot classrooms: %w", err)
 			}
 
-			if err := setScheduleSlotClassrooms(ctx, txQuerier, scheduleSlotID, classroomIDs); err != nil {
+			if err := setScheduleSlotClassrooms(ctx, txQuerier, userID, scheduleSlotID, classroomIDs); err != nil {
 				return err
 			}
 		}
@@ -577,9 +580,10 @@ func ensureNoScheduleExceptionOverlap(
 	return nil
 }
 
-func setScheduleSlotClassrooms(ctx context.Context, repo repository.Querier, scheduleSlotID uuid.UUID, classroomIDs []uuid.UUID) error {
+func setScheduleSlotClassrooms(ctx context.Context, repo repository.Querier, userID, scheduleSlotID uuid.UUID, classroomIDs []uuid.UUID) error {
 	for _, classroomID := range classroomIDs {
 		if _, err := repo.CreateScheduleSlotClassroomRelation(ctx, repository.CreateScheduleSlotClassroomRelationParams{
+			UserID:         userID,
 			ScheduleSlotID: scheduleSlotID,
 			ClassroomID:    classroomID,
 		}); err != nil {

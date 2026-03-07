@@ -97,7 +97,7 @@ FROM (
         CASE WHEN TRUE THEN p.due_at ELSE NULL::timestamptz END AS due_at,
         p.resolved_at
     FROM punishments p
-    JOIN punishment_types pt ON pt.id = p.punishment_type_id
+    JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
     LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
     WHERE p.student_id = sqlc.arg(student_id)
       AND p.user_id = sqlc.arg(user_id)
@@ -124,7 +124,7 @@ FROM (
         p.occurred_at AS due_at,
         NULL::timestamptz AS resolved_at
     FROM penalties p
-    JOIN penalty_types pt ON pt.id = p.penalty_type_id
+    JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
     WHERE p.student_id = sqlc.arg(student_id)
       AND p.user_id = sqlc.arg(user_id)
 
@@ -150,7 +150,7 @@ FROM (
         b.occurred_at AS due_at,
         NULL::timestamptz AS resolved_at
     FROM bonuses b
-    JOIN bonus_types bt ON bt.id = b.bonus_type_id
+    JOIN bonus_types bt ON bt.id = b.bonus_type_id AND bt.user_id = b.user_id
     WHERE b.student_id = sqlc.arg(student_id)
       AND b.user_id = sqlc.arg(user_id)
 ) history

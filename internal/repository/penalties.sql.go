@@ -64,8 +64,9 @@ WHERE p.user_id = $1
     OR EXISTS (
       SELECT 1
       FROM student_classrooms sc
-      JOIN classrooms c ON c.id = sc.classroom_id
+      JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
       WHERE sc.student_id = p.student_id
+        AND sc.user_id = p.user_id
         AND sc.classroom_id = $6::uuid
         AND c.user_id = p.user_id
     )
@@ -108,9 +109,9 @@ INSERT INTO penalties (
 )
 RETURNING
     id, user_id, student_id, penalty_type_id, created_at, occurred_at, evaluation_label,
-    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
-    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
-    (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name
+    (SELECT first_name FROM students WHERE students.id = penalties.student_id AND students.user_id = penalties.user_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = penalties.student_id AND students.user_id = penalties.user_id) AS student_last_name,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalties.penalty_type_id AND penalty_types.user_id = penalties.user_id) AS penalty_type_name
 `
 
 type CreatePenaltyParams struct {
@@ -184,8 +185,8 @@ SELECT
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
 FROM penalties p
-JOIN students s ON s.id = p.student_id
-JOIN penalty_types pt ON pt.id = p.penalty_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
 WHERE p.id = $1 AND p.user_id = $2 LIMIT 1
 `
 
@@ -232,8 +233,8 @@ SELECT
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
 FROM penalties p
-JOIN students s ON s.id = p.student_id
-JOIN penalty_types pt ON pt.id = p.penalty_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
 WHERE p.student_id = $1 AND p.user_id = $2
 ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $4 OFFSET $3
@@ -302,8 +303,8 @@ SELECT
     s.last_name AS student_last_name,
     pt.name AS penalty_type_name
 FROM penalties p
-JOIN students s ON s.id = p.student_id
-JOIN penalty_types pt ON pt.id = p.penalty_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
 WHERE p.user_id = $1
   AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
@@ -314,8 +315,9 @@ WHERE p.user_id = $1
     OR EXISTS (
       SELECT 1
       FROM student_classrooms sc
-      JOIN classrooms c ON c.id = sc.classroom_id
+      JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
       WHERE sc.student_id = p.student_id
+        AND sc.user_id = p.user_id
         AND sc.classroom_id = $6::uuid
         AND c.user_id = p.user_id
     )
@@ -396,9 +398,9 @@ SET
 WHERE penalties.id = $3 AND penalties.user_id = $4
 RETURNING
     penalties.id, penalties.user_id, penalties.student_id, penalties.penalty_type_id, penalties.created_at, penalties.occurred_at, penalties.evaluation_label,
-    (SELECT first_name FROM students WHERE students.id = penalties.student_id) AS student_first_name,
-    (SELECT last_name FROM students WHERE students.id = penalties.student_id) AS student_last_name,
-    (SELECT name FROM penalty_types WHERE penalty_types.id = penalties.penalty_type_id) AS penalty_type_name
+    (SELECT first_name FROM students WHERE students.id = penalties.student_id AND students.user_id = penalties.user_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = penalties.student_id AND students.user_id = penalties.user_id) AS student_last_name,
+    (SELECT name FROM penalty_types WHERE penalty_types.id = penalties.penalty_type_id AND penalty_types.user_id = penalties.user_id) AS penalty_type_name
 `
 
 type UpdatePenaltyByUserParams struct {

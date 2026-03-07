@@ -79,7 +79,7 @@ type Querier interface {
 	DeleteRuleByUser(ctx context.Context, arg DeleteRuleByUserParams) (int64, error)
 	DeleteScheduleExceptionByUser(ctx context.Context, arg DeleteScheduleExceptionByUserParams) (int64, error)
 	DeleteScheduleSlotByUser(ctx context.Context, arg DeleteScheduleSlotByUserParams) (int64, error)
-	DeleteScheduleSlotClassroomRelationsBySlot(ctx context.Context, scheduleSlotID uuid.UUID) (int64, error)
+	DeleteScheduleSlotClassroomRelationsBySlot(ctx context.Context, arg DeleteScheduleSlotClassroomRelationsBySlotParams) (int64, error)
 	DeleteStudentByUser(ctx context.Context, arg DeleteStudentByUserParams) (int64, error)
 	GetBonusByUser(ctx context.Context, arg GetBonusByUserParams) (GetBonusByUserRow, error)
 	GetBonusTypeByUser(ctx context.Context, arg GetBonusTypeByUserParams) (BonusType, error)
