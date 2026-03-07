@@ -32,8 +32,8 @@ INSERT INTO rules (
 )
 RETURNING
     id, user_id, name, resulting_punishment_type_id, penalty_type_id, threshold, mode, is_active, created_at, updated_at, due_at_after_days, due_at_mode, due_at_after_lessons,
-    (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name,
-    (SELECT name FROM punishment_types WHERE punishment_types.id = resulting_punishment_type_id) AS resulting_punishment_type_name
+    (SELECT name FROM penalty_types WHERE penalty_types.id = rules.penalty_type_id AND penalty_types.user_id = rules.user_id) AS penalty_type_name,
+    (SELECT name FROM punishment_types WHERE punishment_types.id = rules.resulting_punishment_type_id AND punishment_types.user_id = rules.user_id) AS resulting_punishment_type_name
 `
 
 type CreateRuleParams struct {
@@ -126,8 +126,8 @@ SELECT
     pt.name AS penalty_type_name,
     put.name AS resulting_punishment_type_name
 FROM rules r
-JOIN penalty_types pt ON pt.id = r.penalty_type_id
-JOIN punishment_types put ON put.id = r.resulting_punishment_type_id
+JOIN penalty_types pt ON pt.id = r.penalty_type_id AND pt.user_id = r.user_id
+JOIN punishment_types put ON put.id = r.resulting_punishment_type_id AND put.user_id = r.user_id
 WHERE r.id = $1 AND r.user_id = $2 LIMIT 1
 `
 
@@ -231,8 +231,8 @@ SELECT
     pt.name AS penalty_type_name,
     put.name AS resulting_punishment_type_name
 FROM rules r
-JOIN penalty_types pt ON pt.id = r.penalty_type_id
-JOIN punishment_types put ON put.id = r.resulting_punishment_type_id
+JOIN penalty_types pt ON pt.id = r.penalty_type_id AND pt.user_id = r.user_id
+JOIN punishment_types put ON put.id = r.resulting_punishment_type_id AND put.user_id = r.user_id
 WHERE r.user_id = $1
 ORDER BY r.created_at DESC
 LIMIT $3 OFFSET $2
@@ -314,8 +314,8 @@ SET
 WHERE rules.id = $10 AND rules.user_id = $11
 RETURNING
     rules.id, rules.user_id, rules.name, rules.resulting_punishment_type_id, rules.penalty_type_id, rules.threshold, rules.mode, rules.is_active, rules.created_at, rules.updated_at, rules.due_at_after_days, rules.due_at_mode, rules.due_at_after_lessons,
-    (SELECT name FROM penalty_types WHERE penalty_types.id = penalty_type_id) AS penalty_type_name,
-    (SELECT name FROM punishment_types WHERE punishment_types.id = resulting_punishment_type_id) AS resulting_punishment_type_name
+    (SELECT name FROM penalty_types WHERE penalty_types.id = rules.penalty_type_id AND penalty_types.user_id = rules.user_id) AS penalty_type_name,
+    (SELECT name FROM punishment_types WHERE punishment_types.id = rules.resulting_punishment_type_id AND punishment_types.user_id = rules.user_id) AS resulting_punishment_type_name
 `
 
 type UpdateRuleByUserParams struct {

@@ -116,20 +116,33 @@ func (q *Queries) CreateScheduleSlot(ctx context.Context, arg CreateScheduleSlot
 
 const createScheduleSlotClassroomRelation = `-- name: CreateScheduleSlotClassroomRelation :execrows
 INSERT INTO schedule_slot_classrooms (
-    schedule_slot_id, classroom_id
-) VALUES (
-    $1, $2
+    user_id, schedule_slot_id, classroom_id
+)
+SELECT
+    $1, $2, $3
+WHERE EXISTS (
+    SELECT 1
+    FROM schedule_slots s
+    WHERE s.id = $2
+      AND s.user_id = $1
+)
+  AND EXISTS (
+    SELECT 1
+    FROM classrooms c
+    WHERE c.id = $3
+      AND c.user_id = $1
 )
 ON CONFLICT DO NOTHING
 `
 
 type CreateScheduleSlotClassroomRelationParams struct {
+	UserID         uuid.UUID `json:"user_id"`
 	ScheduleSlotID uuid.UUID `json:"schedule_slot_id"`
 	ClassroomID    uuid.UUID `json:"classroom_id"`
 }
 
 func (q *Queries) CreateScheduleSlotClassroomRelation(ctx context.Context, arg CreateScheduleSlotClassroomRelationParams) (int64, error) {
-	result, err := q.db.Exec(ctx, createScheduleSlotClassroomRelation, arg.ScheduleSlotID, arg.ClassroomID)
+	result, err := q.db.Exec(ctx, createScheduleSlotClassroomRelation, arg.UserID, arg.ScheduleSlotID, arg.ClassroomID)
 	if err != nil {
 		return 0, err
 	}
@@ -143,6 +156,7 @@ WHERE s.user_id = $1
     SELECT 1
     FROM schedule_slot_classrooms ssc
     WHERE ssc.schedule_slot_id = s.id
+      AND ssc.user_id = s.user_id
   )
 `
 
@@ -174,11 +188,17 @@ func (q *Queries) DeleteScheduleSlotByUser(ctx context.Context, arg DeleteSchedu
 
 const deleteScheduleSlotClassroomRelationsBySlot = `-- name: DeleteScheduleSlotClassroomRelationsBySlot :execrows
 DELETE FROM schedule_slot_classrooms
-WHERE schedule_slot_id = $1
+WHERE user_id = $1
+  AND schedule_slot_id = $2
 `
 
-func (q *Queries) DeleteScheduleSlotClassroomRelationsBySlot(ctx context.Context, scheduleSlotID uuid.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteScheduleSlotClassroomRelationsBySlot, scheduleSlotID)
+type DeleteScheduleSlotClassroomRelationsBySlotParams struct {
+	UserID         uuid.UUID `json:"user_id"`
+	ScheduleSlotID uuid.UUID `json:"schedule_slot_id"`
+}
+
+func (q *Queries) DeleteScheduleSlotClassroomRelationsBySlot(ctx context.Context, arg DeleteScheduleSlotClassroomRelationsBySlotParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteScheduleSlotClassroomRelationsBySlot, arg.UserID, arg.ScheduleSlotID)
 	if err != nil {
 		return 0, err
 	}
@@ -220,9 +240,9 @@ SELECT
     c.id AS classroom_id,
     c.name AS classroom_name
 FROM schedule_slot_classrooms ssc
-JOIN schedule_slots s ON s.id = ssc.schedule_slot_id
-JOIN classrooms c ON c.id = ssc.classroom_id
-WHERE s.user_id = $1
+JOIN schedule_slots s ON s.id = ssc.schedule_slot_id AND s.user_id = ssc.user_id
+JOIN classrooms c ON c.id = ssc.classroom_id AND c.user_id = ssc.user_id
+WHERE ssc.user_id = $1
   AND ssc.schedule_slot_id = ANY($2::uuid[])
 ORDER BY ssc.schedule_slot_id ASC, c.name ASC, c.id ASC
 `
@@ -262,7 +282,7 @@ const listScheduleSlotsByClassroom = `-- name: ListScheduleSlotsByClassroom :man
 SELECT
     s.id, s.user_id, s.weekday, s.start_time, s.end_time, s.week_pattern, s.created_at, s.updated_at
 FROM schedule_slots s
-JOIN schedule_slot_classrooms ssc ON ssc.schedule_slot_id = s.id
+JOIN schedule_slot_classrooms ssc ON ssc.schedule_slot_id = s.id AND ssc.user_id = s.user_id
 WHERE s.user_id = $1
   AND ssc.classroom_id = $2
 ORDER BY s.weekday ASC, s.start_time ASC, s.id ASC

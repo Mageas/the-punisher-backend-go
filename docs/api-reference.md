@@ -33,6 +33,11 @@ Notes cookie refresh:
 - Path cookie: `/v1/auth`
 - Le frontend doit utiliser `credentials: 'include'` pour `login`, `refresh`, `logout`, `change-password`.
 
+### 1.2.1 Isolation des donnees metier
+- Toutes les routes metier protegees retournent et modifient uniquement des donnees liees a l'utilisateur authentifie (`user_id`).
+- Cette isolation est enforcee a la fois dans les requetes SQL metier et par des contraintes PostgreSQL qui refusent les relations cross-user.
+- Hors perimetre: endpoints d'authentification, tables de tokens et gestion du cookie `refresh_token`.
+
 ### 1.3 Types de données
 - UUID: format canonique (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - Date liste: `YYYY-MM-DD` (ex: `2026-02-28`)

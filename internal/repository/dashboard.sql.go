@@ -24,6 +24,7 @@ WITH filtered_students AS (
             SELECT 1
             FROM student_classrooms sc
             WHERE sc.student_id = s.id
+              AND sc.user_id = s.user_id
               AND sc.classroom_id = $2::uuid
         )
     )
@@ -124,6 +125,7 @@ WITH filtered_students AS (
             SELECT 1
             FROM student_classrooms sc
             WHERE sc.student_id = s.id
+              AND sc.user_id = s.user_id
               AND sc.classroom_id = $3::uuid
         )
     )
@@ -136,8 +138,8 @@ SELECT
     r.name AS triggering_rule_name
 FROM punishments p
 JOIN filtered_students fs ON fs.id = p.student_id
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = $1
   AND p.resolved_at IS NULL
@@ -216,6 +218,7 @@ WITH filtered_students AS (
             SELECT 1
             FROM student_classrooms sc
             WHERE sc.student_id = s.id
+              AND sc.user_id = s.user_id
               AND sc.classroom_id = $3::uuid
         )
     )
@@ -227,8 +230,8 @@ SELECT
     bt.name AS bonus_type_name
 FROM bonuses b
 JOIN filtered_students fs ON fs.id = b.student_id
-JOIN students s ON s.id = b.student_id
-JOIN bonus_types bt ON bt.id = b.bonus_type_id
+JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id AND bt.user_id = b.user_id
 WHERE b.user_id = $1
 ORDER BY b.occurred_at DESC, b.id DESC
 LIMIT $2
@@ -299,6 +302,7 @@ WITH filtered_students AS (
             SELECT 1
             FROM student_classrooms sc
             WHERE sc.student_id = s.id
+              AND sc.user_id = s.user_id
               AND sc.classroom_id = $3::uuid
         )
     )
@@ -310,8 +314,8 @@ SELECT
     pt.name AS penalty_type_name
 FROM penalties p
 JOIN filtered_students fs ON fs.id = p.student_id
-JOIN students s ON s.id = p.student_id
-JOIN penalty_types pt ON pt.id = p.penalty_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
 WHERE p.user_id = $1
 ORDER BY p.occurred_at DESC, p.id DESC
 LIMIT $2

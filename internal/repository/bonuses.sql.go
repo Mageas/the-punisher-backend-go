@@ -47,8 +47,9 @@ WHERE b.user_id = $1
     OR EXISTS (
       SELECT 1
       FROM student_classrooms sc
-      JOIN classrooms c ON c.id = sc.classroom_id
+      JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
       WHERE sc.student_id = b.student_id
+        AND sc.user_id = b.user_id
         AND sc.classroom_id = $7::uuid
         AND c.user_id = b.user_id
     )
@@ -94,9 +95,9 @@ INSERT INTO bonuses (
 )
 RETURNING
     id, user_id, student_id, bonus_type_id, points, created_at, occurred_at, evaluation_label, used_at,
-    (SELECT first_name FROM students WHERE students.id = student_id) AS student_first_name,
-    (SELECT last_name FROM students WHERE students.id = student_id) AS student_last_name,
-    (SELECT name FROM bonus_types WHERE bonus_types.id = bonus_type_id) AS bonus_type_name
+    (SELECT first_name FROM students WHERE students.id = bonuses.student_id AND students.user_id = bonuses.user_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = bonuses.student_id AND students.user_id = bonuses.user_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id AND bonus_types.user_id = bonuses.user_id) AS bonus_type_name
 `
 
 type CreateBonusParams struct {
@@ -176,8 +177,8 @@ SELECT
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
 FROM bonuses b
-JOIN students s ON s.id = b.student_id
-JOIN bonus_types bt ON bt.id = b.bonus_type_id
+JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id AND bt.user_id = b.user_id
 WHERE b.id = $1 AND b.user_id = $2 LIMIT 1
 `
 
@@ -228,8 +229,8 @@ SELECT
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
 FROM bonuses b
-JOIN students s ON s.id = b.student_id
-JOIN bonus_types bt ON bt.id = b.bonus_type_id
+JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id AND bt.user_id = b.user_id
 WHERE b.student_id = $1
   AND b.user_id = $2
   AND ($3::boolean IS NULL OR (b.used_at IS NOT NULL) = $3::boolean)
@@ -306,8 +307,8 @@ SELECT
     s.last_name AS student_last_name,
     bt.name AS bonus_type_name
 FROM bonuses b
-JOIN students s ON s.id = b.student_id
-JOIN bonus_types bt ON bt.id = b.bonus_type_id
+JOIN students s ON s.id = b.student_id AND s.user_id = b.user_id
+JOIN bonus_types bt ON bt.id = b.bonus_type_id AND bt.user_id = b.user_id
 WHERE b.user_id = $1
   AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
@@ -319,8 +320,9 @@ WHERE b.user_id = $1
     OR EXISTS (
       SELECT 1
       FROM student_classrooms sc
-      JOIN classrooms c ON c.id = sc.classroom_id
+      JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
       WHERE sc.student_id = b.student_id
+        AND sc.user_id = b.user_id
         AND sc.classroom_id = $7::uuid
         AND c.user_id = b.user_id
     )
@@ -408,9 +410,9 @@ SET
 WHERE bonuses.id = $4 AND bonuses.user_id = $5
 RETURNING
     bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,
-    (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
-    (SELECT last_name FROM students WHERE students.id = bonuses.student_id) AS student_last_name,
-    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id) AS bonus_type_name
+    (SELECT first_name FROM students WHERE students.id = bonuses.student_id AND students.user_id = bonuses.user_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = bonuses.student_id AND students.user_id = bonuses.user_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id AND bonus_types.user_id = bonuses.user_id) AS bonus_type_name
 `
 
 type UpdateBonusByUserParams struct {
@@ -468,9 +470,9 @@ SET used_at = NOW()
 WHERE bonuses.id = $1 AND bonuses.user_id = $2 AND bonuses.used_at IS NULL
 RETURNING
     bonuses.id, bonuses.user_id, bonuses.student_id, bonuses.bonus_type_id, bonuses.points, bonuses.created_at, bonuses.occurred_at, bonuses.evaluation_label, bonuses.used_at,
-    (SELECT first_name FROM students WHERE students.id = bonuses.student_id) AS student_first_name,
-    (SELECT last_name FROM students WHERE students.id = bonuses.student_id) AS student_last_name,
-    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id) AS bonus_type_name
+    (SELECT first_name FROM students WHERE students.id = bonuses.student_id AND students.user_id = bonuses.user_id) AS student_first_name,
+    (SELECT last_name FROM students WHERE students.id = bonuses.student_id AND students.user_id = bonuses.user_id) AS student_last_name,
+    (SELECT name FROM bonus_types WHERE bonus_types.id = bonuses.bonus_type_id AND bonus_types.user_id = bonuses.user_id) AS bonus_type_name
 `
 
 type UseBonusParams struct {

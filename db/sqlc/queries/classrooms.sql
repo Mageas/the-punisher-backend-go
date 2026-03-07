@@ -12,22 +12,25 @@ RETURNING
         SELECT COUNT(*)
         FROM student_classrooms sc
         WHERE sc.classroom_id = classrooms.id
+          AND sc.user_id = classrooms.user_id
     ), 0)::bigint AS student_count,
     COALESCE((
         SELECT SUM(b.points)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN bonuses b ON b.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN bonuses b ON b.student_id = s.id AND b.user_id = s.user_id
         WHERE sc.classroom_id = classrooms.id
+          AND sc.user_id = classrooms.user_id
           AND b.user_id = classrooms.user_id
           AND b.used_at IS NULL
     ), 0)::double precision AS total_bonus_points,
     COALESCE((
         SELECT COUNT(*)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN penalties p ON p.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN penalties p ON p.student_id = s.id AND p.user_id = s.user_id
         WHERE sc.classroom_id = classrooms.id
+          AND sc.user_id = classrooms.user_id
           AND p.user_id = classrooms.user_id
     ), 0)::bigint AS total_penalty_count;
 
@@ -38,22 +41,25 @@ SELECT
         SELECT COUNT(*)
         FROM student_classrooms sc
         WHERE sc.classroom_id = c.id
+          AND sc.user_id = c.user_id
     ), 0)::bigint AS student_count,
     COALESCE((
         SELECT SUM(b.points)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN bonuses b ON b.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN bonuses b ON b.student_id = s.id AND b.user_id = s.user_id
         WHERE sc.classroom_id = c.id
+          AND sc.user_id = c.user_id
           AND b.user_id = c.user_id
           AND b.used_at IS NULL
     ), 0)::double precision AS total_bonus_points,
     COALESCE((
         SELECT COUNT(*)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN penalties p ON p.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN penalties p ON p.student_id = s.id AND p.user_id = s.user_id
         WHERE sc.classroom_id = c.id
+          AND sc.user_id = c.user_id
           AND p.user_id = c.user_id
     ), 0)::bigint AS total_penalty_count
 FROM classrooms c
@@ -82,22 +88,25 @@ SELECT
         SELECT COUNT(*)
         FROM student_classrooms sc
         WHERE sc.classroom_id = c.id
+          AND sc.user_id = c.user_id
     ), 0)::bigint AS student_count,
     COALESCE((
         SELECT SUM(b.points)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN bonuses b ON b.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN bonuses b ON b.student_id = s.id AND b.user_id = s.user_id
         WHERE sc.classroom_id = c.id
+          AND sc.user_id = c.user_id
           AND b.user_id = c.user_id
           AND b.used_at IS NULL
     ), 0)::double precision AS total_bonus_points,
     COALESCE((
         SELECT COUNT(*)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN penalties p ON p.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN penalties p ON p.student_id = s.id AND p.user_id = s.user_id
         WHERE sc.classroom_id = c.id
+          AND sc.user_id = c.user_id
           AND p.user_id = c.user_id
     ), 0)::bigint AS total_penalty_count
 FROM classrooms c
@@ -123,22 +132,25 @@ RETURNING
         SELECT COUNT(*)
         FROM student_classrooms sc
         WHERE sc.classroom_id = classrooms.id
+          AND sc.user_id = classrooms.user_id
     ), 0)::bigint AS student_count,
     COALESCE((
         SELECT SUM(b.points)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN bonuses b ON b.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN bonuses b ON b.student_id = s.id AND b.user_id = s.user_id
         WHERE sc.classroom_id = classrooms.id
+          AND sc.user_id = classrooms.user_id
           AND b.user_id = classrooms.user_id
           AND b.used_at IS NULL
     ), 0)::double precision AS total_bonus_points,
     COALESCE((
         SELECT COUNT(*)
         FROM student_classrooms sc
-        JOIN students s ON s.id = sc.student_id
-        JOIN penalties p ON p.student_id = s.id
+        JOIN students s ON s.id = sc.student_id AND s.user_id = sc.user_id
+        JOIN penalties p ON p.student_id = s.id AND p.user_id = s.user_id
         WHERE sc.classroom_id = classrooms.id
+          AND sc.user_id = classrooms.user_id
           AND p.user_id = classrooms.user_id
     ), 0)::bigint AS total_penalty_count;
 

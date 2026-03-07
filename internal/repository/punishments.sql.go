@@ -57,8 +57,9 @@ WHERE p.user_id = $1
     OR EXISTS (
       SELECT 1
       FROM student_classrooms sc
-      JOIN classrooms c ON c.id = sc.classroom_id
+      JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
       WHERE sc.student_id = p.student_id
+        AND sc.user_id = p.user_id
         AND sc.classroom_id = $11::uuid
         AND c.user_id = p.user_id
     )
@@ -121,8 +122,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM created_punishment p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
@@ -200,8 +201,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM created_punishment p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
@@ -288,8 +289,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM punishments p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.id = $1 AND p.user_id = $2 LIMIT 1
 `
@@ -348,8 +349,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM punishments p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.student_id = $1
   AND p.user_id = $2
@@ -434,8 +435,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM punishments p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 WHERE p.user_id = $1
   AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
@@ -458,8 +459,9 @@ WHERE p.user_id = $1
     OR EXISTS (
       SELECT 1
       FROM student_classrooms sc
-      JOIN classrooms c ON c.id = sc.classroom_id
+      JOIN classrooms c ON c.id = sc.classroom_id AND c.user_id = sc.user_id
       WHERE sc.student_id = p.student_id
+        AND sc.user_id = p.user_id
         AND sc.classroom_id = $11::uuid
         AND c.user_id = p.user_id
     )
@@ -566,8 +568,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM resolved_punishment p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 
@@ -633,8 +635,8 @@ SELECT
     pt.name AS punishment_type_name,
     r.name AS triggering_rule_name
 FROM updated_punishment p
-JOIN students s ON s.id = p.student_id
-JOIN punishment_types pt ON pt.id = p.punishment_type_id
+JOIN students s ON s.id = p.student_id AND s.user_id = p.user_id
+JOIN punishment_types pt ON pt.id = p.punishment_type_id AND pt.user_id = p.user_id
 LEFT JOIN rules r ON r.id = p.triggering_rule_id AND r.user_id = p.user_id
 `
 

@@ -89,6 +89,23 @@ Formats métier associés:
 - `week_pattern`: `every_week`, `even_weeks`, `odd_weeks`
 - `start_date` / `end_date`: `YYYY-MM-DD`
 
+## Isolation des données métier
+
+Toutes les requêtes SQL métier sont scoppées par `user_id` pour les domaines:
+- `students`, `classrooms`, `student_classrooms`
+- `bonus_types`, `bonuses`
+- `penalty_types`, `penalties`
+- `punishment_types`, `punishments`, `rules`
+- `schedule_slots`, `schedule_slot_classrooms`, `schedule_exceptions`
+- agrégats métier (`dashboard`, historique élève)
+
+Le schéma PostgreSQL empêche désormais aussi les relations cross-user via des contraintes composites basées sur `(user_id, id)`.
+
+Hors périmètre de cette règle:
+- les flux d'authentification
+- les tables de tokens
+- la gestion des cookies refresh
+
 ## Configuration CORS
 
 Variables disponibles (dans `.env`) :
