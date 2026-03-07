@@ -3,7 +3,9 @@
 package integration
 
 import (
+	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -586,7 +588,8 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 		ResultingPunishmentTypeID: punishmentType.ID.String(),
 		PenaltyTypeID:             penaltyType.ID.String(),
 		Threshold:                 2,
-		DueAtAfterDays:            1,
+		DueAtAfterDays:            ptr(int32(1)),
+		DueAtMode:                 "days",
 		Mode:                      "every",
 		IsActive:                  nil,
 	})
@@ -596,12 +599,15 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	if !created.IsActive {
 		t.Fatalf("expected default is_active=true")
 	}
+	if created.DueAtMode != "days" || created.DueAtAfterLessons != nil {
+		t.Fatalf("unexpected days rule payload: %+v", created)
+	}
 
 	got, err := svc.GetRule(ctx, user.ID, created.ID)
 	if err != nil {
 		t.Fatalf("GetRule returned error: %v", err)
 	}
-	if got.ID != created.ID {
+	if got.ID != created.ID || got.DueAtMode != "days" {
 		t.Fatalf("expected same rule id")
 	}
 
@@ -616,16 +622,20 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	newName := "Rule updated"
 	newMode := "after"
 	newThreshold := int32(3)
-	newDueDays := int32(4)
+	nextLessonsMode := "next_lessons"
+	nextLessonsCount := int32(1)
+	nextLessonsDays := int32(0)
 	newActive := false
 	newPenaltyID := otherPenaltyType.ID.String()
 	newPunishmentID := otherPunishmentType.ID.String()
 
-	updated, err := svc.UpdateRule(ctx, user.ID, created.ID, dto.UpdateRuleDto{
+	updatedToNextLessons, err := svc.UpdateRule(ctx, user.ID, created.ID, dto.UpdateRuleDto{
 		Name:                      &newName,
 		Mode:                      &newMode,
 		Threshold:                 &newThreshold,
-		DueAtAfterDays:            &newDueDays,
+		DueAtAfterDays:            &nextLessonsDays,
+		DueAtMode:                 &nextLessonsMode,
+		DueAtAfterLessons:         &nextLessonsCount,
 		IsActive:                  &newActive,
 		PenaltyTypeID:             &newPenaltyID,
 		ResultingPunishmentTypeID: &newPunishmentID,
@@ -633,8 +643,27 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateRule returned error: %v", err)
 	}
-	if updated.Name != newName || updated.Mode != newMode || updated.IsActive != newActive {
-		t.Fatalf("unexpected updated rule: %+v", updated)
+	if updatedToNextLessons.Name != newName || updatedToNextLessons.Mode != newMode || updatedToNextLessons.IsActive != newActive {
+		t.Fatalf("unexpected updated rule: %+v", updatedToNextLessons)
+	}
+	if updatedToNextLessons.DueAtMode != "next_lessons" || updatedToNextLessons.DueAtAfterLessons == nil || *updatedToNextLessons.DueAtAfterLessons != nextLessonsCount {
+		t.Fatalf("expected next_lessons rule, got %+v", updatedToNextLessons)
+	}
+
+	daysMode := "days"
+	newDueDays := int32(4)
+	updatedBackToDays, err := svc.UpdateRule(ctx, user.ID, created.ID, dto.UpdateRuleDto{
+		DueAtMode:      &daysMode,
+		DueAtAfterDays: &newDueDays,
+	})
+	if err != nil {
+		t.Fatalf("UpdateRule(back to days) returned error: %v", err)
+	}
+	if updatedBackToDays.DueAtMode != "days" || updatedBackToDays.DueAtAfterDays != newDueDays {
+		t.Fatalf("expected days rule after reset, got %+v", updatedBackToDays)
+	}
+	if updatedBackToDays.DueAtAfterLessons != nil {
+		t.Fatalf("expected next_lessons fields to be cleared, got %+v", updatedBackToDays)
 	}
 
 	if err := svc.DeleteRule(ctx, user.ID, created.ID); err != nil {
@@ -649,17 +678,72 @@ func TestRuleService_CRUDAndValidation_WithQuerier(t *testing.T) {
 		ResultingPunishmentTypeID: "not-a-uuid",
 		PenaltyTypeID:             penaltyType.ID.String(),
 		Threshold:                 1,
-		DueAtAfterDays:            0,
+		DueAtAfterDays:            ptr(int32(0)),
+		DueAtMode:                 "days",
 		Mode:                      "at",
 	})
 	if !errors.Is(err, api.ErrInvalidRequestBody) {
 		t.Fatalf("expected ErrInvalidRequestBody on invalid uuid, got %v", err)
 	}
 
-	_, err = svc.UpdateRule(ctx, user.ID, uuid.New(), dto.UpdateRuleDto{PenaltyTypeID: ptr("bad-uuid")})
+	invalidUpdateRule := mustCreateRuleRecord(t, repo, ctx, user.ID, penaltyType.ID, punishmentType.ID, "at", 1, 0, true)
+	_, err = svc.UpdateRule(ctx, user.ID, invalidUpdateRule.ID, dto.UpdateRuleDto{PenaltyTypeID: ptr("bad-uuid")})
 	if !errors.Is(err, api.ErrInvalidRequestBody) {
 		t.Fatalf("expected ErrInvalidRequestBody on update invalid uuid, got %v", err)
 	}
+}
+
+func TestRuleService_NextLessonsValidation_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	svc := NewRuleService(repo)
+
+	_, err := svc.CreateRule(ctx, user.ID, dto.RequestRuleDto{
+		Name:                      "Missing due_at_mode",
+		ResultingPunishmentTypeID: punishmentType.ID.String(),
+		PenaltyTypeID:             penaltyType.ID.String(),
+		Threshold:                 1,
+		DueAtAfterDays:            ptr(int32(0)),
+		Mode:                      "at",
+	})
+	assertAPIError(t, err, http.StatusBadRequest, "validation_failed")
+
+	_, err = svc.CreateRule(ctx, user.ID, dto.RequestRuleDto{
+		Name:                      "Missing days config",
+		ResultingPunishmentTypeID: punishmentType.ID.String(),
+		PenaltyTypeID:             penaltyType.ID.String(),
+		Threshold:                 1,
+		DueAtMode:                 "days",
+		Mode:                      "at",
+	})
+	assertAPIError(t, err, http.StatusBadRequest, "validation_failed")
+
+	_, err = svc.CreateRule(ctx, user.ID, dto.RequestRuleDto{
+		Name:                      "Missing next lessons config",
+		ResultingPunishmentTypeID: punishmentType.ID.String(),
+		PenaltyTypeID:             penaltyType.ID.String(),
+		Threshold:                 1,
+		DueAtMode:                 "next_lessons",
+		Mode:                      "at",
+	})
+	assertAPIError(t, err, http.StatusBadRequest, "validation_failed")
+
+	nextLessonCount := int32(1)
+	_, err = svc.CreateRule(ctx, user.ID, dto.RequestRuleDto{
+		Name:                      "DueAtAfterDays must be zero",
+		ResultingPunishmentTypeID: punishmentType.ID.String(),
+		PenaltyTypeID:             penaltyType.ID.String(),
+		Threshold:                 1,
+		DueAtAfterDays:            ptr(int32(1)),
+		DueAtMode:                 "next_lessons",
+		DueAtAfterLessons:         &nextLessonCount,
+		Mode:                      "at",
+	})
+	assertAPIError(t, err, http.StatusBadRequest, "validation_failed")
 }
 
 func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
@@ -677,7 +761,7 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 
 	occurredAt := time.Now().UTC().Add(-24 * time.Hour)
 	label := "Retard constate"
-	created, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &occurredAt, &label)
+	created, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, nil, &occurredAt, &label)
 	if err != nil {
 		t.Fatalf("CreatePenalty returned error: %v", err)
 	}
@@ -752,6 +836,260 @@ func TestPenaltyService_CRUDAndRuleTrigger_WithQuerier(t *testing.T) {
 	}
 }
 
+func TestPenaltyService_RuleTrigger_UsesNextLessonsDueAt_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   student.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	scheduleSvc := NewScheduleService(repo)
+	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	weekday := weekdayTextFromTime(tomorrow.Weekday())
+	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekday,
+		StartTime:    "09:00",
+		EndTime:      "10:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroom.ID.String()},
+	})
+	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekday,
+		StartTime:    "11:00",
+		EndTime:      "12:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroom.ID.String()},
+	})
+
+	rule := mustCreateNextLessonsRuleRecord(t, repo, ctx, user.ID, penaltyType.ID, punishmentType.ID, "at", 1, 2, true)
+
+	penaltySvc := NewPenaltyService(repo)
+	punishmentSvc := NewPunishmentService(repo)
+
+	if _, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, nil, nil, nil); err != nil {
+		t.Fatalf("CreatePenalty returned error: %v", err)
+	}
+
+	punishments, total, err := punishmentSvc.ListPunishmentsByStudent(ctx, user.ID, student.ID, nil, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPunishmentsByStudent returned error: %v", err)
+	}
+	if total != 1 || len(punishments) != 1 {
+		t.Fatalf("expected one automated punishment, got total=%d len=%d", total, len(punishments))
+	}
+
+	expectedDueAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 11, 0, 0, 0, time.Local)
+	assertTimeEqualToPostgresPrecision(t, "due_at", punishments[0].DueAt, expectedDueAt)
+	if !punishments[0].Automated {
+		t.Fatalf("expected automated punishment")
+	}
+	if punishments[0].TriggeringRuleID == nil || *punishments[0].TriggeringRuleID != rule.ID {
+		t.Fatalf("expected triggering rule id %s, got %+v", rule.ID, punishments[0].TriggeringRuleID)
+	}
+}
+
+func TestPenaltyService_RuleTrigger_UsesProvidedClassroomForNextLessons_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	classroomA := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	classroomB := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+
+	for _, classroomID := range []uuid.UUID{classroomA.ID, classroomB.ID} {
+		if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+			StudentID:   student.ID,
+			ClassroomID: classroomID,
+			UserID:      user.ID,
+		}); err != nil {
+			t.Fatalf("failed to add student to classroom %s: %v", classroomID, err)
+		}
+	}
+
+	scheduleSvc := NewScheduleService(repo)
+	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	weekday := weekdayTextFromTime(tomorrow.Weekday())
+	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekday,
+		StartTime:    "09:00",
+		EndTime:      "10:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroomA.ID.String()},
+	})
+	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekday,
+		StartTime:    "11:00",
+		EndTime:      "12:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroomB.ID.String()},
+	})
+
+	rule := mustCreateNextLessonsRuleRecord(t, repo, ctx, user.ID, penaltyType.ID, punishmentType.ID, "at", 1, 1, true)
+
+	penaltySvc := NewPenaltyService(repo)
+	punishmentSvc := NewPunishmentService(repo)
+	selectedClassroomID := classroomB.ID
+
+	if _, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &selectedClassroomID, nil, nil); err != nil {
+		t.Fatalf("CreatePenalty returned error: %v", err)
+	}
+
+	punishments, total, err := punishmentSvc.ListPunishmentsByStudent(ctx, user.ID, student.ID, nil, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPunishmentsByStudent returned error: %v", err)
+	}
+	if total != 1 || len(punishments) != 1 {
+		t.Fatalf("expected one automated punishment, got total=%d len=%d", total, len(punishments))
+	}
+
+	expectedDueAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 11, 0, 0, 0, time.Local)
+	assertTimeEqualToPostgresPrecision(t, "due_at", punishments[0].DueAt, expectedDueAt)
+	if punishments[0].TriggeringRuleID == nil || *punishments[0].TriggeringRuleID != rule.ID {
+		t.Fatalf("expected triggering rule id %s, got %+v", rule.ID, punishments[0].TriggeringRuleID)
+	}
+}
+
+func TestPenaltyService_RuleTrigger_FailsWhenClassroomCannotBeResolved_WithQuerier(t *testing.T) {
+	db := getIntegrationDB(t)
+	ctx := context.Background()
+	repo := repository.New(db.pool)
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	classroomA := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	classroomB := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+
+	for _, classroomID := range []uuid.UUID{classroomA.ID, classroomB.ID} {
+		if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+			StudentID:   student.ID,
+			ClassroomID: classroomID,
+			UserID:      user.ID,
+		}); err != nil {
+			t.Fatalf("failed to add student to classroom %s: %v", classroomID, err)
+		}
+	}
+
+	scheduleSvc := NewScheduleService(repo)
+	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	weekday := weekdayTextFromTime(tomorrow.Weekday())
+	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekday,
+		StartTime:    "09:00",
+		EndTime:      "10:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroomA.ID.String()},
+	})
+	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekday,
+		StartTime:    "11:00",
+		EndTime:      "12:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroomB.ID.String()},
+	})
+
+	_ = mustCreateNextLessonsRuleRecord(t, repo, ctx, user.ID, penaltyType.ID, punishmentType.ID, "at", 1, 1, true)
+
+	penaltySvc := NewPenaltyService(repo)
+	punishmentSvc := NewPunishmentService(repo)
+
+	_, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, nil, nil, nil)
+	if !errors.Is(err, api.ErrPunishmentClassroomNotResolved) {
+		t.Fatalf("expected ErrPunishmentClassroomNotResolved, got %v", err)
+	}
+
+	penalties, totalPenalties, err := penaltySvc.ListPenaltiesByStudent(ctx, user.ID, student.ID, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPenaltiesByStudent returned error: %v", err)
+	}
+	if totalPenalties != 0 || len(penalties) != 0 {
+		t.Fatalf("expected rolled back penalty creation, got total=%d len=%d", totalPenalties, len(penalties))
+	}
+
+	punishments, totalPunishments, err := punishmentSvc.ListPunishmentsByStudent(ctx, user.ID, student.ID, nil, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPunishmentsByStudent returned error: %v", err)
+	}
+	if totalPunishments != 0 || len(punishments) != 0 {
+		t.Fatalf("expected no punishment after rollback, got total=%d len=%d", totalPunishments, len(punishments))
+	}
+}
+
+func TestPenaltyService_RuleTrigger_FailsWhenNextLessonNoLongerComputable_WithQuerier(t *testing.T) {
+	db := getIntegrationDB(t)
+	ctx := context.Background()
+	repo := repository.New(db.pool)
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+
+	scheduleSvc := NewScheduleService(repo)
+	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	slot := mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
+		Weekday:      weekdayTextFromTime(tomorrow.Weekday()),
+		StartTime:    "09:00",
+		EndTime:      "10:00",
+		WeekPattern:  "every_week",
+		ClassroomIDs: []string{classroom.ID.String()},
+	})
+
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   student.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	_ = mustCreateNextLessonsRuleRecord(t, repo, ctx, user.ID, penaltyType.ID, punishmentType.ID, "at", 1, 1, true)
+
+	if err := scheduleSvc.DeleteScheduleSlot(ctx, user.ID, slot.ID); err != nil {
+		t.Fatalf("DeleteScheduleSlot returned error: %v", err)
+	}
+
+	penaltySvc := NewPenaltyService(repo)
+	punishmentSvc := NewPunishmentService(repo)
+
+	_, err := penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, nil, nil, nil)
+	if !errors.Is(err, api.ErrRuleDueAtNotComputable) {
+		t.Fatalf("expected ErrRuleDueAtNotComputable, got %v", err)
+	}
+
+	penalties, totalPenalties, err := penaltySvc.ListPenaltiesByStudent(ctx, user.ID, student.ID, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPenaltiesByStudent returned error: %v", err)
+	}
+	if totalPenalties != 0 || len(penalties) != 0 {
+		t.Fatalf("expected rolled back penalty creation, got total=%d len=%d", totalPenalties, len(penalties))
+	}
+
+	punishments, totalPunishments, err := punishmentSvc.ListPunishmentsByStudent(ctx, user.ID, student.ID, nil, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPunishmentsByStudent returned error: %v", err)
+	}
+	if totalPunishments != 0 || len(punishments) != 0 {
+		t.Fatalf("expected no punishment after rollback, got total=%d len=%d", totalPunishments, len(punishments))
+	}
+}
+
 func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
@@ -759,15 +1097,22 @@ func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	user := mustCreateUserRecord(t, repo, ctx)
 	penaltySvc := NewPenaltyService(repo)
 
-	_, err := penaltySvc.CreatePenalty(ctx, user.ID, uuid.New(), uuid.New(), nil, nil)
+	_, err := penaltySvc.CreatePenalty(ctx, user.ID, uuid.New(), uuid.New(), nil, nil, nil)
 	if !errors.Is(err, api.ErrStudentNotFound) {
 		t.Fatalf("expected ErrStudentNotFound, got %v", err)
 	}
 
 	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
-	_, err = penaltySvc.CreatePenalty(ctx, user.ID, student.ID, uuid.New(), nil, nil)
+	_, err = penaltySvc.CreatePenalty(ctx, user.ID, student.ID, uuid.New(), nil, nil, nil)
 	if !errors.Is(err, api.ErrPenaltyTypeNotFound) {
 		t.Fatalf("expected ErrPenaltyTypeNotFound, got %v", err)
+	}
+
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	missingClassroomID := uuid.New()
+	_, err = penaltySvc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &missingClassroomID, nil, nil)
+	if !errors.Is(err, api.ErrClassroomNotFound) {
+		t.Fatalf("expected ErrClassroomNotFound, got %v", err)
 	}
 
 	_, _, err = penaltySvc.ListPenaltiesByStudent(ctx, user.ID, uuid.New(), 20, 0)
@@ -778,6 +1123,31 @@ func TestPenaltyService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	_, err = penaltySvc.UpdatePenalty(ctx, user.ID, uuid.New(), nil, nil)
 	if !errors.Is(err, api.ErrPenaltyNotFound) {
 		t.Fatalf("expected ErrPenaltyNotFound on update, got %v", err)
+	}
+}
+
+func TestPenaltyService_CreatePenalty_FailsWhenProvidedClassroomDoesNotBelongToStudent_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPenaltyService(repo)
+
+	classroomID := classroom.ID
+	_, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &classroomID, nil, nil)
+	if !errors.Is(err, api.ErrPunishmentStudentNotInClassroom) {
+		t.Fatalf("expected ErrPunishmentStudentNotInClassroom, got %v", err)
+	}
+
+	penalties, total, err := svc.ListPenaltiesByStudent(ctx, user.ID, student.ID, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPenaltiesByStudent returned error: %v", err)
+	}
+	if total != 0 || len(penalties) != 0 {
+		t.Fatalf("expected no penalty to be created, got total=%d len=%d", total, len(penalties))
 	}
 }
 
@@ -801,11 +1171,11 @@ func TestPenaltyService_ListPenaltiesFilters_WithQuerier(t *testing.T) {
 	penaltyTypeB := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
 	svc := NewPenaltyService(repo)
 
-	penaltyInClass, err := svc.CreatePenalty(ctx, user.ID, studentInClass.ID, penaltyTypeA.ID, nil, nil)
+	penaltyInClass, err := svc.CreatePenalty(ctx, user.ID, studentInClass.ID, penaltyTypeA.ID, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("CreatePenalty(in class) returned error: %v", err)
 	}
-	if _, err := svc.CreatePenalty(ctx, user.ID, studentOutClass.ID, penaltyTypeB.ID, nil, nil); err != nil {
+	if _, err := svc.CreatePenalty(ctx, user.ID, studentOutClass.ID, penaltyTypeB.ID, nil, nil, nil); err != nil {
 		t.Fatalf("CreatePenalty(out class) returned error: %v", err)
 	}
 
@@ -857,11 +1227,11 @@ func TestPenaltyService_ListPenalties_UsesOccurredAtForFilterAndSort_WithQuerier
 	recentOccurred := time.Now().UTC()
 	backdatedOccurred := recentOccurred.AddDate(0, 0, -4)
 
-	recentPenalty, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &recentOccurred, nil)
+	recentPenalty, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, nil, &recentOccurred, nil)
 	if err != nil {
 		t.Fatalf("CreatePenalty(recent) returned error: %v", err)
 	}
-	backdatedPenalty, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, &backdatedOccurred, nil)
+	backdatedPenalty, err := svc.CreatePenalty(ctx, user.ID, student.ID, penaltyType.ID, nil, &backdatedOccurred, nil)
 	if err != nil {
 		t.Fatalf("CreatePenalty(backdated) returned error: %v", err)
 	}

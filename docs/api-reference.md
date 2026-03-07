@@ -386,7 +386,9 @@ interface ReturnRuleDto {
   penalty_type_id: string;
   penalty_type_name: string;
   threshold: number;
-  due_at_after_days: number;
+  due_at_after_days: number | null;
+  due_at_mode: "days" | "next_lessons";
+  due_at_after_lessons: number | null;
   mode: "after" | "at" | "every";
   is_active: boolean;
   created_at: string;
@@ -1118,12 +1120,19 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 {
   "student_id": "11111111-1111-1111-1111-111111111111",
   "penalty_type_id": "44444444-4444-4444-4444-444444444444",
+  "classroom_id": "33333333-3333-3333-3333-333333333333",
   "occurred_at": "2026-02-10T09:00:00Z",
   "evaluation_label": "Retard"
 }
 ```
+- `classroom_id` est optionnel et n'est pas persisté.
+- Si `classroom_id` est fourni mais que la classe n'existe pas, l'API répond `404 classroom_not_found`.
+- Si `classroom_id` est fourni mais que l'élève n'appartient pas à cette classe, l'API répond `409 punishment_student_not_in_classroom`.
+- Il est utilisé pour calculer l'échéance si une règle active en `due_at_mode=next_lessons` se déclenche.
+- Si `classroom_id` est absent et que l'élève a exactement une classe, cette classe est utilisée automatiquement.
+- Si `classroom_id` est absent alors qu'une règle `next_lessons` a besoin d'une classe et qu'aucune classe unique ne peut être déduite, l'API répond `409 punishment_classroom_not_resolved`.
 - 201: `ReturnPenaltyDto`
-- Erreurs: `validation_failed`, `invalid_request_body`, `student_not_found`, `penalty_type_not_found`, `unauthorized`
+- Erreurs: `validation_failed`, `invalid_request_body`, `student_not_found`, `penalty_type_not_found`, `classroom_not_found`, `punishment_student_not_in_classroom`, `punishment_classroom_not_resolved`, `rule_due_at_not_computable`, `unauthorized`
 
 ### GET `/v1/penalties/`
 - Auth: oui
@@ -1280,18 +1289,37 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 
 ### POST `/v1/rules/`
 - Auth: oui
-- Body:
+- `due_at_mode` est obligatoire.
+- Body possible en mode `days`:
 ```json
 {
   "name": "3 retards = punition",
   "resulting_punishment_type_id": "55555555-5555-5555-5555-555555555555",
   "penalty_type_id": "44444444-4444-4444-4444-444444444444",
   "threshold": 3,
+  "due_at_mode": "days",
   "due_at_after_days": 2,
   "mode": "after",
   "is_active": true
 }
 ```
+- Body possible en mode `next_lessons`:
+```json
+{
+  "name": "3 retards = devoir au prochain cours",
+  "resulting_punishment_type_id": "55555555-5555-5555-5555-555555555555",
+  "penalty_type_id": "44444444-4444-4444-4444-444444444444",
+  "threshold": 3,
+  "due_at_mode": "next_lessons",
+  "due_at_after_lessons": 2,
+  "mode": "after",
+  "is_active": true
+}
+```
+- Règles métier:
+  - `due_at_mode=days`: `due_at_after_days` est requis et doit être `>= 0`; `due_at_after_lessons` doit être absent.
+  - `due_at_mode=next_lessons`: `due_at_after_lessons` est requis et doit être entre `1` et `5`; `due_at_after_days` peut être omis ou `null`.
+  - pour `next_lessons`, l'échéance automatique `due_at` est fixée au début du cours calculé à partir de la classe transmise lors de `POST /v1/penalties/`, ou de l'unique classe de l'élève si elle peut être déduite.
 - 201: `ReturnRuleDto`
 - Erreurs: `validation_failed`, `invalid_request_body`, `punishment_type_not_found`, `penalty_type_not_found`, `unauthorized`
 
@@ -1313,6 +1341,9 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 {
   "name": "4 retards = punition",
   "threshold": 4,
+  "due_at_mode": "next_lessons",
+  "due_at_after_days": null,
+  "due_at_after_lessons": 1,
   "mode": "every",
   "is_active": false
 }
@@ -1536,6 +1567,36 @@ Exemple 200 (tronqué):
 - `punishment_already_resolved`
 ```json
 { "error": "punishment_already_resolved", "error_code": 409 }
+```
+- `punishment_classroom_not_resolved`
+```json
+{
+  "error": "punishment_classroom_not_resolved",
+  "error_code": 409,
+  "error_details": [
+    {
+      "field": "classroom_id",
+      "error": "punishment_classroom_not_resolved"
+    }
+  ]
+}
+```
+- `punishment_student_not_in_classroom`
+```json
+{
+  "error": "punishment_student_not_in_classroom",
+  "error_code": 409,
+  "error_details": [
+    {
+      "field": "classroom_id",
+      "error": "punishment_student_not_in_classroom"
+    }
+  ]
+}
+```
+- `rule_due_at_not_computable`
+```json
+{ "error": "rule_due_at_not_computable", "error_code": 409 }
 ```
 - `bonus_already_used`
 ```json

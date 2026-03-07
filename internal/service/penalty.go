@@ -20,6 +20,7 @@ type PenaltyService interface {
 		userID uuid.UUID,
 		studentID uuid.UUID,
 		penaltyTypeID uuid.UUID,
+		classroomID *uuid.UUID,
 		occurredAt *time.Time,
 		evaluationLabel *string,
 	) (*dto.ReturnPenaltyDto, error)
@@ -38,6 +39,7 @@ type PenaltyService interface {
 
 type penaltyService struct {
 	repo repository.Querier
+	now  func() time.Time
 }
 
 type transactionalPenaltyRepo interface {
@@ -46,7 +48,10 @@ type transactionalPenaltyRepo interface {
 }
 
 func NewPenaltyService(repo repository.Querier) PenaltyService {
-	return &penaltyService{repo: repo}
+	return &penaltyService{
+		repo: repo,
+		now:  time.Now,
+	}
 }
 
 func (s *penaltyService) CreatePenalty(
@@ -54,6 +59,7 @@ func (s *penaltyService) CreatePenalty(
 	userID uuid.UUID,
 	studentID uuid.UUID,
 	penaltyTypeID uuid.UUID,
+	classroomID *uuid.UUID,
 	occurredAt *time.Time,
 	evaluationLabel *string,
 ) (*dto.ReturnPenaltyDto, error) {
@@ -64,7 +70,7 @@ func (s *penaltyService) CreatePenalty(
 
 	var penalty repository.CreatePenaltyRow
 	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
-		createdPenalty, createErr := s.createPenaltyWithRepo(ctx, txQuerier, userID, studentID, penaltyTypeID, occurredAt, evaluationLabel)
+		createdPenalty, createErr := s.createPenaltyWithRepo(ctx, txQuerier, userID, studentID, penaltyTypeID, classroomID, occurredAt, evaluationLabel)
 		if createErr != nil {
 			return createErr
 		}
@@ -86,6 +92,7 @@ func (s *penaltyService) createPenaltyWithRepo(
 	userID uuid.UUID,
 	studentID uuid.UUID,
 	penaltyTypeID uuid.UUID,
+	classroomID *uuid.UUID,
 	occurredAt *time.Time,
 	evaluationLabel *string,
 ) (repository.CreatePenaltyRow, error) {
@@ -103,6 +110,17 @@ func (s *penaltyService) createPenaltyWithRepo(
 		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to get penalty type: %w", err)
 	}
 
+	if classroomID != nil {
+		if _, err := resolvePunishmentClassroomID(ctx, repo, userID, studentID, classroomID); err != nil {
+			if errors.Is(err, api.ErrClassroomNotFound) ||
+				errors.Is(err, api.ErrPunishmentClassroomNotResolved) ||
+				errors.Is(err, api.ErrPunishmentStudentNotInClassroom) {
+				return repository.CreatePenaltyRow{}, err
+			}
+			return repository.CreatePenaltyRow{}, fmt.Errorf("failed to validate punishment classroom: %w", err)
+		}
+	}
+
 	penalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
 		UserID:          userID,
 		StudentID:       studentID,
@@ -114,14 +132,21 @@ func (s *penaltyService) createPenaltyWithRepo(
 		return repository.CreatePenaltyRow{}, fmt.Errorf("failed to create penalty: %w", err)
 	}
 
-	if err := s.evaluateRulesForPenalty(ctx, repo, userID, studentID, penaltyTypeID); err != nil {
+	if err := s.evaluateRulesForPenalty(ctx, repo, userID, studentID, penaltyTypeID, classroomID); err != nil {
 		return repository.CreatePenaltyRow{}, err
 	}
 
 	return penalty, nil
 }
 
-func (s *penaltyService) evaluateRulesForPenalty(ctx context.Context, repo repository.Querier, userID uuid.UUID, studentID uuid.UUID, penaltyTypeID uuid.UUID) error {
+func (s *penaltyService) evaluateRulesForPenalty(
+	ctx context.Context,
+	repo repository.Querier,
+	userID uuid.UUID,
+	studentID uuid.UUID,
+	penaltyTypeID uuid.UUID,
+	requestedClassroomID *uuid.UUID,
+) error {
 	rules, err := repo.ListActiveRulesByUserAndPenaltyType(ctx, repository.ListActiveRulesByUserAndPenaltyTypeParams{
 		UserID:        userID,
 		PenaltyTypeID: penaltyTypeID,
@@ -143,15 +168,37 @@ func (s *penaltyService) evaluateRulesForPenalty(ctx context.Context, repo repos
 		return fmt.Errorf("failed to count penalties for rule evaluation: %w", err)
 	}
 
+	referenceNow := s.now()
+	var resolvedClassroomID *uuid.UUID
+	classroomResolved := false
 	for _, rule := range rules {
 		if !shouldTriggerRule(rule.Mode, rule.Threshold, penaltyCount) {
 			continue
 		}
 
-		dueAt := time.Now().UTC().Add(time.Duration(rule.DueAtAfterDays) * 24 * time.Hour)
+		if rule.DueAtMode == ruleDueAtModeNextLessons && !classroomResolved {
+			resolvedClassroomID, err = resolvePunishmentClassroomID(ctx, repo, userID, studentID, requestedClassroomID)
+			if err != nil {
+				if errors.Is(err, api.ErrClassroomNotFound) ||
+					errors.Is(err, api.ErrPunishmentClassroomNotResolved) ||
+					errors.Is(err, api.ErrPunishmentStudentNotInClassroom) {
+					return err
+				}
+				return fmt.Errorf("failed to resolve punishment classroom: %w", err)
+			}
+			classroomResolved = true
+		}
+
+		dueAt, err := computeRuleDueAt(ctx, repo, userID, rule, resolvedClassroomID, referenceNow)
+		if err != nil {
+			if errors.Is(err, api.ErrRuleDueAtNotComputable) || errors.Is(err, api.ErrPunishmentClassroomNotResolved) {
+				return err
+			}
+			return fmt.Errorf("failed to compute rule due_at: %w", err)
+		}
 		triggeringRuleID := rule.ID
 
-		_, err := repo.CreatePunishmentFromRule(ctx, repository.CreatePunishmentFromRuleParams{
+		_, err = repo.CreatePunishmentFromRule(ctx, repository.CreatePunishmentFromRuleParams{
 			UserID:           userID,
 			StudentID:        studentID,
 			PunishmentTypeID: rule.ResultingPunishmentTypeID,

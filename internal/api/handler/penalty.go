@@ -48,7 +48,12 @@ func (h *PenaltyHandler) CreatePenalty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	penalty, err := h.service.CreatePenalty(r.Context(), userID, studentID, penaltyTypeID, occurredAt, req.EvaluationLabel)
+	classroomID, ok := parseOptionalBodyUUID(w, req.ClassroomID, "classroom_id")
+	if !ok {
+		return
+	}
+
+	penalty, err := h.service.CreatePenalty(r.Context(), userID, studentID, penaltyTypeID, classroomID, occurredAt, req.EvaluationLabel)
 	if err != nil {
 		web.WriteFromError(w, err)
 		return
