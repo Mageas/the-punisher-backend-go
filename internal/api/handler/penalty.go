@@ -62,6 +62,57 @@ func (h *PenaltyHandler) CreatePenalty(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusCreated, penalty, nil)
 }
 
+func (h *PenaltyHandler) CreatePenaltiesInClassroom(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
+	if !ok {
+		return
+	}
+
+	var req dto.ClassroomPenaltiesBatchRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	studentIDs, ok := parseBodyUUIDSlice(w, req.StudentIDs, "student_ids")
+	if !ok {
+		return
+	}
+
+	penaltyTypeID, ok := parseBodyUUID(w, req.PenaltyTypeID, "penalty_type_id")
+	if !ok {
+		return
+	}
+
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	penalties, err := h.service.CreatePenaltiesInClassroom(
+		r.Context(),
+		userID,
+		classroomID,
+		studentIDs,
+		penaltyTypeID,
+		occurredAt,
+		req.EvaluationLabel,
+	)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusCreated, penalties, nil)
+}
+
 func (h *PenaltyHandler) ListPenalties(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 

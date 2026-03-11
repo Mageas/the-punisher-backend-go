@@ -45,6 +45,28 @@ func parseOptionalBodyUUID(w http.ResponseWriter, rawValue *string, field string
 	return &parsed, true
 }
 
+func parseBodyUUIDSlice(w http.ResponseWriter, rawValues []string, field string) ([]uuid.UUID, bool) {
+	seen := make(map[uuid.UUID]struct{}, len(rawValues))
+	values := make([]uuid.UUID, 0, len(rawValues))
+
+	for _, rawValue := range rawValues {
+		parsed, err := uuid.Parse(strings.TrimSpace(rawValue))
+		if err != nil {
+			writeUUIDParseError(w, api.ErrInvalidRequestBody, field)
+			return nil, false
+		}
+
+		if _, exists := seen[parsed]; exists {
+			continue
+		}
+
+		seen[parsed] = struct{}{}
+		values = append(values, parsed)
+	}
+
+	return values, true
+}
+
 func writeUUIDParseError(w http.ResponseWriter, apiErr *api.APIError, field string) {
 	web.WriteAPIError(w, apiErr, []api.ErrorDetail{
 		{Field: field, Error: fmt.Sprintf(api.KeyValidationMalformedParameter, "uuid")},

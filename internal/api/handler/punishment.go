@@ -63,6 +63,63 @@ func (h *PunishmentHandler) CreatePunishment(w http.ResponseWriter, r *http.Requ
 	web.WriteJSON(w, http.StatusCreated, punishment, nil)
 }
 
+func (h *PunishmentHandler) CreatePunishmentsInClassroom(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
+	if !ok {
+		return
+	}
+
+	var req dto.ClassroomPunishmentsBatchRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	studentIDs, ok := parseBodyUUIDSlice(w, req.StudentIDs, "student_ids")
+	if !ok {
+		return
+	}
+
+	punishmentTypeID, ok := parseBodyUUID(w, req.PunishmentTypeID, "punishment_type_id")
+	if !ok {
+		return
+	}
+
+	dueAt, ok := parseBodyRFC3339(w, req.DueAt, "due_at")
+	if !ok {
+		return
+	}
+
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	punishments, err := h.service.CreatePunishmentsInClassroom(
+		r.Context(),
+		userID,
+		classroomID,
+		studentIDs,
+		punishmentTypeID,
+		dueAt,
+		occurredAt,
+		req.EvaluationLabel,
+	)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusCreated, punishments, nil)
+}
+
 func (h *PunishmentHandler) ListPunishments(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 

@@ -5,7 +5,14 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/api/handler"
 )
 
-func (app *application) mountClassroomRoutes(r chi.Router, classroomHandler *handler.ClassroomHandler, scheduleHandler *handler.ScheduleHandler) {
+func (app *application) mountClassroomRoutes(
+	r chi.Router,
+	classroomHandler *handler.ClassroomHandler,
+	scheduleHandler *handler.ScheduleHandler,
+	studentHandler *handler.StudentHandler,
+	penaltyHandler *handler.PenaltyHandler,
+	punishmentHandler *handler.PunishmentHandler,
+) {
 	r.Route("/classrooms", func(r chi.Router) {
 		r.Post("/", classroomHandler.CreateClassroom)
 		r.Get("/", classroomHandler.ListClassrooms)
@@ -16,7 +23,10 @@ func (app *application) mountClassroomRoutes(r chi.Router, classroomHandler *han
 		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
 		r.Delete("/{classroom_id}", classroomHandler.DeleteClassroom)
 		r.Post("/{classroom_id}/students", classroomHandler.AddStudentToClassroom)
+		r.Post("/{classroom_id}/students/bulk", studentHandler.CreateStudentsInClassroom)
 		r.Delete("/{classroom_id}/students/{student_id}", classroomHandler.RemoveStudentFromClassroom)
 		r.Get("/{classroom_id}/students", classroomHandler.ListStudentsByClassroom)
+		r.Post("/{classroom_id}/penalties/bulk", penaltyHandler.CreatePenaltiesInClassroom)
+		r.Post("/{classroom_id}/punishments/bulk", punishmentHandler.CreatePunishmentsInClassroom)
 	})
 }
