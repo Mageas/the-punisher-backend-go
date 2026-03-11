@@ -376,6 +376,48 @@ func TestPunishmentService_CRUDAndResolve_WithQuerier(t *testing.T) {
 	}
 }
 
+func TestPunishmentService_CreatePunishmentsInClassroom_RollsBackWhenStudentIsOutsideClassroom_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	studentInClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentOutClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPunishmentService(repo)
+
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   studentInClass.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	_, err := svc.CreatePunishmentsInClassroom(
+		ctx,
+		user.ID,
+		classroom.ID,
+		[]uuid.UUID{studentInClass.ID, studentOutClass.ID},
+		punishmentType.ID,
+		time.Now().UTC().Add(24*time.Hour),
+		nil,
+		nil,
+	)
+	if !errors.Is(err, api.ErrPunishmentStudentNotInClassroom) {
+		t.Fatalf("expected ErrPunishmentStudentNotInClassroom, got %v", err)
+	}
+
+	punishments, total, err := svc.ListPunishmentsByStudent(ctx, user.ID, studentInClass.ID, nil, 20, 0)
+	if err != nil {
+		t.Fatalf("ListPunishmentsByStudent returned error: %v", err)
+	}
+	if total != 0 || len(punishments) != 0 {
+		t.Fatalf("expected batch creation rollback, got total=%d len=%d", total, len(punishments))
+	}
+}
+
 func TestPunishmentService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
@@ -1149,6 +1191,53 @@ func TestPenaltyService_CreatePenalty_FailsWhenProvidedClassroomDoesNotBelongToS
 	}
 	if total != 0 || len(penalties) != 0 {
 		t.Fatalf("expected no penalty to be created, got total=%d len=%d", total, len(penalties))
+	}
+}
+
+func TestPenaltyService_CreatePenaltiesInClassroom_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	studentA := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentB := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPenaltyService(repo)
+
+	for _, studentID := range []uuid.UUID{studentA.ID, studentB.ID} {
+		if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+			StudentID:   studentID,
+			ClassroomID: classroom.ID,
+			UserID:      user.ID,
+		}); err != nil {
+			t.Fatalf("failed to add student %s to classroom: %v", studentID, err)
+		}
+	}
+
+	occurredAt := time.Now().UTC().Add(-2 * time.Hour)
+	label := "Retard collectif"
+	created, err := svc.CreatePenaltiesInClassroom(
+		ctx,
+		user.ID,
+		classroom.ID,
+		[]uuid.UUID{studentA.ID, studentB.ID},
+		penaltyType.ID,
+		&occurredAt,
+		&label,
+	)
+	if err != nil {
+		t.Fatalf("CreatePenaltiesInClassroom returned error: %v", err)
+	}
+	if len(created) != 2 {
+		t.Fatalf("expected 2 created penalties, got %d", len(created))
+	}
+
+	for _, penalty := range created {
+		assertTimeEqualToPostgresPrecision(t, "occurred_at", penalty.OccurredAt, occurredAt)
+		if penalty.EvaluationLabel != label {
+			t.Fatalf("unexpected evaluation label on penalty: %+v", penalty)
+		}
 	}
 }
 

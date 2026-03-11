@@ -16,6 +16,7 @@ import (
 
 type StudentService interface {
 	CreateStudent(ctx context.Context, userID uuid.UUID, req dto.RequestStudentDto) (*dto.ReturnStudentDto, error)
+	CreateStudentsInClassroom(ctx context.Context, userID, classroomID uuid.UUID, requests []dto.RequestStudentDto) ([]*dto.ReturnStudentDto, error)
 	ImportStudents(ctx context.Context, userID uuid.UUID, file io.Reader, filename string) (*dto.StudentImportResultDto, error)
 	GetStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.ReturnStudentDto, error)
 	GetStudentKpis(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.StudentKpisDto, error)
@@ -30,6 +31,11 @@ type studentService struct {
 	repo repository.Querier
 }
 
+type transactionalStudentBatchRepo interface {
+	repository.Querier
+	WithinTransaction(ctx context.Context, fn func(repository.Querier) error) error
+}
+
 func NewStudentService(repo repository.Querier) StudentService {
 	return &studentService{repo: repo}
 }
@@ -37,23 +43,75 @@ func NewStudentService(repo repository.Querier) StudentService {
 // --- CRUD Operations ---
 
 func (s *studentService) CreateStudent(ctx context.Context, userID uuid.UUID, req dto.RequestStudentDto) (*dto.ReturnStudentDto, error) {
-	student, err := s.repo.CreateStudent(ctx, repository.CreateStudentParams{
-		UserID:    userID,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-	})
+	response, err := createStudentWithRepo(ctx, s.repo, userID, req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create student: %w", err)
+		return nil, err
 	}
 
-	slog.Info("student created", "student_id", student.ID, "user_id", userID)
-
-	response := sqlcmapper.StudentFromCreateRow(&student)
 	if err := attachClassroomsToStudents(ctx, s.repo, userID, []*dto.ReturnStudentDto{response}); err != nil {
 		return nil, fmt.Errorf("failed to list student classrooms: %w", err)
 	}
 
+	slog.Info("student created", "student_id", response.ID, "user_id", userID)
+
 	return response, nil
+}
+
+func (s *studentService) CreateStudentsInClassroom(
+	ctx context.Context,
+	userID, classroomID uuid.UUID,
+	requests []dto.RequestStudentDto,
+) ([]*dto.ReturnStudentDto, error) {
+	txRepo, ok := s.repo.(transactionalStudentBatchRepo)
+	if !ok {
+		return nil, fmt.Errorf("student repository does not support transactions")
+	}
+
+	createdStudents := make([]*dto.ReturnStudentDto, 0, len(requests))
+	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		if err := ensureClassroomExists(ctx, txQuerier, userID, classroomID); err != nil {
+			return err
+		}
+
+		createdStudents = make([]*dto.ReturnStudentDto, 0, len(requests))
+		for _, req := range requests {
+			student, err := createStudentWithRepo(ctx, txQuerier, userID, req)
+			if err != nil {
+				return err
+			}
+
+			rowsAffected, err := txQuerier.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+				UserID:      userID,
+				StudentID:   student.ID,
+				ClassroomID: classroomID,
+			})
+			if err != nil {
+				if repository.IsUniqueViolation(err) {
+					return api.ErrStudentClassroomRelationExists
+				}
+
+				return fmt.Errorf("failed to add student to classroom: %w", err)
+			}
+			if rowsAffected == 0 {
+				return api.ErrStudentOrClassroomNotFound
+			}
+
+			createdStudents = append(createdStudents, student)
+		}
+
+		if err := attachClassroomsToStudents(ctx, txQuerier, userID, createdStudents); err != nil {
+			return fmt.Errorf("failed to list student classrooms: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("students created in classroom", "classroom_id", classroomID, "student_count", len(createdStudents), "user_id", userID)
+
+	return createdStudents, nil
 }
 
 func (s *studentService) GetStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID) (*dto.ReturnStudentDto, error) {
@@ -221,6 +279,24 @@ func (s *studentService) ensureStudentExists(ctx context.Context, userID uuid.UU
 	}
 
 	return fmt.Errorf("failed to get student: %w", err)
+}
+
+func createStudentWithRepo(
+	ctx context.Context,
+	repo repository.Querier,
+	userID uuid.UUID,
+	req dto.RequestStudentDto,
+) (*dto.ReturnStudentDto, error) {
+	student, err := repo.CreateStudent(ctx, repository.CreateStudentParams{
+		UserID:    userID,
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create student: %w", err)
+	}
+
+	return sqlcmapper.StudentFromCreateRow(&student), nil
 }
 
 func attachClassroomsToStudents(ctx context.Context, repo repository.Querier, userID uuid.UUID, students []*dto.ReturnStudentDto) error {

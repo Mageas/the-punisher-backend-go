@@ -24,6 +24,15 @@ type PunishmentService interface {
 		occurredAt *time.Time,
 		evaluationLabel *string,
 	) (*dto.ReturnPunishmentDto, error)
+	CreatePunishmentsInClassroom(
+		ctx context.Context,
+		userID, classroomID uuid.UUID,
+		studentIDs []uuid.UUID,
+		punishmentTypeID uuid.UUID,
+		dueAt time.Time,
+		occurredAt *time.Time,
+		evaluationLabel *string,
+	) ([]*dto.ReturnPunishmentDto, error)
 	GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error)
 	ListPunishments(ctx context.Context, userID uuid.UUID, filters ListPunishmentsFilters) ([]*dto.ReturnPunishmentDto, int64, error)
 	ListPunishmentsByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, resolved *bool, limit, offset int32) ([]*dto.ReturnPunishmentDto, int64, error)
@@ -42,6 +51,11 @@ type punishmentService struct {
 	repo repository.Querier
 }
 
+type transactionalPunishmentRepo interface {
+	repository.Querier
+	WithinTransaction(ctx context.Context, fn func(repository.Querier) error) error
+}
+
 func NewPunishmentService(repo repository.Querier) PunishmentService {
 	return &punishmentService{repo: repo}
 }
@@ -55,35 +69,71 @@ func (s *punishmentService) CreatePunishment(
 	occurredAt *time.Time,
 	evaluationLabel *string,
 ) (*dto.ReturnPunishmentDto, error) {
-	if _, err := s.repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
-		if errors.Is(err, repository.ErrNoRows) {
-			return nil, api.ErrStudentNotFound
-		}
-		return nil, fmt.Errorf("failed to get student: %w", err)
-	}
-
-	if _, err := s.repo.GetPunishmentTypeByUser(ctx, repository.GetPunishmentTypeByUserParams{ID: punishmentTypeID, UserID: userID}); err != nil {
-		if errors.Is(err, repository.ErrNoRows) {
-			return nil, api.ErrPunishmentTypeNotFound
-		}
-		return nil, fmt.Errorf("failed to get punishment type: %w", err)
-	}
-
-	punishment, err := s.repo.CreatePunishment(ctx, repository.CreatePunishmentParams{
-		UserID:           userID,
-		StudentID:        studentID,
-		PunishmentTypeID: punishmentTypeID,
-		DueAt:            dueAt,
-		OccurredAt:       occurredAt,
-		EvaluationLabel:  evaluationLabel,
-	})
+	punishment, err := s.createPunishmentWithRepo(ctx, s.repo, userID, studentID, punishmentTypeID, nil, dueAt, occurredAt, evaluationLabel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create punishment: %w", err)
+		return nil, err
 	}
 
 	slog.Info("punishment created", "punishment_id", punishment.ID, "user_id", userID, "student_id", studentID, "punishment_type_id", punishmentTypeID)
 
 	return sqlcmapper.PunishmentFromCreateRow(&punishment), nil
+}
+
+func (s *punishmentService) CreatePunishmentsInClassroom(
+	ctx context.Context,
+	userID, classroomID uuid.UUID,
+	studentIDs []uuid.UUID,
+	punishmentTypeID uuid.UUID,
+	dueAt time.Time,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) ([]*dto.ReturnPunishmentDto, error) {
+	txRepo, ok := s.repo.(transactionalPunishmentRepo)
+	if !ok {
+		return nil, fmt.Errorf("punishment repository does not support transactions")
+	}
+
+	createdPunishments := make([]*dto.ReturnPunishmentDto, 0, len(studentIDs))
+	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		if err := ensureClassroomExists(ctx, txQuerier, userID, classroomID); err != nil {
+			return err
+		}
+
+		createdPunishments = make([]*dto.ReturnPunishmentDto, 0, len(studentIDs))
+		for _, studentID := range studentIDs {
+			punishment, err := s.createPunishmentWithRepo(
+				ctx,
+				txQuerier,
+				userID,
+				studentID,
+				punishmentTypeID,
+				&classroomID,
+				dueAt,
+				occurredAt,
+				evaluationLabel,
+			)
+			if err != nil {
+				return err
+			}
+
+			createdPunishments = append(createdPunishments, sqlcmapper.PunishmentFromCreateRow(&punishment))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info(
+		"punishments created in classroom",
+		"classroom_id", classroomID,
+		"student_count", len(createdPunishments),
+		"user_id", userID,
+		"punishment_type_id", punishmentTypeID,
+	)
+
+	return createdPunishments, nil
 }
 
 func (s *punishmentService) GetPunishment(ctx context.Context, userID uuid.UUID, punishmentID uuid.UUID) (*dto.ReturnPunishmentDto, error) {
@@ -237,4 +287,54 @@ func (s *punishmentService) DeletePunishment(ctx context.Context, userID uuid.UU
 	slog.Info("punishment deleted", "punishment_id", punishmentID, "user_id", userID)
 
 	return nil
+}
+
+func (s *punishmentService) createPunishmentWithRepo(
+	ctx context.Context,
+	repo repository.Querier,
+	userID uuid.UUID,
+	studentID uuid.UUID,
+	punishmentTypeID uuid.UUID,
+	classroomID *uuid.UUID,
+	dueAt time.Time,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) (repository.CreatePunishmentRow, error) {
+	if _, err := repo.GetStudentByUser(ctx, repository.GetStudentByUserParams{ID: studentID, UserID: userID}); err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return repository.CreatePunishmentRow{}, api.ErrStudentNotFound
+		}
+		return repository.CreatePunishmentRow{}, fmt.Errorf("failed to get student: %w", err)
+	}
+
+	if _, err := repo.GetPunishmentTypeByUser(ctx, repository.GetPunishmentTypeByUserParams{ID: punishmentTypeID, UserID: userID}); err != nil {
+		if errors.Is(err, repository.ErrNoRows) {
+			return repository.CreatePunishmentRow{}, api.ErrPunishmentTypeNotFound
+		}
+		return repository.CreatePunishmentRow{}, fmt.Errorf("failed to get punishment type: %w", err)
+	}
+
+	if classroomID != nil {
+		if _, err := resolvePunishmentClassroomID(ctx, repo, userID, studentID, classroomID); err != nil {
+			if errors.Is(err, api.ErrClassroomNotFound) || errors.Is(err, api.ErrPunishmentStudentNotInClassroom) {
+				return repository.CreatePunishmentRow{}, err
+			}
+
+			return repository.CreatePunishmentRow{}, fmt.Errorf("failed to validate punishment classroom: %w", err)
+		}
+	}
+
+	punishment, err := repo.CreatePunishment(ctx, repository.CreatePunishmentParams{
+		UserID:           userID,
+		StudentID:        studentID,
+		PunishmentTypeID: punishmentTypeID,
+		DueAt:            dueAt,
+		OccurredAt:       occurredAt,
+		EvaluationLabel:  evaluationLabel,
+	})
+	if err != nil {
+		return repository.CreatePunishmentRow{}, fmt.Errorf("failed to create punishment: %w", err)
+	}
+
+	return punishment, nil
 }

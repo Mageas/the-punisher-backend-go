@@ -75,6 +75,15 @@ Règles sur `item_per_page`:
 - valeur < 5: forcée à `5`
 - valeur > 50: forcée à `50`
 
+## Créations batch par classe
+
+Le backend expose aussi des routes de création multiple scoppées par classe:
+- `POST /v1/classrooms/{classroom_id}/students/bulk`
+- `POST /v1/classrooms/{classroom_id}/penalties/bulk`
+- `POST /v1/classrooms/{classroom_id}/punishments/bulk`
+
+Elles permettent de cibler plusieurs élèves d'une même classe en une seule requête, avec rollback complet si la validation métier échoue en cours de traitement.
+
 ## Emploi du temps
 
 Le backend expose désormais un sous-domaine `schedule` pour:

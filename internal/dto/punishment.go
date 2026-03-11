@@ -14,6 +14,14 @@ type RequestPunishmentDto struct {
 	EvaluationLabel  *string `json:"evaluation_label" validate:"omitempty"`
 }
 
+type ClassroomPunishmentsBatchRequestDto struct {
+	StudentIDs       []string `json:"student_ids" validate:"required,min=1,dive,uuid"`
+	PunishmentTypeID string   `json:"punishment_type_id" validate:"required,uuid"`
+	DueAt            string   `json:"due_at" validate:"required"`
+	OccurredAt       *string  `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel  *string  `json:"evaluation_label" validate:"omitempty"`
+}
+
 type UpdatePunishmentDto struct {
 	OccurredAt      *string `json:"occurred_at" validate:"omitempty"`
 	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`

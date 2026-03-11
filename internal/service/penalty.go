@@ -24,6 +24,14 @@ type PenaltyService interface {
 		occurredAt *time.Time,
 		evaluationLabel *string,
 	) (*dto.ReturnPenaltyDto, error)
+	CreatePenaltiesInClassroom(
+		ctx context.Context,
+		userID, classroomID uuid.UUID,
+		studentIDs []uuid.UUID,
+		penaltyTypeID uuid.UUID,
+		occurredAt *time.Time,
+		evaluationLabel *string,
+	) ([]*dto.ReturnPenaltyDto, error)
 	GetPenalty(ctx context.Context, userID uuid.UUID, penaltyID uuid.UUID) (*dto.ReturnPenaltyDto, error)
 	ListPenalties(ctx context.Context, userID uuid.UUID, filters ListPenaltiesFilters) ([]*dto.ReturnPenaltyDto, int64, error)
 	ListPenaltiesByStudent(ctx context.Context, userID uuid.UUID, studentID uuid.UUID, limit, offset int32) ([]*dto.ReturnPenaltyDto, int64, error)
@@ -84,6 +92,61 @@ func (s *penaltyService) CreatePenalty(
 	slog.Info("penalty created", "penalty_id", penalty.ID, "user_id", userID, "student_id", studentID, "penalty_type_id", penaltyTypeID)
 
 	return sqlcmapper.PenaltyFromCreateRow(&penalty), nil
+}
+
+func (s *penaltyService) CreatePenaltiesInClassroom(
+	ctx context.Context,
+	userID, classroomID uuid.UUID,
+	studentIDs []uuid.UUID,
+	penaltyTypeID uuid.UUID,
+	occurredAt *time.Time,
+	evaluationLabel *string,
+) ([]*dto.ReturnPenaltyDto, error) {
+	txRepo, ok := s.repo.(transactionalPenaltyRepo)
+	if !ok {
+		return nil, fmt.Errorf("penalty repository does not support transactions")
+	}
+
+	createdPenalties := make([]*dto.ReturnPenaltyDto, 0, len(studentIDs))
+	err := txRepo.WithinTransaction(ctx, func(txQuerier repository.Querier) error {
+		if err := ensureClassroomExists(ctx, txQuerier, userID, classroomID); err != nil {
+			return err
+		}
+
+		createdPenalties = make([]*dto.ReturnPenaltyDto, 0, len(studentIDs))
+		for _, studentID := range studentIDs {
+			penalty, err := s.createPenaltyWithRepo(
+				ctx,
+				txQuerier,
+				userID,
+				studentID,
+				penaltyTypeID,
+				&classroomID,
+				occurredAt,
+				evaluationLabel,
+			)
+			if err != nil {
+				return err
+			}
+
+			createdPenalties = append(createdPenalties, sqlcmapper.PenaltyFromCreateRow(&penalty))
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info(
+		"penalties created in classroom",
+		"classroom_id", classroomID,
+		"student_count", len(createdPenalties),
+		"user_id", userID,
+		"penalty_type_id", penaltyTypeID,
+	)
+
+	return createdPenalties, nil
 }
 
 func (s *penaltyService) createPenaltyWithRepo(
