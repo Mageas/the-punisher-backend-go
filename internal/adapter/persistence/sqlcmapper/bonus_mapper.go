@@ -28,7 +28,7 @@ func buildReturnBonusDto(
 		StudentLastName:  studentLastName,
 		BonusTypeID:      bonusTypeID,
 		BonusTypeName:    bonusTypeName,
-		Points:           points,
+		Points:           roundResponseFloat(points),
 		CreatedAt:        normalizeAPITime(createdAt),
 		OccurredAt:       normalizeAPITime(occurredAt),
 		EvaluationLabel:  evaluationLabel,

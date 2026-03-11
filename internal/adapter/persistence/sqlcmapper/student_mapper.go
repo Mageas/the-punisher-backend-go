@@ -22,7 +22,7 @@ func buildReturnStudentDto(
 		FirstName:            firstName,
 		LastName:             lastName,
 		Classrooms:           []dto.StudentClassroomDto{},
-		AvailableBonusPoints: availableBonusPoints,
+		AvailableBonusPoints: roundResponseFloat(availableBonusPoints),
 		PenaltyCount:         penaltyCount,
 		CreatedAt:            normalizeAPITime(createdAt),
 		UpdatedAt:            normalizeAPITime(updatedAt),

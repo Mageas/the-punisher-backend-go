@@ -31,8 +31,8 @@ func DashboardKpisFromRow(kpis *repository.GetDashboardKpisRow) *dto.DashboardKp
 
 	return &dto.DashboardKpisDto{
 		StudentCount:           kpis.StudentCount,
-		AvailableBonusPoints:   kpis.AvailableBonusPoints,
-		TotalBonusPoints:       kpis.TotalBonusPoints,
+		AvailableBonusPoints:   roundResponseFloat(kpis.AvailableBonusPoints),
+		TotalBonusPoints:       roundResponseFloat(kpis.TotalBonusPoints),
 		UnusedBonusCount:       kpis.UnusedBonusCount,
 		PenaltyCount:           kpis.PenaltyCount,
 		TotalPunishmentCount:   kpis.TotalPunishmentCount,
