@@ -11,8 +11,8 @@ func StudentKpisFromRow(kpis *repository.GetStudentKpisRow) *dto.StudentKpisDto 
 	}
 
 	return &dto.StudentKpisDto{
-		AvailableBonusPoints:   kpis.AvailableBonusPoints,
-		TotalBonusPoints:       kpis.TotalBonusPoints,
+		AvailableBonusPoints:   roundResponseFloat(kpis.AvailableBonusPoints),
+		TotalBonusPoints:       roundResponseFloat(kpis.TotalBonusPoints),
 		ActiveBonusCount:       kpis.ActiveBonusCount,
 		PenaltyCount:           kpis.PenaltyCount,
 		TotalPenaltyCount:      kpis.TotalPenaltyCount,
@@ -41,7 +41,7 @@ func StudentHistoryFromRows(rows []repository.ListStudentHistoryRow) []dto.Stude
 		case "bonus":
 			item.BonusTypeID = row.BonusTypeID
 			item.BonusTypeName = row.BonusTypeName
-			item.Points = row.Points
+			item.Points = roundOptionalResponseFloat(row.Points)
 			item.UsedAt = normalizeOptionalAPITime(row.UsedAt)
 		case "punishment":
 			punishmentTypeID := row.PunishmentTypeID

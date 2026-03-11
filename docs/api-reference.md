@@ -1406,6 +1406,7 @@ Exemple 200 (tronqué):
 - `created_from` / `created_to` filtrent la date métier `occurred_at` (et non la date technique `created_at`).
 - `created_at` reste la date technique de création; `occurred_at` est la date métier de l'événement.
 - `overdue=true` sur punishments signifie: `resolved_at IS NULL` ET `due_at < now()`.
+- Les champs float renvoyés par les réponses (`points`, `available_bonus_points`, `total_bonus_points`) sont arrondis à 2 décimales côté backend.
 - Pour les IDs path invalides (`{student_id}`, etc.), le backend renvoie `404 not_found` avec `error_details` indiquant le champ invalide.
 
 ## 5) Catalogue complet des erreurs disponibles
