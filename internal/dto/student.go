@@ -11,10 +11,6 @@ type RequestStudentDto struct {
 	LastName  string `json:"last_name" validate:"required,min=2,max=70"`
 }
 
-type ClassroomStudentsBatchRequestDto struct {
-	Students []RequestStudentDto `json:"students" validate:"required,min=1"`
-}
-
 type UpdateStudentDto struct {
 	FirstName *string `json:"first_name" validate:"omitempty,min=2,max=70"`
 	LastName  *string `json:"last_name" validate:"omitempty,min=2,max=70"`

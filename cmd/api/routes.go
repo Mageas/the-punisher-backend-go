@@ -94,7 +94,7 @@ func (app *application) mount() http.Handler {
 
 		app.mountUserRoutes(r, userHandler)
 		app.mountStudentRoutes(r, studentHandler, classroomHandler, bonusHandler, penaltyHandler, punishmentHandler)
-		app.mountClassroomRoutes(r, classroomHandler, scheduleHandler, studentHandler, penaltyHandler, punishmentHandler)
+		app.mountClassroomRoutes(r, classroomHandler, scheduleHandler, bonusHandler, penaltyHandler, punishmentHandler)
 		app.mountScheduleRoutes(r, scheduleHandler)
 		app.mountBonusRoutes(r, bonusHandler, bonusTypeHandler)
 		app.mountPenaltyRoutes(r, penaltyHandler, penaltyTypeHandler)

@@ -157,6 +157,112 @@ func TestBonusService_NotFoundPrerequisites_WithQuerier(t *testing.T) {
 	}
 }
 
+func TestBonusService_CreateBonusesInClassroom_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	studentA := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentB := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	svc := NewBonusService(repo)
+
+	for _, studentID := range []uuid.UUID{studentA.ID, studentB.ID} {
+		if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+			StudentID:   studentID,
+			ClassroomID: classroom.ID,
+			UserID:      user.ID,
+		}); err != nil {
+			t.Fatalf("failed to add student %s to classroom: %v", studentID, err)
+		}
+	}
+
+	occurredAt := time.Now().UTC().Add(-2 * time.Hour)
+	label := "Participation collective"
+	created, err := svc.CreateBonusesInClassroom(
+		ctx,
+		user.ID,
+		classroom.ID,
+		[]uuid.UUID{studentA.ID, studentB.ID},
+		bonusType.ID,
+		2.5,
+		&occurredAt,
+		&label,
+	)
+	if err != nil {
+		t.Fatalf("CreateBonusesInClassroom returned error: %v", err)
+	}
+	if len(created) != 2 {
+		t.Fatalf("expected 2 created bonuses, got %d", len(created))
+	}
+
+	for _, bonus := range created {
+		assertTimeEqualToPostgresPrecision(t, "occurred_at", bonus.OccurredAt, occurredAt)
+		if bonus.EvaluationLabel != label {
+			t.Fatalf("unexpected evaluation label on bonus: %+v", bonus)
+		}
+		if bonus.Points != 2.5 {
+			t.Fatalf("unexpected points on bonus: %+v", bonus)
+		}
+	}
+
+	classroomID := classroom.ID
+	bonuses, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		ClassroomID: &classroomID,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses returned error after classroom batch create: %v", err)
+	}
+	if total != 2 || len(bonuses) != 2 {
+		t.Fatalf("expected 2 classroom bonuses after batch create, got total=%d len=%d", total, len(bonuses))
+	}
+}
+
+func TestBonusService_CreateBonusesInClassroom_RollsBackWhenStudentIsOutsideClassroom_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
+	studentInClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	studentOutClass := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	svc := NewBonusService(repo)
+
+	if _, err := repo.AddStudentToClassroom(ctx, repository.AddStudentToClassroomParams{
+		StudentID:   studentInClass.ID,
+		ClassroomID: classroom.ID,
+		UserID:      user.ID,
+	}); err != nil {
+		t.Fatalf("failed to add student to classroom: %v", err)
+	}
+
+	_, err := svc.CreateBonusesInClassroom(
+		ctx,
+		user.ID,
+		classroom.ID,
+		[]uuid.UUID{studentInClass.ID, studentOutClass.ID},
+		bonusType.ID,
+		1,
+		nil,
+		nil,
+	)
+	if !errors.Is(err, api.ErrPunishmentStudentNotInClassroom) {
+		t.Fatalf("expected ErrPunishmentStudentNotInClassroom, got %v", err)
+	}
+
+	bonuses, total, err := svc.ListBonusesByStudent(ctx, user.ID, studentInClass.ID, nil, 20, 0)
+	if err != nil {
+		t.Fatalf("ListBonusesByStudent returned error: %v", err)
+	}
+	if total != 0 || len(bonuses) != 0 {
+		t.Fatalf("expected batch creation rollback, got total=%d len=%d", total, len(bonuses))
+	}
+}
+
 func TestBonusService_ListBonusesFilters_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()

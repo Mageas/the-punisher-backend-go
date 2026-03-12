@@ -14,6 +14,14 @@ type RequestBonusDto struct {
 	EvaluationLabel *string `json:"evaluation_label" validate:"omitempty"`
 }
 
+type ClassroomBonusesBatchRequestDto struct {
+	StudentIDs      []string `json:"student_ids" validate:"required,min=1,dive,uuid"`
+	BonusTypeID     string   `json:"bonus_type_id" validate:"required,uuid"`
+	Points          float64  `json:"points" validate:"required,gt=0"`
+	OccurredAt      *string  `json:"occurred_at" validate:"omitempty"`
+	EvaluationLabel *string  `json:"evaluation_label" validate:"omitempty"`
+}
+
 type UpdateBonusDto struct {
 	Points          *float64 `json:"points" validate:"omitempty,gt=0"`
 	OccurredAt      *string  `json:"occurred_at" validate:"omitempty"`

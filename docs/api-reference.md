@@ -857,27 +857,6 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - 204: no content
 - Erreurs: `invalid_request_body`, `validation_failed`, `student_classroom_relation_exists`, `student_or_classroom_not_found`, `not_found`, `unauthorized`
 
-### POST `/v1/classrooms/{classroom_id}/students/bulk`
-- Auth: oui
-- Body:
-```json
-{
-  "students": [
-    {
-      "first_name": "Jean",
-      "last_name": "DUPONT"
-    },
-    {
-      "first_name": "Alice",
-      "last_name": "MARTIN"
-    }
-  ]
-}
-```
-- Crée plusieurs élèves puis les rattache à la classe en une seule transaction.
-- 201: `ReturnStudentDto[]`
-- Erreurs: `validation_failed`, `invalid_request_body`, `classroom_not_found`, `student_or_classroom_not_found`, `not_found`, `unauthorized`
-
 ### DELETE `/v1/classrooms/{classroom_id}/students/{student_id}`
 - Auth: oui
 - 204: no content
@@ -1044,6 +1023,26 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 ```
 - 201: `ReturnBonusDto`
 - Erreurs: `validation_failed`, `invalid_request_body`, `student_not_found`, `bonus_type_not_found`, `unauthorized`
+
+### POST `/v1/classrooms/{classroom_id}/bonuses/bulk`
+- Auth: oui
+- Body:
+```json
+{
+  "student_ids": [
+    "11111111-1111-1111-1111-111111111111",
+    "22222222-2222-2222-2222-222222222222"
+  ],
+  "bonus_type_id": "22222222-2222-2222-2222-222222222222",
+  "points": 2.5,
+  "occurred_at": "2026-02-10T09:00:00Z",
+  "evaluation_label": "Participation collective"
+}
+```
+- La classe est portée par le path et n'est pas répétée dans le body.
+- Tous les élèves ciblés doivent appartenir à la classe; sinon l'opération entière est rollback.
+- 201: `ReturnBonusDto[]`
+- Erreurs: `validation_failed`, `invalid_request_body`, `student_not_found`, `bonus_type_not_found`, `classroom_not_found`, `punishment_student_not_in_classroom`, `unauthorized`
 
 ### GET `/v1/bonuses/`
 - Auth: oui

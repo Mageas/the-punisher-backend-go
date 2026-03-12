@@ -9,7 +9,7 @@ func (app *application) mountClassroomRoutes(
 	r chi.Router,
 	classroomHandler *handler.ClassroomHandler,
 	scheduleHandler *handler.ScheduleHandler,
-	studentHandler *handler.StudentHandler,
+	bonusHandler *handler.BonusHandler,
 	penaltyHandler *handler.PenaltyHandler,
 	punishmentHandler *handler.PunishmentHandler,
 ) {
@@ -23,9 +23,9 @@ func (app *application) mountClassroomRoutes(
 		r.Put("/{classroom_id}", classroomHandler.UpdateClassroom)
 		r.Delete("/{classroom_id}", classroomHandler.DeleteClassroom)
 		r.Post("/{classroom_id}/students", classroomHandler.AddStudentToClassroom)
-		r.Post("/{classroom_id}/students/bulk", studentHandler.CreateStudentsInClassroom)
 		r.Delete("/{classroom_id}/students/{student_id}", classroomHandler.RemoveStudentFromClassroom)
 		r.Get("/{classroom_id}/students", classroomHandler.ListStudentsByClassroom)
+		r.Post("/{classroom_id}/bonuses/bulk", bonusHandler.CreateBonusesInClassroom)
 		r.Post("/{classroom_id}/penalties/bulk", penaltyHandler.CreatePenaltiesInClassroom)
 		r.Post("/{classroom_id}/punishments/bulk", punishmentHandler.CreatePunishmentsInClassroom)
 	})

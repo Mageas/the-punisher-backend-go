@@ -45,40 +45,6 @@ func (h *StudentHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusCreated, student, nil)
 }
 
-func (h *StudentHandler) CreateStudentsInClassroom(w http.ResponseWriter, r *http.Request) {
-	userID := auth.MustUserIDFromContext(r.Context())
-
-	classroomID, ok := parsePathUUID(w, r, "classroom_id")
-	if !ok {
-		return
-	}
-
-	var req dto.ClassroomStudentsBatchRequestDto
-	if err := web.DecodeJSON(r, &req); err != nil {
-		web.WriteJSONDecodeError(w, err)
-		return
-	}
-
-	if err := validator.ValidateStruct(req); err != nil {
-		web.WriteValidationError(w, err)
-		return
-	}
-	for _, studentReq := range req.Students {
-		if err := validator.ValidateStruct(studentReq); err != nil {
-			web.WriteValidationError(w, err)
-			return
-		}
-	}
-
-	students, err := h.service.CreateStudentsInClassroom(r.Context(), userID, classroomID, req.Students)
-	if err != nil {
-		web.WriteFromError(w, err)
-		return
-	}
-
-	web.WriteJSON(w, http.StatusCreated, students, nil)
-}
-
 func (h *StudentHandler) ImportStudents(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 

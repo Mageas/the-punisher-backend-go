@@ -546,42 +546,6 @@ func TestClassroomService_AddStudentDuplicateRelation_WithQuerier(t *testing.T) 
 	}
 }
 
-func TestStudentService_CreateStudentsInClassroom_WithQuerier(t *testing.T) {
-	repo, ctx, cleanup := newTestQuerierTx(t)
-	defer cleanup()
-
-	user := mustCreateUserRecord(t, repo, ctx)
-	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
-
-	studentSvc := NewStudentService(repo)
-	classroomSvc := NewClassroomService(repo)
-
-	created, err := studentSvc.CreateStudentsInClassroom(ctx, user.ID, classroom.ID, []dto.RequestStudentDto{
-		{FirstName: "Alice", LastName: "DUPONT"},
-		{FirstName: "Bob", LastName: "MARTIN"},
-	})
-	if err != nil {
-		t.Fatalf("CreateStudentsInClassroom returned error: %v", err)
-	}
-	if len(created) != 2 {
-		t.Fatalf("expected 2 created students, got %d", len(created))
-	}
-
-	for _, student := range created {
-		if len(student.Classrooms) != 1 || student.Classrooms[0].ID != classroom.ID {
-			t.Fatalf("expected created student to belong to classroom %s, got %+v", classroom.ID, student.Classrooms)
-		}
-	}
-
-	studentsByClassroom, total, err := classroomSvc.ListStudentsByClassroom(ctx, user.ID, classroom.ID, nil, 20, 0)
-	if err != nil {
-		t.Fatalf("ListStudentsByClassroom returned error: %v", err)
-	}
-	if total != 2 || len(studentsByClassroom) != 2 {
-		t.Fatalf("expected 2 students in classroom after batch create, got total=%d len=%d", total, len(studentsByClassroom))
-	}
-}
-
 func TestClassroomService_KpisAndBulkDelete_WithQuerier(t *testing.T) {
 	repo, ctx, cleanup := newTestQuerierTx(t)
 	defer cleanup()
