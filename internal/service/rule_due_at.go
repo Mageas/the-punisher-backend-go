@@ -32,6 +32,7 @@ func listNextLessonOccurrences(
 	userID, classroomID uuid.UUID,
 	now time.Time,
 	limit int,
+	location *time.Location,
 ) ([]nextLessonOccurrence, error) {
 	if limit <= 0 {
 		return []nextLessonOccurrence{}, nil
@@ -58,12 +59,12 @@ func listNextLessonOccurrences(
 	exceptionRanges := make([]scheduleDateRange, 0, len(exceptions))
 	for _, exception := range exceptions {
 		exceptionRanges = append(exceptionRanges, scheduleDateRange{
-			Start: normalizeScheduleDate(exception.StartDate),
-			End:   normalizeScheduleDate(exception.EndDate),
+			Start: normalizeScheduleDate(exception.StartDate, location),
+			End:   normalizeScheduleDate(exception.EndDate, location),
 		})
 	}
 
-	currentDay := startOfScheduleDay(now.In(time.Local))
+	currentDay := startOfDayForInstant(now, location)
 	results := make([]nextLessonOccurrence, 0, limit)
 	for day, scanned := currentDay.AddDate(0, 0, 1), 0; len(results) < limit && scanned < nextLessonsMaxDaysScan; day, scanned = day.AddDate(0, 0, 1), scanned+1 {
 		if isDateBlockedByScheduleException(day, exceptionRanges) {
@@ -116,6 +117,7 @@ func computeRuleDueAt(
 	rule repository.Rule,
 	classroomID *uuid.UUID,
 	now time.Time,
+	location *time.Location,
 ) (time.Time, error) {
 	switch rule.DueAtMode {
 	case "", ruleDueAtModeDays:
@@ -123,7 +125,7 @@ func computeRuleDueAt(
 			return time.Time{}, api.ErrRuleDueAtNotComputable
 		}
 
-		return now.UTC().Add(time.Duration(*rule.DueAtAfterDays) * 24 * time.Hour), nil
+		return now.In(location).AddDate(0, 0, int(*rule.DueAtAfterDays)).UTC(), nil
 	case ruleDueAtModeNextLessons:
 		if classroomID == nil || rule.DueAtAfterLessons == nil {
 			return time.Time{}, api.ErrRuleDueAtNotComputable
@@ -134,7 +136,7 @@ func computeRuleDueAt(
 			return time.Time{}, api.ErrRuleDueAtNotComputable
 		}
 
-		lessons, err := listNextLessonOccurrences(ctx, repo, userID, *classroomID, now, lessonCount)
+		lessons, err := listNextLessonOccurrences(ctx, repo, userID, *classroomID, now, lessonCount, location)
 		if err != nil {
 			return time.Time{}, err
 		}
@@ -142,7 +144,7 @@ func computeRuleDueAt(
 			return time.Time{}, api.ErrRuleDueAtNotComputable
 		}
 
-		return lessonStartsAt(lessons[lessonCount-1])
+		return lessonStartsAt(lessons[lessonCount-1], location)
 	default:
 		return time.Time{}, api.ErrRuleDueAtNotComputable
 	}
@@ -193,7 +195,7 @@ func resolvePunishmentClassroomID(
 	return &classroomID, nil
 }
 
-func lessonStartsAt(lesson nextLessonOccurrence) (time.Time, error) {
+func lessonStartsAt(lesson nextLessonOccurrence, location *time.Location) (time.Time, error) {
 	startTime, err := time.Parse(scheduleTimeLayout, lesson.StartTime)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("failed to parse schedule start time: %w", err)
@@ -207,6 +209,6 @@ func lessonStartsAt(lesson nextLessonOccurrence) (time.Time, error) {
 		startTime.Minute(),
 		0,
 		0,
-		time.Local,
+		location,
 	), nil
 }

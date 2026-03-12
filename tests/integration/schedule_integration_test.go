@@ -287,8 +287,8 @@ func TestScheduleService_ListNextLessons_RespectsExceptionsAndParity_WithQuerier
 
 	svc := NewScheduleService(repo)
 
-	now := time.Now().In(time.Local)
-	today := startOfLocalScheduleDay(now)
+	now := time.Now().In(mustLoadLocation(t, testUserTimezone))
+	today := startOfDayInTimezone(t, now, testUserTimezone)
 	tomorrow := today.AddDate(0, 0, 1)
 	tomorrowWeekday := weekdayTextFromTime(tomorrow.Weekday())
 	mustCreateScheduleSlot(t, svc, ctx, user.ID, dto.RequestScheduleSlotDto{
@@ -391,10 +391,6 @@ func assertAPIError(t *testing.T, err error, expectedStatus int, expectedMessage
 	if apiErr.StatusCode != expectedStatus || apiErr.Message != expectedMessage {
 		t.Fatalf("expected APIError status=%d message=%s, got status=%d message=%s", expectedStatus, expectedMessage, apiErr.StatusCode, apiErr.Message)
 	}
-}
-
-func startOfLocalScheduleDay(value time.Time) time.Time {
-	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
 }
 
 func weekdayTextFromTime(value time.Weekday) string {

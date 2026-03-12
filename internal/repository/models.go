@@ -178,4 +178,5 @@ type User struct {
 	UpdatedAt         time.Time  `json:"updated_at"`
 	EmailVerifiedAt   *time.Time `json:"email_verified_at"`
 	PasswordChangedAt *time.Time `json:"password_changed_at"`
+	Timezone          string     `json:"timezone"`
 }

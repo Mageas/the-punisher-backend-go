@@ -40,8 +40,8 @@ WHERE b.user_id = $1
   AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
   AND ($4::boolean IS NULL OR (b.used_at IS NOT NULL) = $4::boolean)
-  AND ($5::date IS NULL OR b.occurred_at >= $5::date)
-  AND ($6::date IS NULL OR b.occurred_at < ($6::date + INTERVAL '1 day'))
+  AND ($5::timestamptz IS NULL OR b.occurred_at >= $5::timestamptz)
+  AND ($6::timestamptz IS NULL OR b.occurred_at < $6::timestamptz)
   AND (
     $7::uuid IS NULL
     OR EXISTS (
@@ -313,8 +313,8 @@ WHERE b.user_id = $1
   AND ($2::uuid IS NULL OR b.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR b.bonus_type_id = $3::uuid)
   AND ($4::boolean IS NULL OR (b.used_at IS NOT NULL) = $4::boolean)
-  AND ($5::date IS NULL OR b.occurred_at >= $5::date)
-  AND ($6::date IS NULL OR b.occurred_at < ($6::date + INTERVAL '1 day'))
+  AND ($5::timestamptz IS NULL OR b.occurred_at >= $5::timestamptz)
+  AND ($6::timestamptz IS NULL OR b.occurred_at < $6::timestamptz)
   AND (
     $7::uuid IS NULL
     OR EXISTS (

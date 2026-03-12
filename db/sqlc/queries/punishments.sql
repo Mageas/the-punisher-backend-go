@@ -74,10 +74,10 @@ WHERE p.user_id = sqlc.arg(user_id)
       OR (sqlc.narg(overdue)::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
-  AND (sqlc.narg(due_from)::date IS NULL OR p.due_at >= sqlc.narg(due_from)::date)
-  AND (sqlc.narg(due_to)::date IS NULL OR p.due_at < (sqlc.narg(due_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR p.occurred_at >= sqlc.narg(created_from)::timestamptz)
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR p.occurred_at < sqlc.narg(created_to)::timestamptz)
+  AND (sqlc.narg(due_from)::timestamptz IS NULL OR p.due_at >= sqlc.narg(due_from)::timestamptz)
+  AND (sqlc.narg(due_to)::timestamptz IS NULL OR p.due_at < sqlc.narg(due_to)::timestamptz)
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (
@@ -114,10 +114,10 @@ WHERE p.user_id = sqlc.arg(user_id)
       OR (sqlc.narg(overdue)::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
-  AND (sqlc.narg(due_from)::date IS NULL OR p.due_at >= sqlc.narg(due_from)::date)
-  AND (sqlc.narg(due_to)::date IS NULL OR p.due_at < (sqlc.narg(due_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR p.occurred_at >= sqlc.narg(created_from)::timestamptz)
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR p.occurred_at < sqlc.narg(created_to)::timestamptz)
+  AND (sqlc.narg(due_from)::timestamptz IS NULL OR p.due_at >= sqlc.narg(due_from)::timestamptz)
+  AND (sqlc.narg(due_to)::timestamptz IS NULL OR p.due_at < sqlc.narg(due_to)::timestamptz)
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (

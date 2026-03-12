@@ -48,10 +48,10 @@ WHERE p.user_id = $1
       OR ($6::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND ($7::date IS NULL OR p.occurred_at >= $7::date)
-  AND ($8::date IS NULL OR p.occurred_at < ($8::date + INTERVAL '1 day'))
-  AND ($9::date IS NULL OR p.due_at >= $9::date)
-  AND ($10::date IS NULL OR p.due_at < ($10::date + INTERVAL '1 day'))
+  AND ($7::timestamptz IS NULL OR p.occurred_at >= $7::timestamptz)
+  AND ($8::timestamptz IS NULL OR p.occurred_at < $8::timestamptz)
+  AND ($9::timestamptz IS NULL OR p.due_at >= $9::timestamptz)
+  AND ($10::timestamptz IS NULL OR p.due_at < $10::timestamptz)
   AND (
     $11::uuid IS NULL
     OR EXISTS (
@@ -450,10 +450,10 @@ WHERE p.user_id = $1
       OR ($6::boolean = FALSE AND (p.resolved_at IS NOT NULL OR p.due_at >= NOW()))
     )
   )
-  AND ($7::date IS NULL OR p.occurred_at >= $7::date)
-  AND ($8::date IS NULL OR p.occurred_at < ($8::date + INTERVAL '1 day'))
-  AND ($9::date IS NULL OR p.due_at >= $9::date)
-  AND ($10::date IS NULL OR p.due_at < ($10::date + INTERVAL '1 day'))
+  AND ($7::timestamptz IS NULL OR p.occurred_at >= $7::timestamptz)
+  AND ($8::timestamptz IS NULL OR p.occurred_at < $8::timestamptz)
+  AND ($9::timestamptz IS NULL OR p.due_at >= $9::timestamptz)
+  AND ($10::timestamptz IS NULL OR p.due_at < $10::timestamptz)
   AND (
     $11::uuid IS NULL
     OR EXISTS (

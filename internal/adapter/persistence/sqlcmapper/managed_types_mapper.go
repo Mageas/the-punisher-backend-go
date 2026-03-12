@@ -54,6 +54,7 @@ func UserFromRepository(u *repository.CreateUserRow) *dto.ReturnUserDto {
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
+		Timezone:  u.Timezone,
 		CreatedAt: normalizeAPITime(u.CreatedAt),
 		UpdatedAt: normalizeAPITime(u.UpdatedAt),
 	}
@@ -69,6 +70,7 @@ func UserFromGetByIDRow(u *repository.GetUserByIDRow) *dto.ReturnUserDto {
 		Email:     u.Email,
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
+		Timezone:  u.Timezone,
 		CreatedAt: normalizeAPITime(u.CreatedAt),
 		UpdatedAt: normalizeAPITime(u.UpdatedAt),
 	}

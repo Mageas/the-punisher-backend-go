@@ -92,6 +92,8 @@ Le backend expose désormais un sous-domaine `schedule` pour:
 - calculer les `5` prochains cours d'une classe via `GET /v1/classrooms/{classroom_id}/next-lessons`
 - servir de base aux règles automatiques avec une échéance en `days` ou sur les `5` prochains cours (`next_lessons`, échéance positionnée au début du cours) en utilisant la classe fournie à la création d'une pénalité, ou la classe unique de l'élève si elle peut être déduite
 
+Ces calculs calendrier/horaires sont interprétés dans le fuseau horaire de l'utilisateur.
+
 Formats métier associés:
 - `weekday`: texte anglais minuscule (`monday` à `sunday`)
 - `start_time` / `end_time`: `HH:MM`
@@ -133,6 +135,7 @@ Par défaut, `JWT_REFRESH_COOKIE_SECURE=true` quand `APP_ENV=production`.
 
 Lors d'une inscription (`POST /v1/auth/register`), le backend:
 - crée un token signé de confirmation email avec expiration
+- enregistre l'utilisateur avec le fuseau horaire par défaut `Europe/Paris` (exposé en lecture, non modifiable via l'API pour l'instant)
 - envoie automatiquement un email via SMTP après validation de la transaction en base
 - valide l'email via `GET /v1/auth/confirm-email?token=<token>`
 - permet de renvoyer un nouveau lien via `POST /v1/auth/confirm-email/resend`

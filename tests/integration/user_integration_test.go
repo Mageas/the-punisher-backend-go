@@ -96,6 +96,17 @@ func TestUserService_CreateUserAndGetCurrentUser_WithQuerier(t *testing.T) {
 	if created.Email != "test.user@example.com" {
 		t.Fatalf("expected lowercased email, got %s", created.Email)
 	}
+	if created.Timezone != testUserTimezone {
+		t.Fatalf("expected created user timezone %s, got %s", testUserTimezone, created.Timezone)
+	}
+
+	storedUser, err := repo.GetUserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetUserByID returned error: %v", err)
+	}
+	if storedUser.Timezone != "Europe/Paris" {
+		t.Fatalf("expected default timezone Europe/Paris, got %s", storedUser.Timezone)
+	}
 
 	current, err := svc.GetCurrentUser(ctx, created.ID)
 	if err != nil {
@@ -103,6 +114,9 @@ func TestUserService_CreateUserAndGetCurrentUser_WithQuerier(t *testing.T) {
 	}
 	if current.ID != created.ID {
 		t.Fatalf("expected same user id, got %s vs %s", current.ID, created.ID)
+	}
+	if current.Timezone != testUserTimezone {
+		t.Fatalf("expected current user timezone %s, got %s", testUserTimezone, current.Timezone)
 	}
 }
 

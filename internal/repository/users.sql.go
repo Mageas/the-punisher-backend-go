@@ -19,7 +19,7 @@ INSERT INTO users (
 ) VALUES (
     LOWER($1), $2, $3, $4
 )
-RETURNING id, email, first_name, last_name, created_at, updated_at
+RETURNING id, email, first_name, last_name, timezone, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -34,6 +34,7 @@ type CreateUserRow struct {
 	Email     string    `json:"email"`
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
+	Timezone  string    `json:"timezone"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -52,6 +53,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -59,7 +61,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, first_name, last_name, created_at, updated_at
+SELECT id, email, first_name, last_name, timezone, created_at, updated_at
 FROM users
 WHERE id = $1 LIMIT 1
 `
@@ -69,6 +71,7 @@ type GetUserByIDRow struct {
 	Email     string    `json:"email"`
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
+	Timezone  string    `json:"timezone"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -81,6 +84,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.Email,
 		&i.FirstName,
 		&i.LastName,
+		&i.Timezone,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

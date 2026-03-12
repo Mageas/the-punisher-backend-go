@@ -156,13 +156,23 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, filter
 		used = &usedValue
 	}
 
+	createdFrom := filters.CreatedFrom
+	createdTo := filters.CreatedTo
+	if filters.CreatedFrom != nil || filters.CreatedTo != nil {
+		location, err := resolveUserLocation(ctx, s.repo, userID)
+		if err != nil {
+			return nil, 0, err
+		}
+		createdFrom, createdTo = localDateBoundsToUTC(filters.CreatedFrom, filters.CreatedTo, location)
+	}
+
 	totalCount, err := s.repo.CountBonusesByUser(ctx, repository.CountBonusesByUserParams{
 		UserID:      userID,
 		StudentID:   filters.StudentID,
 		BonusTypeID: filters.BonusTypeID,
 		Used:        used,
-		CreatedFrom: filters.CreatedFrom,
-		CreatedTo:   filters.CreatedTo,
+		CreatedFrom: createdFrom,
+		CreatedTo:   createdTo,
 		ClassroomID: filters.ClassroomID,
 	})
 	if err != nil {
@@ -174,8 +184,8 @@ func (s *bonusService) ListBonuses(ctx context.Context, userID uuid.UUID, filter
 		StudentID:   filters.StudentID,
 		BonusTypeID: filters.BonusTypeID,
 		Used:        used,
-		CreatedFrom: filters.CreatedFrom,
-		CreatedTo:   filters.CreatedTo,
+		CreatedFrom: createdFrom,
+		CreatedTo:   createdTo,
 		ClassroomID: filters.ClassroomID,
 		QueryOffset: filters.Offset,
 		QueryLimit:  filters.Limit,

@@ -13,6 +13,8 @@ import (
 	"github.com/mageas/the-punisher-backend/internal/repository"
 )
 
+const testUserTimezone = "Europe/Paris"
+
 func ptr[T any](v T) *T {
 	return &v
 }
@@ -30,6 +32,33 @@ func assertTimeEqualToPostgresPrecision(t *testing.T, field string, got, expecte
 func uniqueValue(prefix string) string {
 	compact := strings.ReplaceAll(uuid.NewString(), "-", "")
 	return fmt.Sprintf("%s-%s", prefix, compact[:10])
+}
+
+func mustLoadLocation(t *testing.T, timezone string) *time.Location {
+	t.Helper()
+
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		t.Fatalf("failed to load timezone %s: %v", timezone, err)
+	}
+
+	return location
+}
+
+func filterDateInTimezone(t *testing.T, value time.Time, timezone string) time.Time {
+	t.Helper()
+
+	location := mustLoadLocation(t, timezone)
+	localValue := value.In(location)
+	return time.Date(localValue.Year(), localValue.Month(), localValue.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+func startOfDayInTimezone(t *testing.T, value time.Time, timezone string) time.Time {
+	t.Helper()
+
+	location := mustLoadLocation(t, timezone)
+	localValue := value.In(location)
+	return time.Date(localValue.Year(), localValue.Month(), localValue.Day(), 0, 0, 0, 0, location)
 }
 
 func mustCreateUserRecord(t *testing.T, repo repository.Querier, ctx context.Context) repository.CreateUserRow {

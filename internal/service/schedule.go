@@ -313,12 +313,17 @@ func (s *scheduleService) DeleteScheduleSlot(ctx context.Context, userID, schedu
 }
 
 func (s *scheduleService) CreateScheduleException(ctx context.Context, userID uuid.UUID, req dto.RequestScheduleExceptionDto) (*dto.ReturnScheduleExceptionDto, error) {
-	startDate, err := parseScheduleDate(req.StartDate, "start_date")
+	location, err := resolveUserLocation(ctx, s.repo, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	endDate, err := parseScheduleDate(req.EndDate, "end_date")
+	startDate, err := parseScheduleDate(req.StartDate, "start_date", location)
+	if err != nil {
+		return nil, err
+	}
+
+	endDate, err := parseScheduleDate(req.EndDate, "end_date", location)
 	if err != nil {
 		return nil, err
 	}
@@ -382,22 +387,27 @@ func (s *scheduleService) UpdateScheduleException(ctx context.Context, userID, s
 		return nil, fmt.Errorf("failed to get schedule exception: %w", err)
 	}
 
+	location, err := resolveUserLocation(ctx, s.repo, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	exceptionType := existingException.Type
 	if req.Type != nil {
 		exceptionType = *req.Type
 	}
 
-	startDate := normalizeScheduleDate(existingException.StartDate)
+	startDate := normalizeScheduleDate(existingException.StartDate, location)
 	if req.StartDate != nil {
-		startDate, err = parseScheduleDate(*req.StartDate, "start_date")
+		startDate, err = parseScheduleDate(*req.StartDate, "start_date", location)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	endDate := normalizeScheduleDate(existingException.EndDate)
+	endDate := normalizeScheduleDate(existingException.EndDate, location)
 	if req.EndDate != nil {
-		endDate, err = parseScheduleDate(*req.EndDate, "end_date")
+		endDate, err = parseScheduleDate(*req.EndDate, "end_date", location)
 		if err != nil {
 			return nil, err
 		}
@@ -457,7 +467,12 @@ func (s *scheduleService) ListNextLessons(ctx context.Context, userID, classroom
 		return nil, fmt.Errorf("failed to get classroom: %w", err)
 	}
 
-	lessons, err := listNextLessonOccurrences(ctx, s.repo, userID, classroomID, s.now(), nextLessonsLimit)
+	location, err := resolveUserLocation(ctx, s.repo, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	lessons, err := listNextLessonOccurrences(ctx, s.repo, userID, classroomID, s.now(), nextLessonsLimit, location)
 	if err != nil {
 		return nil, err
 	}
@@ -651,9 +666,9 @@ func parseScheduleTime(rawValue string, field string) (parsedScheduleTime, error
 	}, nil
 }
 
-func parseScheduleDate(rawValue string, field string) (time.Time, error) {
+func parseScheduleDate(rawValue string, field string, location *time.Location) (time.Time, error) {
 	trimmedValue := strings.TrimSpace(rawValue)
-	parsedValue, err := time.ParseInLocation(scheduleDateLayout, trimmedValue, time.Local)
+	parsedValue, err := time.ParseInLocation(scheduleDateLayout, trimmedValue, location)
 	if err != nil || parsedValue.Format(scheduleDateLayout) != trimmedValue {
 		return time.Time{}, api.NewAPIError(http.StatusBadRequest, "invalid_request_body", api.ErrorDetail{
 			Field: field,
@@ -661,7 +676,7 @@ func parseScheduleDate(rawValue string, field string) (time.Time, error) {
 		})
 	}
 
-	return normalizeScheduleDate(parsedValue), nil
+	return normalizeScheduleDate(parsedValue, location), nil
 }
 
 func validateScheduleTimeRange(startTime, endTime parsedScheduleTime) error {
@@ -717,8 +732,8 @@ func scheduleWeekdayISOFromText(value string) (int32, error) {
 	}
 }
 
-func normalizeScheduleDate(value time.Time) time.Time {
-	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, time.Local)
+func normalizeScheduleDate(value time.Time, location *time.Location) time.Time {
+	return calendarDateInLocation(value, location)
 }
 
 func startOfScheduleDay(value time.Time) time.Time {

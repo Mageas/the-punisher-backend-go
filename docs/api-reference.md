@@ -45,6 +45,7 @@ Notes cookie refresh:
 - DateTime body (`occurred_at`, `due_at`): `RFC3339` (ex: `2026-03-15T18:00:00Z`)
 - DateTime response (`*_at`): `RFC3339` en `UTC` (suffixe `Z`), normalise a la precision microseconde
 - Heure body/response (`start_time`, `end_time`): `HH:MM`
+- Les dates `YYYY-MM-DD` et heures `HH:MM` metier sont interpretees dans le fuseau horaire de l'utilisateur
 - Weekday body/response: `monday|tuesday|wednesday|thursday|friday|saturday|sunday`
 - Week pattern body/response: `every_week|even_weeks|odd_weeks`
 - Bool query: `true` ou `false`
@@ -176,6 +177,7 @@ interface ReturnUserDto {
   email: string;
   first_name: string;
   last_name: string;
+  timezone: string;
   created_at: string;
   updated_at: string;
 }
@@ -505,6 +507,7 @@ Exemple:
 ```
 - 201: `ReturnUserDto`
 - Side effect: envoi d'un email de confirmation avec un lien vers `GET /v1/auth/confirm-email?token=...`
+- Note: l'utilisateur est cree en base avec le fuseau horaire par defaut `Europe/Paris`, utilise pour les filtres par jour, le planning et les echeances automatiques ; il n'existe pas encore d'endpoint pour le modifier.
 - Erreurs: `register_not_allowed`, `validation_failed`, `invalid_request_body`, `conflict`
 
 ### GET `/v1/auth/confirm-email`
@@ -824,6 +827,7 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Regles:
   - depart au prochain jour complet
   - jour courant toujours exclu
+  - calcul base sur le fuseau horaire de l'utilisateur
   - prise en compte de la parite ISO (`even_weeks` / `odd_weeks`)
   - prise en compte des exceptions globales utilisateur
 - Erreurs: `classroom_not_found`, `not_found`, `unauthorized`
@@ -1463,6 +1467,7 @@ Exemple 200 (tronqué):
 - Les listes `classrooms`, `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
 - Pour filtrer des événements d'un élève: utiliser `student_id`.
 - Les bornes `created_to` / `due_to` sont inclusives sur la journée (backend fait `< date + 1 day`).
+- `created_from` / `created_to` / `due_from` / `due_to` sont interpretes dans le fuseau horaire de l'utilisateur.
 - `created_from` / `created_to` filtrent la date métier `occurred_at` (et non la date technique `created_at`).
 - `created_at` reste la date technique de création; `occurred_at` est la date métier de l'événement.
 - `overdue=true` sur punishments signifie: `resolved_at IS NULL` ET `due_at < now()`.
