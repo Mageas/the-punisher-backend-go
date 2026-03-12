@@ -78,7 +78,7 @@ Règles sur `item_per_page`:
 ## Créations batch par classe
 
 Le backend expose aussi des routes de création multiple scoppées par classe:
-- `POST /v1/classrooms/{classroom_id}/students/bulk`
+- `POST /v1/classrooms/{classroom_id}/bonuses/bulk`
 - `POST /v1/classrooms/{classroom_id}/penalties/bulk`
 - `POST /v1/classrooms/{classroom_id}/punishments/bulk`
 

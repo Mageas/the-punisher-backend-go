@@ -58,6 +58,58 @@ func (h *BonusHandler) CreateBonus(w http.ResponseWriter, r *http.Request) {
 	web.WriteJSON(w, http.StatusCreated, bonus, nil)
 }
 
+func (h *BonusHandler) CreateBonusesInClassroom(w http.ResponseWriter, r *http.Request) {
+	userID := auth.MustUserIDFromContext(r.Context())
+
+	classroomID, ok := parsePathUUID(w, r, "classroom_id")
+	if !ok {
+		return
+	}
+
+	var req dto.ClassroomBonusesBatchRequestDto
+	if err := web.DecodeJSON(r, &req); err != nil {
+		web.WriteJSONDecodeError(w, err)
+		return
+	}
+
+	if err := validator.ValidateStruct(req); err != nil {
+		web.WriteValidationError(w, err)
+		return
+	}
+
+	studentIDs, ok := parseBodyUUIDSlice(w, req.StudentIDs, "student_ids")
+	if !ok {
+		return
+	}
+
+	bonusTypeID, ok := parseBodyUUID(w, req.BonusTypeID, "bonus_type_id")
+	if !ok {
+		return
+	}
+
+	occurredAt, ok := parseOptionalBodyRFC3339(w, req.OccurredAt, "occurred_at")
+	if !ok {
+		return
+	}
+
+	bonuses, err := h.service.CreateBonusesInClassroom(
+		r.Context(),
+		userID,
+		classroomID,
+		studentIDs,
+		bonusTypeID,
+		req.Points,
+		occurredAt,
+		req.EvaluationLabel,
+	)
+	if err != nil {
+		web.WriteFromError(w, err)
+		return
+	}
+
+	web.WriteJSON(w, http.StatusCreated, bonuses, nil)
+}
+
 func (h *BonusHandler) ListBonuses(w http.ResponseWriter, r *http.Request) {
 	userID := auth.MustUserIDFromContext(r.Context())
 
