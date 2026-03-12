@@ -6,10 +6,10 @@ INSERT INTO users (
 ) VALUES (
     LOWER(sqlc.arg(email)), sqlc.arg(first_name), sqlc.arg(last_name), sqlc.arg(password_hash)
 )
-RETURNING id, email, first_name, last_name, created_at, updated_at;
+RETURNING id, email, first_name, last_name, timezone, created_at, updated_at;
 
 -- name: GetUserByID :one
-SELECT id, email, first_name, last_name, created_at, updated_at
+SELECT id, email, first_name, last_name, timezone, created_at, updated_at
 FROM users
 WHERE id = sqlc.arg(id) LIMIT 1;
 

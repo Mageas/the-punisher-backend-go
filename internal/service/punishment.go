@@ -155,6 +155,19 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 		resolved = &resolvedValue
 	}
 
+	createdFrom := filters.CreatedFrom
+	createdTo := filters.CreatedTo
+	dueFrom := filters.DueFrom
+	dueTo := filters.DueTo
+	if filters.CreatedFrom != nil || filters.CreatedTo != nil || filters.DueFrom != nil || filters.DueTo != nil {
+		location, err := resolveUserLocation(ctx, s.repo, userID)
+		if err != nil {
+			return nil, 0, err
+		}
+		createdFrom, createdTo = localDateBoundsToUTC(filters.CreatedFrom, filters.CreatedTo, location)
+		dueFrom, dueTo = localDateBoundsToUTC(filters.DueFrom, filters.DueTo, location)
+	}
+
 	totalCount, err := s.repo.CountPunishmentsByUser(ctx, repository.CountPunishmentsByUserParams{
 		UserID:           userID,
 		StudentID:        filters.StudentID,
@@ -162,10 +175,10 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 		Resolved:         resolved,
 		Automated:        filters.Automated,
 		Overdue:          filters.Overdue,
-		CreatedFrom:      filters.CreatedFrom,
-		CreatedTo:        filters.CreatedTo,
-		DueFrom:          filters.DueFrom,
-		DueTo:            filters.DueTo,
+		CreatedFrom:      createdFrom,
+		CreatedTo:        createdTo,
+		DueFrom:          dueFrom,
+		DueTo:            dueTo,
 		ClassroomID:      filters.ClassroomID,
 	})
 	if err != nil {
@@ -179,10 +192,10 @@ func (s *punishmentService) ListPunishments(ctx context.Context, userID uuid.UUI
 		Resolved:         resolved,
 		Automated:        filters.Automated,
 		Overdue:          filters.Overdue,
-		CreatedFrom:      filters.CreatedFrom,
-		CreatedTo:        filters.CreatedTo,
-		DueFrom:          filters.DueFrom,
-		DueTo:            filters.DueTo,
+		CreatedFrom:      createdFrom,
+		CreatedTo:        createdTo,
+		DueFrom:          dueFrom,
+		DueTo:            dueTo,
 		ClassroomID:      filters.ClassroomID,
 		QueryOffset:      filters.Offset,
 		QueryLimit:       filters.Limit,

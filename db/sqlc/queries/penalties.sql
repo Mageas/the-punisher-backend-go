@@ -33,8 +33,8 @@ FROM penalties p
 WHERE p.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
   AND (sqlc.narg(penalty_type_id)::uuid IS NULL OR p.penalty_type_id = sqlc.narg(penalty_type_id)::uuid)
-  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR p.occurred_at >= sqlc.narg(created_from)::timestamptz)
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR p.occurred_at < sqlc.narg(created_to)::timestamptz)
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (
@@ -60,8 +60,8 @@ JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
 WHERE p.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(student_id)::uuid IS NULL OR p.student_id = sqlc.narg(student_id)::uuid)
   AND (sqlc.narg(penalty_type_id)::uuid IS NULL OR p.penalty_type_id = sqlc.narg(penalty_type_id)::uuid)
-  AND (sqlc.narg(created_from)::date IS NULL OR p.occurred_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR p.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR p.occurred_at >= sqlc.narg(created_from)::timestamptz)
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR p.occurred_at < sqlc.narg(created_to)::timestamptz)
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (

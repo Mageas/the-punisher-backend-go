@@ -97,7 +97,7 @@ func ParseOptionalBoolQueryParam(r *http.Request, name string) (*bool, []api.Err
 	}
 }
 
-// ParseOptionalDateQueryParam parses an optional YYYY-MM-DD query param into a UTC date.
+// ParseOptionalDateQueryParam parses an optional YYYY-MM-DD query param into a date-only time value.
 func ParseOptionalDateQueryParam(r *http.Request, name string) (*time.Time, []api.ErrorDetail, error) {
 	raw := strings.TrimSpace(r.URL.Query().Get(name))
 	if raw == "" {

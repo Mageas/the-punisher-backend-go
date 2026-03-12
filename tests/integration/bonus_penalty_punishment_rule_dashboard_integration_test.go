@@ -308,7 +308,7 @@ func TestBonusService_ListBonusesFilters_WithQuerier(t *testing.T) {
 		t.Fatalf("unexpected state=unused result: total=%d len=%d data=%+v", total, len(filtered), filtered)
 	}
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
+	today := filterDateInTimezone(t, time.Now().UTC(), testUserTimezone)
 	studentInClassID := studentInClass.ID
 	classroomID := classroom.ID
 	bonusTypeAID := bonusTypeA.ID
@@ -380,7 +380,7 @@ func TestBonusService_ListBonuses_UsesOccurredAtForFilterAndSort_WithQuerier(t *
 		t.Fatalf("expected recent occurred_at bonus first, got %s (backdated=%s)", all[0].ID, backdatedBonus.ID)
 	}
 
-	today := recentOccurred.Truncate(24 * time.Hour)
+	today := filterDateInTimezone(t, recentOccurred, testUserTimezone)
 	filtered, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
 		StudentID:   &studentID,
 		CreatedFrom: &today,
@@ -393,6 +393,38 @@ func TestBonusService_ListBonuses_UsesOccurredAtForFilterAndSort_WithQuerier(t *
 	}
 	if total != 1 || len(filtered) != 1 || filtered[0].ID != recentBonus.ID {
 		t.Fatalf("expected only recent bonus in created range filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+}
+
+func TestBonusService_ListBonuses_UsesUserTimezoneForCreatedRange_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
+	svc := NewBonusService(repo)
+
+	occurredAt := time.Date(2026, 3, 14, 23, 30, 0, 0, time.UTC)
+	created, err := svc.CreateBonus(ctx, user.ID, student.ID, bonusType.ID, 1, &occurredAt, nil)
+	if err != nil {
+		t.Fatalf("CreateBonus returned error: %v", err)
+	}
+
+	filterDay := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	studentID := student.ID
+	filtered, total, err := svc.ListBonuses(ctx, user.ID, ListBonusesFilters{
+		StudentID:   &studentID,
+		CreatedFrom: &filterDay,
+		CreatedTo:   &filterDay,
+		Limit:       20,
+		Offset:      0,
+	})
+	if err != nil {
+		t.Fatalf("ListBonuses(created range with timezone) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != created.ID {
+		t.Fatalf("expected bonus to match local Europe/Paris day filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
 	}
 }
 
@@ -646,7 +678,7 @@ func TestPunishmentService_ListPunishmentsFilters_WithQuerier(t *testing.T) {
 	classroomID := classroom.ID
 	punishmentTypeAID := punishmentTypeA.ID
 	manual := false
-	dueTo := time.Now().UTC().Truncate(24 * time.Hour)
+	dueTo := filterDateInTimezone(t, time.Now().UTC(), testUserTimezone)
 	filtered, total, err = svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
 		State:            &pending,
 		StudentID:        &studentInClassID,
@@ -703,7 +735,7 @@ func TestPunishmentService_ListPunishments_UsesOccurredAtForFilterAndSort_WithQu
 		t.Fatalf("expected recent occurred_at punishment first, got %s (backdated=%s)", all[0].ID, backdatedPunishment.ID)
 	}
 
-	today := recentOccurred.Truncate(24 * time.Hour)
+	today := filterDateInTimezone(t, recentOccurred, testUserTimezone)
 	filtered, total, err := svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
 		StudentID:   &studentID,
 		CreatedFrom: &today,
@@ -716,6 +748,40 @@ func TestPunishmentService_ListPunishments_UsesOccurredAtForFilterAndSort_WithQu
 	}
 	if total != 1 || len(filtered) != 1 || filtered[0].ID != recentPunishment.ID {
 		t.Fatalf("expected only recent punishment in created range filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
+	}
+}
+
+func TestPunishmentService_ListPunishments_UsesUserTimezoneForDueRange_WithQuerier(t *testing.T) {
+	repo, ctx, cleanup := newTestQuerierTx(t)
+	defer cleanup()
+
+	user := mustCreateUserRecord(t, repo, ctx)
+	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
+	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
+	svc := NewPunishmentService(repo)
+
+	dueAt := time.Date(2026, 3, 14, 23, 30, 0, 0, time.UTC)
+	occurredAt := time.Date(2026, 3, 14, 12, 0, 0, 0, time.UTC)
+
+	created, err := svc.CreatePunishment(ctx, user.ID, student.ID, punishmentType.ID, dueAt, &occurredAt, nil)
+	if err != nil {
+		t.Fatalf("CreatePunishment returned error: %v", err)
+	}
+
+	filterDay := time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC)
+	studentID := student.ID
+	filtered, total, err := svc.ListPunishments(ctx, user.ID, ListPunishmentsFilters{
+		StudentID: &studentID,
+		DueFrom:   &filterDay,
+		DueTo:     &filterDay,
+		Limit:     20,
+		Offset:    0,
+	})
+	if err != nil {
+		t.Fatalf("ListPunishments(due range with timezone) returned error: %v", err)
+	}
+	if total != 1 || len(filtered) != 1 || filtered[0].ID != created.ID {
+		t.Fatalf("expected punishment to match local Europe/Paris due day filter, got total=%d len=%d data=%+v", total, len(filtered), filtered)
 	}
 }
 
@@ -1004,7 +1070,8 @@ func TestPenaltyService_RuleTrigger_UsesNextLessonsDueAt_WithQuerier(t *testing.
 	}
 
 	scheduleSvc := NewScheduleService(repo)
-	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	location := mustLoadLocation(t, testUserTimezone)
+	tomorrow := startOfDayInTimezone(t, time.Now().In(location), testUserTimezone).AddDate(0, 0, 1)
 	weekday := weekdayTextFromTime(tomorrow.Weekday())
 	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
 		Weekday:      weekday,
@@ -1038,7 +1105,7 @@ func TestPenaltyService_RuleTrigger_UsesNextLessonsDueAt_WithQuerier(t *testing.
 		t.Fatalf("expected one automated punishment, got total=%d len=%d", total, len(punishments))
 	}
 
-	expectedDueAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 11, 0, 0, 0, time.Local)
+	expectedDueAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 11, 0, 0, 0, location)
 	assertTimeEqualToPostgresPrecision(t, "due_at", punishments[0].DueAt, expectedDueAt)
 	if !punishments[0].Automated {
 		t.Fatalf("expected automated punishment")
@@ -1070,7 +1137,8 @@ func TestPenaltyService_RuleTrigger_UsesProvidedClassroomForNextLessons_WithQuer
 	}
 
 	scheduleSvc := NewScheduleService(repo)
-	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	location := mustLoadLocation(t, testUserTimezone)
+	tomorrow := startOfDayInTimezone(t, time.Now().In(location), testUserTimezone).AddDate(0, 0, 1)
 	weekday := weekdayTextFromTime(tomorrow.Weekday())
 	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
 		Weekday:      weekday,
@@ -1105,7 +1173,7 @@ func TestPenaltyService_RuleTrigger_UsesProvidedClassroomForNextLessons_WithQuer
 		t.Fatalf("expected one automated punishment, got total=%d len=%d", total, len(punishments))
 	}
 
-	expectedDueAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 11, 0, 0, 0, time.Local)
+	expectedDueAt := time.Date(tomorrow.Year(), tomorrow.Month(), tomorrow.Day(), 11, 0, 0, 0, location)
 	assertTimeEqualToPostgresPrecision(t, "due_at", punishments[0].DueAt, expectedDueAt)
 	if punishments[0].TriggeringRuleID == nil || *punishments[0].TriggeringRuleID != rule.ID {
 		t.Fatalf("expected triggering rule id %s, got %+v", rule.ID, punishments[0].TriggeringRuleID)
@@ -1135,7 +1203,8 @@ func TestPenaltyService_RuleTrigger_FailsWhenClassroomCannotBeResolved_WithQueri
 	}
 
 	scheduleSvc := NewScheduleService(repo)
-	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	location := mustLoadLocation(t, testUserTimezone)
+	tomorrow := startOfDayInTimezone(t, time.Now().In(location), testUserTimezone).AddDate(0, 0, 1)
 	weekday := weekdayTextFromTime(tomorrow.Weekday())
 	mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
 		Weekday:      weekday,
@@ -1191,7 +1260,8 @@ func TestPenaltyService_RuleTrigger_FailsWhenNextLessonNoLongerComputable_WithQu
 	classroom := mustCreateClassroomRecord(t, repo, ctx, user.ID)
 
 	scheduleSvc := NewScheduleService(repo)
-	tomorrow := startOfLocalScheduleDay(time.Now().In(time.Local)).AddDate(0, 0, 1)
+	location := mustLoadLocation(t, testUserTimezone)
+	tomorrow := startOfDayInTimezone(t, time.Now().In(location), testUserTimezone).AddDate(0, 0, 1)
 	slot := mustCreateScheduleSlot(t, scheduleSvc, ctx, user.ID, dto.RequestScheduleSlotDto{
 		Weekday:      weekdayTextFromTime(tomorrow.Weekday()),
 		StartTime:    "09:00",
@@ -1375,7 +1445,7 @@ func TestPenaltyService_ListPenaltiesFilters_WithQuerier(t *testing.T) {
 		t.Fatalf("CreatePenalty(out class) returned error: %v", err)
 	}
 
-	today := time.Now().UTC().Truncate(24 * time.Hour)
+	today := filterDateInTimezone(t, time.Now().UTC(), testUserTimezone)
 	studentInClassID := studentInClass.ID
 	classroomID := classroom.ID
 	penaltyTypeAID := penaltyTypeA.ID
@@ -1448,7 +1518,7 @@ func TestPenaltyService_ListPenalties_UsesOccurredAtForFilterAndSort_WithQuerier
 		t.Fatalf("expected recent occurred_at penalty first, got %s (backdated=%s)", all[0].ID, backdatedPenalty.ID)
 	}
 
-	today := recentOccurred.Truncate(24 * time.Hour)
+	today := filterDateInTimezone(t, recentOccurred, testUserTimezone)
 	filtered, total, err := svc.ListPenalties(ctx, user.ID, ListPenaltiesFilters{
 		StudentID:   &studentID,
 		CreatedFrom: &today,

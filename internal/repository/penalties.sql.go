@@ -57,8 +57,8 @@ FROM penalties p
 WHERE p.user_id = $1
   AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
-  AND ($4::date IS NULL OR p.occurred_at >= $4::date)
-  AND ($5::date IS NULL OR p.occurred_at < ($5::date + INTERVAL '1 day'))
+  AND ($4::timestamptz IS NULL OR p.occurred_at >= $4::timestamptz)
+  AND ($5::timestamptz IS NULL OR p.occurred_at < $5::timestamptz)
   AND (
     $6::uuid IS NULL
     OR EXISTS (
@@ -308,8 +308,8 @@ JOIN penalty_types pt ON pt.id = p.penalty_type_id AND pt.user_id = p.user_id
 WHERE p.user_id = $1
   AND ($2::uuid IS NULL OR p.student_id = $2::uuid)
   AND ($3::uuid IS NULL OR p.penalty_type_id = $3::uuid)
-  AND ($4::date IS NULL OR p.occurred_at >= $4::date)
-  AND ($5::date IS NULL OR p.occurred_at < ($5::date + INTERVAL '1 day'))
+  AND ($4::timestamptz IS NULL OR p.occurred_at >= $4::timestamptz)
+  AND ($5::timestamptz IS NULL OR p.occurred_at < $5::timestamptz)
   AND (
     $6::uuid IS NULL
     OR EXISTS (

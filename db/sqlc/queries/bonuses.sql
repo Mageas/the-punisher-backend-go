@@ -35,8 +35,8 @@ WHERE b.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(student_id)::uuid IS NULL OR b.student_id = sqlc.narg(student_id)::uuid)
   AND (sqlc.narg(bonus_type_id)::uuid IS NULL OR b.bonus_type_id = sqlc.narg(bonus_type_id)::uuid)
   AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
-  AND (sqlc.narg(created_from)::date IS NULL OR b.occurred_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR b.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR b.occurred_at >= sqlc.narg(created_from)::timestamptz)
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR b.occurred_at < sqlc.narg(created_to)::timestamptz)
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (
@@ -63,8 +63,8 @@ WHERE b.user_id = sqlc.arg(user_id)
   AND (sqlc.narg(student_id)::uuid IS NULL OR b.student_id = sqlc.narg(student_id)::uuid)
   AND (sqlc.narg(bonus_type_id)::uuid IS NULL OR b.bonus_type_id = sqlc.narg(bonus_type_id)::uuid)
   AND (sqlc.narg(used)::boolean IS NULL OR (b.used_at IS NOT NULL) = sqlc.narg(used)::boolean)
-  AND (sqlc.narg(created_from)::date IS NULL OR b.occurred_at >= sqlc.narg(created_from)::date)
-  AND (sqlc.narg(created_to)::date IS NULL OR b.occurred_at < (sqlc.narg(created_to)::date + INTERVAL '1 day'))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR b.occurred_at >= sqlc.narg(created_from)::timestamptz)
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR b.occurred_at < sqlc.narg(created_to)::timestamptz)
   AND (
     sqlc.narg(classroom_id)::uuid IS NULL
     OR EXISTS (

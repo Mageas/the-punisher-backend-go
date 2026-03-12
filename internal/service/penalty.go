@@ -232,6 +232,10 @@ func (s *penaltyService) evaluateRulesForPenalty(
 	}
 
 	referenceNow := s.now()
+	location, err := resolveUserLocation(ctx, repo, userID)
+	if err != nil {
+		return err
+	}
 	var resolvedClassroomID *uuid.UUID
 	classroomResolved := false
 	for _, rule := range rules {
@@ -252,7 +256,7 @@ func (s *penaltyService) evaluateRulesForPenalty(
 			classroomResolved = true
 		}
 
-		dueAt, err := computeRuleDueAt(ctx, repo, userID, rule, resolvedClassroomID, referenceNow)
+		dueAt, err := computeRuleDueAt(ctx, repo, userID, rule, resolvedClassroomID, referenceNow, location)
 		if err != nil {
 			if errors.Is(err, api.ErrRuleDueAtNotComputable) || errors.Is(err, api.ErrPunishmentClassroomNotResolved) {
 				return err
@@ -318,12 +322,22 @@ func (s *penaltyService) GetPenalty(ctx context.Context, userID uuid.UUID, penal
 }
 
 func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, filters ListPenaltiesFilters) ([]*dto.ReturnPenaltyDto, int64, error) {
+	createdFrom := filters.CreatedFrom
+	createdTo := filters.CreatedTo
+	if filters.CreatedFrom != nil || filters.CreatedTo != nil {
+		location, err := resolveUserLocation(ctx, s.repo, userID)
+		if err != nil {
+			return nil, 0, err
+		}
+		createdFrom, createdTo = localDateBoundsToUTC(filters.CreatedFrom, filters.CreatedTo, location)
+	}
+
 	totalCount, err := s.repo.CountPenaltiesByUser(ctx, repository.CountPenaltiesByUserParams{
 		UserID:        userID,
 		StudentID:     filters.StudentID,
 		PenaltyTypeID: filters.PenaltyTypeID,
-		CreatedFrom:   filters.CreatedFrom,
-		CreatedTo:     filters.CreatedTo,
+		CreatedFrom:   createdFrom,
+		CreatedTo:     createdTo,
 		ClassroomID:   filters.ClassroomID,
 	})
 	if err != nil {
@@ -334,8 +348,8 @@ func (s *penaltyService) ListPenalties(ctx context.Context, userID uuid.UUID, fi
 		UserID:        userID,
 		StudentID:     filters.StudentID,
 		PenaltyTypeID: filters.PenaltyTypeID,
-		CreatedFrom:   filters.CreatedFrom,
-		CreatedTo:     filters.CreatedTo,
+		CreatedFrom:   createdFrom,
+		CreatedTo:     createdTo,
 		ClassroomID:   filters.ClassroomID,
 		QueryOffset:   filters.Offset,
 		QueryLimit:    filters.Limit,
