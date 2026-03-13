@@ -1565,9 +1565,6 @@ func TestDashboardService_GetDashboard_WithQuerier(t *testing.T) {
 	if dashboardAll.Kpis.StudentCount != 2 {
 		t.Fatalf("expected student_count=2, got %d", dashboardAll.Kpis.StudentCount)
 	}
-	if len(dashboardAll.RecentBonuses) != 2 {
-		t.Fatalf("expected two recent bonuses, got %d", len(dashboardAll.RecentBonuses))
-	}
 
 	dashboardClassroom, err := svc.GetDashboard(ctx, user.ID, &classroom.ID)
 	if err != nil {
@@ -1576,109 +1573,10 @@ func TestDashboardService_GetDashboard_WithQuerier(t *testing.T) {
 	if dashboardClassroom.Kpis.StudentCount != 1 {
 		t.Fatalf("expected classroom-filtered student_count=1, got %d", dashboardClassroom.Kpis.StudentCount)
 	}
-	if len(dashboardClassroom.RecentBonuses) != 1 {
-		t.Fatalf("expected one classroom-filtered bonus, got %d", len(dashboardClassroom.RecentBonuses))
-	}
 
 	missingID := uuid.New()
 	_, err = svc.GetDashboard(ctx, user.ID, &missingID)
 	if !errors.Is(err, api.ErrClassroomNotFound) {
 		t.Fatalf("expected ErrClassroomNotFound, got %v", err)
-	}
-}
-
-func TestDashboardService_RecentListsUseOccurredAtOrder_WithQuerier(t *testing.T) {
-	repo, ctx, cleanup := newTestQuerierTx(t)
-	defer cleanup()
-
-	user := mustCreateUserRecord(t, repo, ctx)
-	student := mustCreateStudentRecord(t, repo, ctx, user.ID)
-	bonusType := mustCreateBonusTypeRecord(t, repo, ctx, user.ID)
-	penaltyType := mustCreatePenaltyTypeRecord(t, repo, ctx, user.ID)
-	punishmentType := mustCreatePunishmentTypeRecord(t, repo, ctx, user.ID)
-
-	recentOccurred := time.Now().UTC()
-	backdatedOccurred := recentOccurred.AddDate(0, 0, -3)
-
-	recentBonus, err := repo.CreateBonus(ctx, repository.CreateBonusParams{
-		UserID:      user.ID,
-		StudentID:   student.ID,
-		BonusTypeID: bonusType.ID,
-		Points:      2,
-		OccurredAt:  &recentOccurred,
-	})
-	if err != nil {
-		t.Fatalf("failed to create recent bonus: %v", err)
-	}
-	backdatedBonus, err := repo.CreateBonus(ctx, repository.CreateBonusParams{
-		UserID:      user.ID,
-		StudentID:   student.ID,
-		BonusTypeID: bonusType.ID,
-		Points:      1,
-		OccurredAt:  &backdatedOccurred,
-	})
-	if err != nil {
-		t.Fatalf("failed to create backdated bonus: %v", err)
-	}
-
-	recentPenalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
-		UserID:        user.ID,
-		StudentID:     student.ID,
-		PenaltyTypeID: penaltyType.ID,
-		OccurredAt:    &recentOccurred,
-	})
-	if err != nil {
-		t.Fatalf("failed to create recent penalty: %v", err)
-	}
-	backdatedPenalty, err := repo.CreatePenalty(ctx, repository.CreatePenaltyParams{
-		UserID:        user.ID,
-		StudentID:     student.ID,
-		PenaltyTypeID: penaltyType.ID,
-		OccurredAt:    &backdatedOccurred,
-	})
-	if err != nil {
-		t.Fatalf("failed to create backdated penalty: %v", err)
-	}
-
-	dueAt := time.Now().UTC().Add(24 * time.Hour)
-	recentPunishment, err := repo.CreatePunishment(ctx, repository.CreatePunishmentParams{
-		UserID:           user.ID,
-		StudentID:        student.ID,
-		PunishmentTypeID: punishmentType.ID,
-		DueAt:            dueAt,
-		OccurredAt:       &recentOccurred,
-	})
-	if err != nil {
-		t.Fatalf("failed to create recent punishment: %v", err)
-	}
-	backdatedPunishment, err := repo.CreatePunishment(ctx, repository.CreatePunishmentParams{
-		UserID:           user.ID,
-		StudentID:        student.ID,
-		PunishmentTypeID: punishmentType.ID,
-		DueAt:            dueAt,
-		OccurredAt:       &backdatedOccurred,
-	})
-	if err != nil {
-		t.Fatalf("failed to create backdated punishment: %v", err)
-	}
-
-	svc := NewDashboardService(repo)
-	dashboard, err := svc.GetDashboard(ctx, user.ID, nil)
-	if err != nil {
-		t.Fatalf("GetDashboard returned error: %v", err)
-	}
-
-	if len(dashboard.RecentBonuses) < 2 || len(dashboard.RecentPenalties) < 2 || len(dashboard.PendingPunishments) < 2 {
-		t.Fatalf("expected at least two items in each dashboard list")
-	}
-
-	if dashboard.RecentBonuses[0].ID != recentBonus.ID || dashboard.RecentBonuses[1].ID != backdatedBonus.ID {
-		t.Fatalf("unexpected bonus order by occurred_at: got %s,%s expected %s,%s", dashboard.RecentBonuses[0].ID, dashboard.RecentBonuses[1].ID, recentBonus.ID, backdatedBonus.ID)
-	}
-	if dashboard.RecentPenalties[0].ID != recentPenalty.ID || dashboard.RecentPenalties[1].ID != backdatedPenalty.ID {
-		t.Fatalf("unexpected penalty order by occurred_at: got %s,%s expected %s,%s", dashboard.RecentPenalties[0].ID, dashboard.RecentPenalties[1].ID, recentPenalty.ID, backdatedPenalty.ID)
-	}
-	if dashboard.PendingPunishments[0].ID != recentPunishment.ID || dashboard.PendingPunishments[1].ID != backdatedPunishment.ID {
-		t.Fatalf("unexpected punishment order by occurred_at: got %s,%s expected %s,%s", dashboard.PendingPunishments[0].ID, dashboard.PendingPunishments[1].ID, recentPunishment.ID, backdatedPunishment.ID)
 	}
 }

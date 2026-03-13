@@ -416,9 +416,6 @@ interface DashboardKpisDto {
 
 interface ReturnDashboardDto {
   kpis: DashboardKpisDto;
-  recent_penalties: ReturnPenaltyDto[];
-  recent_bonuses: ReturnBonusDto[];
-  pending_punishments: ReturnPunishmentDto[];
 }
 
 // Health
@@ -1434,7 +1431,6 @@ curl -X POST "http://localhost:8080/v1/students/import" \
 - Auth: oui
 - Query params:
   - `classroom_id` optionnel (uuid)
-- Tri des listes `recent_penalties`, `recent_bonuses`, `pending_punishments`: `occurred_at` décroissant
 - Exemple URL:
   - `/v1/dashboard/?classroom_id=33333333-3333-3333-3333-333333333333`
 - 200: `ReturnDashboardDto`
@@ -1452,17 +1448,14 @@ Exemple 200 (tronqué):
     "total_punishment_count": 5,
     "overdue_punishment_count": 1,
     "pending_punishment_count": 2
-  },
-  "recent_penalties": [],
-  "recent_bonuses": [],
-  "pending_punishments": []
+  }
 }
 ```
 
 ## 4) Notes importantes pour le frontend IA
 
 - Les listes `bonuses`, `penalties`, `punishments` sont maintenant basées sur des filtres métier (pas de `search` texte sur l'élève).
-- Le tri des listes `bonuses`, `penalties`, `punishments`, de l'historique élève et du dashboard (`recent_*`, `pending_punishments`) se fait sur `occurred_at`.
+- Le tri des listes `bonuses`, `penalties`, `punishments` et de l'historique élève se fait sur `occurred_at`.
 - La recherche élève est disponible sur `GET /v1/students/?search=...` et `GET /v1/classrooms/{classroom_id}/students?search=...`.
 - Les listes `classrooms`, `bonus-types`, `penalty-types`, `punishment-types` supportent `search` (sur `name`).
 - Pour filtrer des événements d'un élève: utiliser `student_id`.
