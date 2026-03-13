@@ -12,8 +12,5 @@ type DashboardKpisDto struct {
 }
 
 type ReturnDashboardDto struct {
-	Kpis               DashboardKpisDto       `json:"kpis"`
-	RecentPenalties    []*ReturnPenaltyDto    `json:"recent_penalties"`
-	RecentBonuses      []*ReturnBonusDto      `json:"recent_bonuses"`
-	PendingPunishments []*ReturnPunishmentDto `json:"pending_punishments"`
+	Kpis DashboardKpisDto `json:"kpis"`
 }
