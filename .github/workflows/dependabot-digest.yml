@@ -1,0 +1,101 @@
+name: Dependabot Security Digest
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch open Dependabot alerts
+        id: fetch
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDABOT_READ_TOKEN }}
+        run: |
+          gh api --paginate \
+            "/repos/${{ github.repository }}/dependabot/alerts?state=open&per_page=100" \
+            > alerts.json
+
+          total=$(jq 'length' alerts.json)
+          echo "total=$total" >> "$GITHUB_OUTPUT"
+          echo "📊 $total alerte(s) ouverte(s)"
+
+      - name: Build & send Discord digest
+        if: steps.fetch.outputs.total != '0'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          REPO: ${{ github.repository }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: |
+          payload=$(jq -n \
+            --slurpfile alerts alerts.json \
+            --arg repo "$REPO" \
+            --arg url "$REPO_URL" \
+            '
+            ($alerts[0]) as $a |
+            ([$a[] | select(.security_advisory.severity=="critical")] | length) as $crit |
+            ([$a[] | select(.security_advisory.severity=="high")]     | length) as $high |
+            ([$a[] | select(.security_advisory.severity=="medium")]   | length) as $med  |
+            ([$a[] | select(.security_advisory.severity=="low")]      | length) as $low  |
+            ($a | length) as $total |
+
+            (if   $crit>0 then 15158332
+             elif $high>0 then 15105570
+             elif $med>0  then 16776960
+             else              3066993 end) as $color |
+
+            (if   $crit>0 then "🚨"
+             elif $high>0 then "⚠️"
+             elif $med>0  then "🟡"
+             else              "🔵" end) as $icon |
+
+            {"critical":"🔴","high":"🟠","medium":"🟡","low":"🔵"} as $sev |
+
+            (["critical","high","medium","low"]) as $order |
+            ($a | sort_by(($order | index(.security_advisory.severity)) // 99))[:10] as $top |
+
+            {
+              username: "Dependabot",
+              avatar_url: "https://github.com/dependabot.png",
+              content: (if $crit > 0 then "🚨 **Alertes critiques détectées** — action requise." else "" end),
+              embeds: [{
+                title: "\($icon) \($total) alerte(s) Dependabot ouverte(s)",
+                url: "\($url)/security/dependabot",
+                color: $color,
+                description: (
+                  "Dépôt : **[\($repo)](\($url))**\n\n" +
+                  "🔴 Critical : **\($crit)** " +
+                  "🟠 High : **\($high)** " +
+                  "🟡 Medium : **\($med)** " +
+                  "🔵 Low : **\($low)**"
+                ),
+                fields: [
+                  $top[] | {
+                    name: "\($sev[.security_advisory.severity]) \(.dependency.package.name) · \(.dependency.package.ecosystem)",
+                    value: (
+                      ((.security_advisory.summary // "Pas de résumé disponible") as $s |
+                       if ($s | length) > 180 then ($s[0:177] + "...") else $s end)
+                      + "\n📁 `\(.dependency.manifest_path // "?")`"
+                      + " · [\(.security_advisory.ghsa_id // "détails")](\(.html_url))"
+                    ),
+                    inline: false
+                  }
+                ],
+                footer: {
+                  text: (if $total > 10
+                         then "Top 10 des \($total) alertes (triées par sévérité)"
+                         else "Synthèse complète des alertes ouvertes" end),
+                  icon_url: "https://github.com/dependabot.png"
+                },
+                timestamp: now | todate
+              }]
+            }
+            '
+          )
+
+          curl -fsS -X POST \
+               -H "Content-Type: application/json" \
+               --data "$payload" \
+               "$WEBHOOK"
